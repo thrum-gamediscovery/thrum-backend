@@ -4,3 +4,4 @@ python-dotenv
 sqlalchemy
 wheel
 psycopg[binary]
+alembic==1.16.1

@@ -1,0 +1,44 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environment
+venv/
+.env
+.venv/
+
+# PyInstaller
+*.spec
+
+# Test outputs
+htmlcov/
+.tox/
+.nox/
+.coverage
+coverage.xml
+*.cover
+.cache
+.pytest_cache/
+
+# IDEs and editors
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# Logs and local debug
+*.log
+
+# MyPy
+.mypy_cache/
+
+# Mac system files
+.DS_Store
+
+# Docker
+*.pid
+*.bak
+
+# Alembic versions (optional)
+alembic/versions/*.pyc

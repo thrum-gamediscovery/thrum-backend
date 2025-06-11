@@ -1,4 +1,3 @@
-
 # 🎮 Thrum Backend – Conversational Game Recommendation Bot (MVP)
 
 Thrum is a WhatsApp-based conversational AI that recommends games based on a user’s current **mood**, platform preferences, and recent interaction history. Built with FastAPI and powered by MiniLM embeddings, Thrum delivers **emotionally relevant, memory-aware** suggestions via a natural dialogue interface.
@@ -56,10 +55,12 @@ thrum_backend/
 │   ├── core/config.py          # App configuration (env, settings)
 │   ├── db/base.py              # SQLAlchemy Base model
 │   ├── db/session.py           # Database connection setup
-│   ├── models/schemas.py       # Pydantic models
+│   ├── models/                 # Pydantic schemas (split by entity)
 │   ├── services/recommender.py # Mood-based game matching logic
 │   ├── services/session_manager.py  # Onboarding & state handling
 │   └── main.py                 # FastAPI app entry
+├── alembic/                    # Migrations
+├── .env                        # Environment config (not committed)
 ├── requirements.txt
 ├── Dockerfile
 └── README.md
@@ -82,7 +83,7 @@ thrum_backend/
 
 ```bash
 # Clone the repo
-git clone url
+git clone https://github.com/thrum-gamediscovery/thrum-backend.git
 cd thrum_backend
 
 # Setup Python environment
@@ -91,6 +92,9 @@ source venv/bin/activate
 
 # Install dependencies
 pip install -r requirements.txt
+
+# Apply DB migrations
+alembic upgrade head
 
 # Start development server
 uvicorn app.main:app --reload
@@ -101,7 +105,7 @@ uvicorn app.main:app --reload
 ## 🔐 Environment Configuration (`.env`)
 
 ```env
-DATABASE_URL=postgresql://user:pass@localhost:5432/thrum_db
+DATABASE_URL=postgresql+psycopg2://username:password@host:5432/thrum_db
 TWILIO_ACCOUNT_SID=your_twilio_sid
 TWILIO_AUTH_TOKEN=your_twilio_token
 TWILIO_WHATSAPP_NUMBER=whatsapp:+10000000000
@@ -114,6 +118,3 @@ TWILIO_WHATSAPP_NUMBER=whatsapp:+10000000000
 - Number of messages per session
 - Confidence scores per recommendation
 - Sentiment feedback from user (positive, neutral, negative)
-
----
-
