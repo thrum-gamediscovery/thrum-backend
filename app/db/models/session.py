@@ -24,6 +24,7 @@ class Session(Base):
     exit_mood = Column(String)
     game_recs_sent = Column(JSON, default=list)
     user_feedback = Column(String)
+    state = Column(Enum(SessionTypeEnum), default=SessionTypeEnum.ONBOARDING)
 
     user = relationship("User", back_populates="sessions")
     interactions = relationship("Interaction", back_populates="session")
