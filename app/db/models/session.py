@@ -26,4 +26,4 @@ class Session(Base):
     user_feedback = Column(String)
 
     user = relationship("User", back_populates="sessions")
-    messages = relationship("MessageLog", back_populates="session")
+    interactions = relationship("Interaction", back_populates="session")

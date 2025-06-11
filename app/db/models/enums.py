@@ -20,3 +20,9 @@ class ResponseTypeEnum(str, enum.Enum):
     Callback = "Callback"
     ReEntry = "ReEntry"
     IdleChat = "IdleChat"
+
+class SessionTypeEnum(str, enum.Enum):
+    ONBOARDING = "onboarding"
+    ACTIVE = "active"
+    PASSIVE = "passive"
+    COLD = "cold"
