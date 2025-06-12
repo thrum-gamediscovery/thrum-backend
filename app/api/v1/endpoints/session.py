@@ -7,7 +7,7 @@ Session state logic will be managed here and refined in future.
 
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session as DBSession
-from app.db.session import get_db
+from app.db.deps import get_db
 from app.db.models.user import User
 from app.services.session_manager import update_or_create_session
 

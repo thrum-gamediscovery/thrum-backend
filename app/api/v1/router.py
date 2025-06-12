@@ -9,6 +9,6 @@ from fastapi import APIRouter
 from .endpoints import user, game, session
 
 api_router = APIRouter()
-api_router.include_router(user.router, prefix="/user", tags=["User"])
-api_router.include_router(game.router, prefix="/game", tags=["Game"])
-api_router.include_router(session.router, prefix="/session", tags=["Session"])
+# api_router.include_router(user.router, prefix="/user", tags=["User"])
+# api_router.include_router(game.router, prefix="/game", tags=["Game"])
+# api_router.include_router(session.router, prefix="/session", tags=["Session"])
