@@ -11,7 +11,8 @@ from uuid import uuid4
 from datetime import datetime
 from app.db.base import Base
 from sqlalchemy.orm import relationship
-from sqlalchemy import Column, String, ForeignKey, TIMESTAMP, JSON
+from sqlalchemy import Column, String, ForeignKey, TIMESTAMP, JSON, Enum
+from app.db.models.enums import SessionTypeEnum
 
 class Session(Base):
     __tablename__ = "sessions"
