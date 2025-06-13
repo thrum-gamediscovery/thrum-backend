@@ -11,7 +11,7 @@ from uuid import uuid4
 from sqlalchemy import Column, String, Text, JSON
 from pgvector.sqlalchemy import Vector
 from app.db.base import Base
-
+from sqlalchemy.orm import relationship
 
 class Game(Base):
     __tablename__ = "games"
@@ -26,3 +26,4 @@ class Game(Base):
     emotional_fit = Column(String)  # e.g., chill, intense
     mood_tags = Column(JSON)  # e.g., {"cluster": "cozy", "vibe": "low_challenge"}
     embedding = Column(Vector(384))
+    interactions = relationship("Interaction", back_populates="game")

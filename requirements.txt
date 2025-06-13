@@ -6,3 +6,4 @@ wheel
 psycopg[binary]
 alembic==1.16.1
 pgvector
+alembic==1.16.1

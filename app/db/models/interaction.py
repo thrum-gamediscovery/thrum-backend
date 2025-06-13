@@ -24,6 +24,7 @@ class Interaction(Base):
     mood_tag = Column(String, nullable=True)
     tone_tag = Column(String, nullable=True)
     confidence_score = Column(Float, nullable=True)
+    response_type = Column(Enum(ResponseTypeEnum), nullable=True)
 
     session_type = Column(Enum(SessionTypeEnum), nullable=True)
     game_id = Column(String, ForeignKey("games.game_id"), nullable=True)

@@ -8,11 +8,13 @@ Main entry point for the FastAPI application.
 
 # app/main.py
 from fastapi import FastAPI
+from app.middleware.session_middleware import SessionIDMiddleware
 from app.api.v1.router import api_router
-
 from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI(title="Thrum Backend")
+
+app.add_middleware(SessionIDMiddleware)
 
 # Allow CORS for all origins (adjust in production)
 app.add_middleware(

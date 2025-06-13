@@ -10,6 +10,9 @@ class PlatformEnum(str, enum.Enum):
     WhatsApp = "WhatsApp"
     Discord = "Discord"
     Telegram = "Telegram"
+    Steam = "Steam"
+    Xbox = "Xbox"
+    PlayStation = "PlayStation"
 
 class SenderEnum(str, enum.Enum):
     User = "User"

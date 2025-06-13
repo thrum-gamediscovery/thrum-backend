@@ -1,9 +1,3 @@
-"""
-seed_data.py
-
-Seeds the database with initial user and game data for development and testing.
-Run this after create_tables.py.
-"""
 
 from sqlalchemy.orm import Session
 from app.db.session import SessionLocal
@@ -11,16 +5,16 @@ from app.db import models
 
 def seed_users(db: Session):
     if db.query(models.User).count() == 0:
-        user = models.User(name="Alex", platform="Steam", genres=["RPG", "Adventure"])
+        user = models.User(name="Alex", platform="Steam", phone_number="1234567890", genre_interest=["RPG", "Adventure"])
         db.add(user)
         db.commit()
         db.refresh(user)
         print(f"✅ Seeded user: {user.name}")
 
 def seed_games(db: Session):
-    if db.query(models.GameMetadata).count() == 0:
+    if db.query(models.Game).count() == 0:
         games = [
-            models.GameMetadata(
+            models.Game(
                 title="Hades",
                 genre="Roguelike",
                 platform="Steam",
@@ -29,7 +23,7 @@ def seed_games(db: Session):
                 emotional_fit="intense",
                 mood_tags=["fast-paced", "action"]
             ),
-            models.GameMetadata(
+            models.Game(
                 title="Stardew Valley",
                 genre="Simulation",
                 platform="Steam",
@@ -38,7 +32,7 @@ def seed_games(db: Session):
                 emotional_fit="cozy",
                 mood_tags=["chill", "solo"]
             ),
-            models.GameMetadata(
+            models.Game(
                 title="Celeste",
                 genre="Platformer",
                 platform="Steam",
