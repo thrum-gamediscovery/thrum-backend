@@ -19,6 +19,7 @@ class User(Base):
 
     user_id = Column(String, primary_key=True, default=lambda: str(uuid4()))
     name = Column(String, nullable=True)
+    phone_number = Column(String, unique=True, nullable=False)
     platform = Column(Enum(PlatformEnum))
     first_seen = Column(TIMESTAMP, default=datetime.utcnow)
     last_seen = Column(TIMESTAMP, default=datetime.utcnow)

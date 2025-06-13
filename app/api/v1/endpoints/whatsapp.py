@@ -15,21 +15,23 @@ async def whatsapp_webhook(
     db: Session = Depends(get_db)
 ):
     print(f"Message from {From}: {Body}")
-    user = db.query(User).filter(User.name == From).first()
+    user = db.query(User).filter(User.phone_number == From).first()
 
+    # Step 1: New user — create profile
     if not user:
         user = User(
-            name=From,
+            phone_number=From,
             platform=PlatformEnum.WhatsApp,
             first_seen=datetime.utcnow(),
+            last_seen=datetime.utcnow(),
         )
         db.add(user)
         db.commit()
         db.refresh(user)
-        return "👋 Hi there! Welcome to GameBuddy. What's your name?"
+        return "👋 Hi there! Welcome to Thrum (GameDive). What's your name?"
 
     # 2. Ask for name
-    if user.name == From:
+    if user.phone_number == From:
         user.name = Body.strip()
         db.commit()
         return f"Nice to meet you, {user.name}! What kind of games do you enjoy? (e.g., puzzle, racing, RPG)"
