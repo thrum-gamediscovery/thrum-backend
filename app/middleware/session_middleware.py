@@ -10,10 +10,12 @@ class SessionIDMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         db = SessionLocal()
         try:
+            if request.url.path in ["/docs", "/openapi.json", "/api/v1/whatsapp/webhook"]:
+                return await call_next(request)
             raw_user_id = request.headers.get("X-User-ID")
             if not raw_user_id:
                 raise HTTPException(status_code=400, detail="Missing X-User-ID header")
-
+            
             if not raw_user_id:
                 return await call_next(request)
             user_id = raw_user_id.split(",")[0].strip()

@@ -12,7 +12,7 @@ class ChatRequest(BaseModel):
     user_input: str
 
 @router.post("/", tags=["Chat"])
-def chat_with_thrum(request: Request, payload: ChatRequest, db: DBSession = Depends(get_db)):
+def chat_with_thrum(request: Request, payload: ChatRequest, bot_reply: str db: DBSession = Depends(get_db)):
     # Get session_id injected by session_middleware
     session_id = getattr(request.state, "session_id", None)
     if not session_id:
@@ -24,8 +24,6 @@ def chat_with_thrum(request: Request, payload: ChatRequest, db: DBSession = Depe
         sender=SenderEnum.User,
         content=payload.user_input,
     )
-    
-    bot_reply = "Hey.. how are you?"
     
     # Log bot reply
     bot_msg = Interaction(

@@ -2,6 +2,10 @@
 from sqlalchemy.orm import Session
 from app.db.session import SessionLocal
 from app.db import models
+from app.db.models.session import Session as GameSession
+from datetime import datetime
+import uuid
+from app.db.models.enums import SessionTypeEnum
 
 def seed_users(db: Session):
     if db.query(models.User).count() == 0:
@@ -46,13 +50,28 @@ def seed_games(db: Session):
         db.commit()
         print(f"✅ Seeded {len(games)} games.")
 
+def seed_session(db: Session, user):
+    existing = db.query(GameSession).filter(GameSession.user_id == user.user_id).first()
+    if not existing:
+        session = GameSession(
+            session_id=str(uuid.uuid4()),
+            user_id=user.user_id,
+            start_time=datetime.utcnow(),
+            state=SessionTypeEnum.ONBOARDING
+        )
+        db.add(session)
+        db.commit()
+        print(f":white_check_mark: Seeded session for user {user.user_id} with state {session.state}")
+    else:
+        print(":information_source: Session already exists.")
+
 def run_seed():
     db = SessionLocal()
     try:
         seed_users(db)
         seed_games(db)
+        users = db.query(models.User).all()
+        for user in users:
+            seed_session(db, user)
     finally:
         db.close()
-
-if __name__ == "__main__":
-    run_seed()
