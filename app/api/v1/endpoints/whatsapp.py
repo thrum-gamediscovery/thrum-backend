@@ -29,8 +29,8 @@ async def whatsapp_webhook(request: Request, From: str = Form(...), Body: str = 
             platform=PlatformEnum.WhatsApp,
             first_seen=datetime.utcnow(),
             last_seen=datetime.utcnow(),
-            genre_interest='',
-            mood_history='',
+            genre_interest={},
+            mood_history={},
         )
         db.add(user)
         db.commit()
@@ -40,10 +40,10 @@ async def whatsapp_webhook(request: Request, From: str = Form(...), Body: str = 
         return reply
     
     # 2. Ask for name
-    if user.name == From:
+    if not user.name:
         user.name = Body.strip()
         db.commit()
-        reply = "Nice to meet you, {user.name}! What kind of games do you enjoy? (e.g., puzzle, racing, RPG)"
+        reply = f"Nice to meet you, {user.name}! What kind of games do you enjoy? (e.g., puzzle, racing, RPG)"
         handle_session_and_chat(request=request, db=db, user=user, Body=Body, reply=reply)
         return reply
     
