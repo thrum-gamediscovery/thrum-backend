@@ -80,10 +80,49 @@ async def whatsapp_webhook(request: Request, From: str = Form(...), Body: str = 
             .first()
         )
         print('latest_interaction >>>>>', latest_interaction)
+        game_name = None
         if latest_interaction and latest_interaction.response_type == ResponseTypeEnum.GameRec:
             game_name = latest_interaction.game_name or "this game"
-        game_name = None
         send_whatsapp_feedback_message(
             user_phone=user.phone_number.replace("whatsapp:", ""),
             game_name=game_name
         )
+    
+    if "suggest game" in Body.lower():
+        if latest_interaction and latest_interaction.response_type == ResponseTypeEnum.GameRec:
+            game_name = latest_interaction.game_name or "this game"
+
+            # Save a new Interaction for feedback tracking
+            interaction = Interaction(
+                user_id=user.user_id,
+                session_id=latest_interaction.session_id,
+                game_name=game_name,
+                response_type=ResponseTypeEnum.GameRec,
+                timestamp=datetime.utcnow(),
+                feedback=None,  # User hasn't replied yet
+            )
+            db.add(interaction)
+            db.commit()
+
+            # Send feedback message
+            send_whatsapp_feedback_message(
+                user_phone=user.phone_number.replace("whatsapp:", ""),
+                game_name=game_name
+            )
+
+    if Body.lower() in ["👍 loved it", "👎 not my thing"]:
+        latest_interaction = (
+            db.query(Interaction)
+            .filter(
+                Interaction.session.has(user_id=user.user_id),
+                Interaction.response_type == ResponseTypeEnum.GameRec,
+                Interaction.feedback == None
+            )
+            .order_by(Interaction.timestamp.desc())
+            .first()
+        )
+
+        if latest_interaction:
+            latest_interaction.feedback = Body.lower()
+            db.commit()
+            return PlainTextResponse("🙏 Thanks for your feedback! I'll recommend better games next time.")

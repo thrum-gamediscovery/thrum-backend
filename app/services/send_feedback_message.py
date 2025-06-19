@@ -15,3 +15,18 @@ def send_whatsapp_feedback_message(user_phone: str, game_name: str = None) -> st
     )
 
     return message.sid
+
+
+def send_feedback_followup_message(user_phone: str, message: str = None) -> str:
+    """
+    Sends a feedback follow-up to the user via WhatsApp using Twilio Content API.
+    """
+    client = Client(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN)
+
+    message = client.messages.create(
+        from_=settings.TWILIO_WHATSAPP_NUMBER,
+        to=f"whatsapp:{user_phone}",
+        body=message
+    )
+
+    return message.sid

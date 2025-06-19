@@ -16,5 +16,6 @@ class Settings:
     TWILIO_AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN")
     TWILIO_WHATSAPP_NUMBER = os.getenv("TWILIO_WHATSAPP_NUMBER")
     TWILIO_FEEDBACK_CONTENT_SID = os.getenv("TWILIO_FEEDBACK_CONTENT_SID")
+    REDIS_URL = os.getenv("REDIS_URL")
 
 settings = Settings()
