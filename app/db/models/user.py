@@ -12,6 +12,7 @@ from datetime import datetime
 from app.db.models.enums import PlatformEnum
 from sqlalchemy.orm import relationship
 from sqlalchemy import Column, String, Float, Enum, JSON, TIMESTAMP
+from sqlalchemy.ext.mutable import MutableDict
 
 
 class User(Base):
@@ -24,7 +25,8 @@ class User(Base):
     first_seen = Column(TIMESTAMP, default=datetime.utcnow)
     last_seen = Column(TIMESTAMP, default=datetime.utcnow)
     trust_score = Column(Float, default=0.5)
-    genre_interest = Column(JSON, default=dict)
-    mood_history = Column(JSON, default=dict)
-
+    genre_interest = Column(MutableDict.as_mutable(JSON), default=dict)
+    platform_preference = Column(String, nullable=True)
+    game_vibe = Column(MutableDict.as_mutable(JSON), default=dict)
+    mood_history = Column(MutableDict.as_mutable(JSON), default={})
     sessions = relationship("Session", back_populates="user")
