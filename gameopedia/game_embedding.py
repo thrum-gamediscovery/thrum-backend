@@ -14,7 +14,7 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 session = SessionLocal()
 
 # Load CSV
-df = pd.read_csv("./games_with_embeddings.csv")
+df = pd.read_csv("./gameopedia/games_with_embeddings.csv")
 
 for _, row in df.iterrows():
     try:

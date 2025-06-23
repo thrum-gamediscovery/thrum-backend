@@ -5,13 +5,13 @@ sqlalchemy
 wheel
 psycopg-binary
 alembic==1.16.1
-pgvector
+pgvector==0.4.1
 alembic==1.16.1
 twilio==9.6.3
 celery==5.5.3
 redis==6.2.0
 rapidfuzz
-openai
+openai==0.28.0
 sentence-transformers
 pandas
 python-multipart

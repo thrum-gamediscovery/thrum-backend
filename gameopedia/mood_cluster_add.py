@@ -2,11 +2,11 @@ import pandas as pd
 import ast
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from ..app.db.models.mood_cluster import MoodCluster  # Adjust import as needed
-from ..app.core.config import settings
+from app.db.models.mood_cluster import MoodCluster  # Adjust import as needed
+from app.core.config import settings
 
 # Step 1: Load CSV
-df = pd.read_csv("./mood_with_embeddings.csv")
+df = pd.read_csv("./gameopedia/mood_with_embeddings.csv")
 
 # Step 2: Setup DB connection (replace with your DB URI)
 DATABASE_URL = settings.DATABASE_URL

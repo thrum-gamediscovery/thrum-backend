@@ -22,7 +22,7 @@ async def handle_session_and_chat(request, db, user, Body, reply):
     ]
     request.state.session_id = session.session_id
     payload = ChatRequest(user_input=Body)
-    await chat_with_thrum(request=request, payload=payload, bot_reply=reply, db=db)
+    chat_with_thrum(request=request, payload=payload, bot_reply=reply, db=db)
 
 # 📲 Main WhatsApp webhook endpoint to process user messages
 @router.post("/webhook", response_class=PlainTextResponse)
