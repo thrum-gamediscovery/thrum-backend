@@ -12,7 +12,8 @@ class SessionIDMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next: Callable[[Request], Response]) -> Response:
         db = SessionLocal()
         try:
-            if request.url.path in ["/docs", "/openapi.json", "/api/v1/whatsapp/webhook"]:
+            # Skip session logic for public paths
+            if request.url.path in ["/", "/docs", "/openapi.json", "/favicon.ico"] or not request.url.path.startswith("/api"):
                 return await call_next(request)
 
             raw_user_id = request.headers.get("X-User-ID")
@@ -30,7 +31,6 @@ class SessionIDMiddleware(BaseHTTPMiddleware):
             )
 
             if last_session:
-                # Check session state based on last activity
                 last_active = last_session.end_time or last_session.start_time
                 new_state = get_session_state(last_active)
                 last_session.state = new_state
@@ -38,7 +38,6 @@ class SessionIDMiddleware(BaseHTTPMiddleware):
                 db.commit()
                 request.state.session_id = last_session.session_id
             else:
-                # No session, create a new one
                 new_session = Session(
                     user_id=user_id,
                     start_time=datetime.utcnow(),
@@ -48,6 +47,7 @@ class SessionIDMiddleware(BaseHTTPMiddleware):
                 db.commit()
                 db.refresh(new_session)
                 request.state.session_id = new_session.session_id
+
         finally:
             db.close()
 
