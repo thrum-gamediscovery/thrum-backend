@@ -25,6 +25,68 @@ def resolve_game_id(db, game_text: str, session) -> UUID | None:
 
     return title_lookup[matches[0]] if matches else None
 
+def update_game_feedback_from_json(db, user_id: UUID, feedback_data: list) -> None:
+    from app.db.models.user_profile import UserProfile
+
+    # If it's not a list or empty, skip
+    if not isinstance(feedback_data, list) or not feedback_data:
+        print("🟡 No valid game feedback provided. Skipping update.")
+        return
+
+    # Preload all game titles and IDs
+    all_games = db.query(Game.game_id, Game.title).all()
+    title_lookup = {g.title: g.game_id for g in all_games}
+
+    # Get the user
+    user = db.query(UserProfile).filter_by(user_id=user_id).first()
+    if not user:
+        print("❌ User not found.")
+        return
+
+    # Ensure like/dislike dicts exist
+    user.likes = user.likes or {}
+    user.dislikes = user.dislikes or {}
+    user.likes.setdefault("like", [])
+    user.dislikes.setdefault("dislike", [])
+
+    for feedback in feedback_data:
+        game_title = feedback.get("game", "")
+        accepted = feedback.get("accepted", None)
+        reason = feedback.get("reason", "").strip()
+
+        match = process.extractOne(game_title, list(title_lookup.keys()), score_cutoff=75)
+        if not match:
+            print(f"❌ No match found for game title: {game_title}")
+            continue
+
+        matched_title = match[0]
+        matched_game_id = title_lookup[matched_title]
+        print(f"🎯 Matched '{game_title}' → '{matched_title}' (ID: {matched_game_id})")
+
+        # Update GameRecommendation
+        game_rec = db.query(GameRecommendation).filter_by(user_id=user_id, game_id=matched_game_id).first()
+        if not game_rec:
+            print(f"⚠️ No GameRecommendation found for game '{matched_title}' and user.")
+            continue
+
+        game_rec.accepted = accepted
+        game_rec.reason = reason
+        print(f"✅ Updated: accepted={accepted}, reason='{reason}'")
+
+        # Update UserProfile likes/dislikes
+        if accepted is True and matched_game_id not in user.likes["like"]:
+            user.likes["like"].append(str(matched_game_id))
+            print(f"👍 Added to likes: {matched_game_id}")
+        elif accepted is False and matched_game_id not in user.dislikes["dislike"]:
+            user.dislikes["dislike"].append(str(matched_game_id))
+            print(f"👎 Added to dislikes: {matched_game_id}")
+
+    db.commit()
+    print("💾 All feedback processed and saved.")
+
+
+
+
 # ✅ Update user profile with parsed classification fields
 def update_user_from_classification(db: Session, user, classification: dict,session):
     today = date.today().isoformat()
@@ -133,42 +195,80 @@ def update_user_from_classification(db: Session, user, classification: dict,sess
 
         user.last_updated["reject_tags"] = str(datetime.utcnow())
 
-    if isinstance(game_feedback, list):
-        for feedback in game_feedback:
-            try:
-                game_text = feedback.get("game", "").strip()
-                accepted = feedback.get("accepted", True)
-                reason = feedback.get("reason", "")
-
-                game_id = resolve_game_id(db, game_text, user, session)
-                if not game_id:
-                    print(f"⚠️ Could not resolve game: '{game_text}'")
-                    continue
-
-                game_rec = GameRecommendation(
-                    session_id=session.session_id,
-                    user_id=user.user_id,
-                    game_id=game_id,
-                    platform=user.platform.name if user.platform else None,
-                    mood_tag=mood_result if mood and mood != "None" else None,
-                    accepted=accepted,
-                    reason=reason
-                )
-                db.add(game_rec)
-
-            except Exception as e:
-                print(f"❌ Error saving feedback: {e}")
-                continue
+    update_game_feedback_from_json(db=db, user_id=user.user_id, feedback_data=game_feedback)
 
     user.last_updated["game_feedback"] = str(datetime.utcnow())
 
     db.commit()
+
+
+async def have_to_recommend(db: Session, user, classification: dict, session) -> bool:
+    print(f"call have_to_recommend")
+    # Retrieve the last game recommendation for the user in the current session
+    last_rec = db.query(GameRecommendation).filter(
+        GameRecommendation.user_id == user.user_id,
+        GameRecommendation.session_id == session.session_id
+    ).order_by(GameRecommendation.timestamp.desc()).first()
+    print(f"last_rec : {last_rec}")
+    # If no previous recommendation exists, return True (new recommendation needed)
+    if not last_rec:
+        return True
+    # Extract the user's current preferences from the classification dictionary
+    user_genre = classification.get('genre', None)
+    user_mood = classification.get('mood', None)
+    user_platform = classification.get('platform_pref', None)
+    user_reject_tags = classification.get('regect_tag', [])
+    user_game_feedback = classification.get('game_feedback', [])
+    # Extract the preferences of the last recommended game
+    last_rec_genre = last_rec.game.genre if last_rec.game else None
+    last_rec_mood = last_rec.mood_tag if last_rec else None
+    last_rec_platforms = [gp.platform for gp in last_rec.game.platforms] if last_rec.game else []  # Platforms from GamePlatform table
+    last_rec_reject_tags = user.reject_tags.get("genre", [])  # Extracted from the user's reject tags
+    last_rec_game_feedback = user.likes  # Assume the game feedback is stored in likes
+    # Fetch the genre preferences from the user's profile (UserProfile table)
+    today = datetime.utcnow().date().isoformat()
+    user_profile_genre = user.genre_prefs.get(today, []) if user.genre_prefs else []
+    print(f"user_profile_genre : {user_profile_genre}")
+    user_profile_platform = user.platform_prefs.get(today, []) if user.platform_prefs else []
+    print(f"user_profile_platform : {user_profile_platform}")
+    # Check if the genre in classification matches the user's profile genre
+    if user_genre:
+        # Check if any genre in user_profile_genre matches the genres in last_rec_genre
+        if user_profile_genre and not any(user_genre.lower() in genre.lower() for genre in last_rec_genre):
+            print(f"genre")
+            return True  # Genre mismatch, new recommendation needed
+    # Check if the mood in classification matches the user's last mood
+    # if user_mood:
+    #     if user.mood_tags.get('last') != last_rec_mood:
+    #         print(f"mood")
+    #         return True  # Mood mismatch, new recommendation needed
+    # Check if the platform preference matches any of the platforms in last_rec_platforms
+    if user_platform:
+        if user_profile_platform and not any(p.lower() in [lp.lower() for lp in last_rec_platforms] for p in user_profile_platform):
+            print("user_platform")
+            return True  # Platform mismatch
+    # Check for reject tag mismatches
+    print(f'user_reject_tags : {user_reject_tags}')
+    # Flatten all tags from user.reject_tags across all categories
+    user_reject_genres = user.reject_tags.get("genre", []) if user.reject_tags else []
+    # Check if any tag in classification is not in user.reject_tags["genre"]
+    if user_reject_tags:
+        if any(tag.lower() not in [g.lower() for g in user_reject_genres] for tag in user_reject_tags):
+            return True  # New reject tag detected, recommend a new game
+    # Check for game feedback mismatches
+    if any(feedback not in last_rec_game_feedback for feedback in user_game_feedback):
+        print("feedbback")
+        return True  # Game feedback mismatch, new recommendation needed
+    return False  # No new recommendation needed, preferences match
+
+
 
 # ✅ Use OpenAI to classify mood, vibe, genre, and platform from free text
 def classify_user_input(session, user_input: str) -> dict | str:
     # Get the last message from Thrum to include as context
     thrum_interactions = [i for i in session.interactions if i.sender == SenderEnum.Thrum]
     last_thrum_reply = thrum_interactions[-1].content if thrum_interactions else ""
+    last_game = session.game_recommendations[-1].game if session.game_recommendations else None
 
     system_prompt = '''
 You are a classification engine inside a mood-based game recommendation bot.
@@ -214,7 +314,8 @@ You must infer from both keywords and tone — even if the user is casual, brief
    → “I skip cutscenes” = False.  
    → If unclear, return null.
 
-9. playtime_pref (string)  
+9. playtime_pref (string)(** strict rule**)
+   → if the user input is like user not like the recommended game then 
    → When they usually play: evenings, weekends, mornings, after work, before bed, “in short breaks”.  
    → Detect direct and subtle mentions.  
      Examples:
@@ -228,7 +329,11 @@ You must infer from both keywords and tone — even if the user is casual, brief
    → e.g., ["horror", "mobile", "realistic"]  
    → Hints: “I don't like shooters”, “not into mobile games”, “too realistic”.
 
-11. game_feedback (list of dicts)  
+11. game_feedback (list of dicts)  (** strict rule**)
+   → if from the user input it is concluded that user does not like the recommended game (just for an example. if user input is "no i don't like that" and you infere they actually don't like that game)then in game put the title from the last recommended game, accepted as False, and reason as the reason why they do not like it.
+    if from the user input it is concluded that user like the recommended game (just for an example. if user input is "yeah i like that" and you infere they actually like that game)then in game put the title from the last recommended game, accepted as True, and reason as the reason why they like it.
+   → If they like the game, put accepted as True and reason as why they like it
+   → If they react to specific games with name they mentioned in user input(just for an example. if user input is "i love Celeste" and you infere they actually like that game),then put that title in game, accepted as True or False based on their reaction, and reason as the reason why they like or dislike it.
    → If they react to specific games with like/dislike:
    [
      {
@@ -285,6 +390,8 @@ Thrum: "{last_thrum_reply}"
 User reply:
 "{user_input}"
 
+last recommended game:
+"{last_game.title if last_game else 'None'}"
 Now classify into the format below.
 '''
 
@@ -316,7 +423,7 @@ Now classify into the format below.
                 "game_feedback": []
             }
 
-        print(f"[🧠 Classification Result]: {result}")
+        print(f"[🧠 Classification Result-------------]: {result}")
         return result
 
     except OpenAIError as e:
