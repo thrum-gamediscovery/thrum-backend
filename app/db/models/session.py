@@ -11,21 +11,22 @@ from uuid import uuid4
 from datetime import datetime
 from app.db.base import Base
 from sqlalchemy.orm import relationship
+from sqlalchemy.sql import func
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy import Column, String, ForeignKey, TIMESTAMP, JSON, Enum
 from app.db.models.enums import SessionTypeEnum
 
 class Session(Base):
     __tablename__ = "sessions"
 
-    session_id = Column(String, primary_key=True, default=lambda: str(uuid4()))
-    user_id = Column(String, ForeignKey("users.user_id"))
-    start_time = Column(TIMESTAMP, default=datetime.utcnow)
-    end_time = Column(TIMESTAMP, nullable=True)
+    session_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("user_profiles.user_id"))
+    start_time = Column(TIMESTAMP(timezone=False), server_default=func.now())
+    end_time = Column(TIMESTAMP(timezone=False), server_default=func.now())
     entry_mood = Column(String)
     exit_mood = Column(String)
-    game_recs_sent = Column(JSON, default=list)
-    user_feedback = Column(String)
     state = Column(Enum(SessionTypeEnum), default=SessionTypeEnum.ONBOARDING)
 
-    user = relationship("User", back_populates="sessions")
-    interactions = relationship("Interaction", back_populates="session")
+    user = relationship("UserProfile", back_populates="sessions")
+    interactions = relationship("Interaction", back_populates="session", cascade="all, delete-orphan")
+    game_recommendations = relationship("GameRecommendation", back_populates="session", cascade="all, delete-orphan")

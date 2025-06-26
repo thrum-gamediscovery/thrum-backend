@@ -124,6 +124,6 @@ def jsons_to_csv(folder, csv_path):
 
 
 if __name__ == "__main__":
-    json_folder = "./game_s_data/extracted"
-    output_csv = "./game_s_data/games_custom.csv"
+    json_folder = "./games_data/extracted"
+    output_csv = "./games_data/games_custom.csv"
     jsons_to_csv(folder=json_folder, csv_path=output_csv)

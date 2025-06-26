@@ -9,6 +9,7 @@ It maintains a relationship with the Session model.
 from uuid import uuid4
 from datetime import datetime
 from sqlalchemy import Column, String, Text, Enum, ForeignKey, TIMESTAMP, Float, JSON
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from app.db.base import Base
 from app.db.models.enums import SenderEnum, ResponseTypeEnum, SessionTypeEnum
@@ -16,8 +17,8 @@ from app.db.models.enums import SenderEnum, ResponseTypeEnum, SessionTypeEnum
 class Interaction(Base):
     __tablename__ = "interactions"
 
-    interaction_id = Column(String, primary_key=True, default=lambda: str(uuid4()))
-    session_id = Column(String, ForeignKey("sessions.session_id"))
+    interaction_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4) 
+    session_id = Column(UUID(as_uuid=True), ForeignKey("sessions.session_id"))
     sender = Column(Enum(SenderEnum))
     content = Column(Text)
 
@@ -27,7 +28,7 @@ class Interaction(Base):
     response_type = Column(Enum(ResponseTypeEnum), nullable=True)
 
     session_type = Column(Enum(SessionTypeEnum), nullable=True)
-    game_id = Column(String, ForeignKey("games.game_id"), nullable=True)
+    game_id = Column(UUID(as_uuid=True), ForeignKey("games.game_id"), nullable=True)
     bot_response_metadata = Column(JSON, nullable=True)
 
     timestamp = Column(TIMESTAMP, default=datetime.utcnow)

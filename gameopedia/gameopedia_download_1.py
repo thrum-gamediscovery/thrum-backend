@@ -40,7 +40,7 @@ def get_package_url(id_token, package_type="full"):
     else:
         raise Exception("Failed to get package URL")
 
-def download_package(url, filepath="game_s_data/package.gz"):
+def download_package(url, filepath="games_data/package.gz"):
     print(f"Downloading package from {url} ...")
     os.makedirs(os.path.dirname(filepath), exist_ok=True)
     with requests.get(url, stream=True) as r:

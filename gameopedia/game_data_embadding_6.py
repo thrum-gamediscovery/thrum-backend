@@ -6,7 +6,7 @@ print("sentence-transformers version:", sentence_transformers.__version__)
 
 
 # Load CSV
-df = pd.read_csv('./game_s_data/games_custom_with_emotion.csv')
+df = pd.read_csv('./games_data/games_custom_with_emotion.csv')
 
 # Fill NaNs with empty strings to avoid issues in concatenation
 for col in ['title', 'description', 'genre', 'game_vibes', 'mechanics', 'visual_style', 'platform', 'emotional_fit', 'mood_tags']:
@@ -63,6 +63,6 @@ output_cols = ['title', 'description', 'genre', 'game_vibes', 'mechanics', 'visu
 output_df = df[output_cols]
 
 # Save to CSV (embedding stored as list string)
-output_df.to_csv('./game_s_data/games_with_embeddings.csv', index=False)
+output_df.to_csv('./games_data/games_with_embeddings.csv', index=False)
 
 print("Saved games with embeddings to 'games_with_embeddings.csv'")

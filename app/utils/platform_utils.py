@@ -1,12 +1,18 @@
-# app/utils/platform_utils.py
-from rapidfuzz import process
+from rapidfuzz import process  # For fuzzy string matching
+from sqlalchemy.orm import Session  # DB session
+from app.db.models.unique_value import UniqueValue  # Model for unique fields
+from typing import Optional  # For optional return type
 
-VALID_PLATFORMS = [
-    "Xbox One", "PlayStation 4", "Xbox Series X|S", "Nintendo Switch", "Macintosh", "Windows", "Linux", "Android",
-    "PlayStation 5", "iPhone / iPod Touch", "iPad", "Xbox 360", "Oculus Quest", "PlayStation 3", "Nintendo Wii U",
-    "PlayStation Vita", "New Nintendo 3DS", "Meta Quest 2", "Web Browser", "Nintendo Switch 2", "Nintendo 3DS"
-]
+def get_valid_platforms_from_db(db: Session) -> list[str]:
+    # Get platform list from unique_values table
+    row = db.query(UniqueValue).filter(UniqueValue.field == "platform").first()
+    return row.unique_values if row and row.unique_values else []
 
-def get_best_platform_match(user_input: str, threshold: int = 65) -> str | None:
-    match, score, _ = process.extractOne(user_input, VALID_PLATFORMS, score_cutoff=threshold)
-    return match if match else None
+def get_best_platform_match(user_input: str, db: Session, threshold: int = 65) -> Optional[str]:
+    # Match user input to closest platform name
+    valid_platforms = get_valid_platforms_from_db(db)
+    if not valid_platforms:
+        return None
+
+    result = process.extractOne(user_input, valid_platforms, score_cutoff=threshold)
+    return result[0] if result else None

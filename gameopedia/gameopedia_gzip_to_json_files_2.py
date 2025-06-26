@@ -4,14 +4,14 @@ import json
 import os
 import io
 
-def decompress_gzip_to_zip(gzip_path="game_s_data/package.gz", zip_path="game_s_data/package.zip"):
+def decompress_gzip_to_zip(gzip_path="games_data/package.gz", zip_path="games_data/package.zip"):
     print(f"Decompressing gzip file {gzip_path} to zip file {zip_path} ...")
     with gzip.open(gzip_path, "rb") as f_in:
         with open(zip_path, "wb") as f_out:
             f_out.write(f_in.read())
     print("Decompression complete.")
 
-def extract_json_from_zip(zip_path="game_s_data/package.zip", extract_dir="game_s_data/extracted"):
+def extract_json_from_zip(zip_path="games_data/package.zip", extract_dir="games_data/extracted"):
     print(f"Extracting ZIP archive {zip_path} ...")
     os.makedirs(extract_dir, exist_ok=True)
     with zipfile.ZipFile(zip_path, 'r') as zip_ref:
@@ -35,9 +35,9 @@ def extract_json_from_zip(zip_path="game_s_data/package.zip", extract_dir="game_
     return games
 
 if __name__ == "__main__":
-    gzip_path = "game_s_data/package.gz"
-    zip_path = "game_s_data/package.zip"
-    extract_dir = "game_s_data/extracted"
+    gzip_path = "games_data/package.gz"
+    zip_path = "games_data/package.zip"
+    extract_dir = "games_data/extracted"
 
     decompress_gzip_to_zip(gzip_path, zip_path)
     games = extract_json_from_zip(zip_path, extract_dir)

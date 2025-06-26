@@ -8,6 +8,7 @@ These embeddings enable efficient similarity search using pgvector to power pers
 
 from uuid import uuid4
 from sqlalchemy import Column, String, Text, JSON, ARRAY
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from pgvector.sqlalchemy import Vector
 from app.db.base import Base
@@ -16,13 +17,14 @@ from app.db.base import Base
 class Game(Base):
     __tablename__ = "games"
 
-    game_id = Column(String, primary_key=True, default=lambda: str(uuid4()))
+    game_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4) 
     title = Column(String, nullable=False)
     description = Column(Text)
     genre = Column(ARRAY(String))
     game_vibes = Column(ARRAY(String))
     mechanics = Column(String)
     visual_style = Column(String)
+    age_rating = Column(String, nullable=True)
     emotional_fit = Column(String)
     mood_tags = Column(JSON)
     game_embedding = Column(Vector(384))
@@ -30,3 +32,4 @@ class Game(Base):
 
     interactions = relationship("Interaction", back_populates="game")
     platforms = relationship("GamePlatform", back_populates="game")
+    recommendations = relationship("GameRecommendation", back_populates="game")

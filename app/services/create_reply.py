@@ -1,149 +1,113 @@
-# Import dependencies
+# 📄 File: generate_thrum_reply.py
+
 import openai
-from sqlalchemy.orm import Session
+from datetime import datetime
+from app.services.mood_engine import detect_mood_from_text
 from app.services.game_recommend import game_recommendation
-import json
-import os
-from datetime import date
-from openai import OpenAIError  # for general exception handling
+from app.services.input_classifier import classify_user_input, update_user_from_classification
+from app.db.models.game_recommendations import GameRecommendation
+from app.db.models.enums import SenderEnum
+from app.db.models.session import Session
+from app.db.models.user_profile import UserProfile
 
-
-# Set OpenAI API key from environment variable
-openai.api_key = os.getenv("OPENAI_API_KEY") 
-
-# ✅ Generate a friendly game suggestion reply or ask missing info
-def generate_thrum_reply(db: Session, user, user_input: str) -> str:
-    game = game_recommendation(db=db, user=user)
-    if user and user.mood_history:
-        try:
-            mood_history_dict = user.mood_history  # already a dict
-            print(f'moods history : {mood_history_dict}')
-            today = date.today().isoformat()  # e.g., '2025-06-19'
-            mood = mood_history_dict.get(today)
-            print(f"today's mood : {mood}")
-        except Exception as e:
-            print(f"⚠️ Failed to get today's mood: {e}")
-            mood = None
-    else:
-        mood = None
-
-    # ✅ Safely parse last genre from JSON
-    genre = None
-    if user and user.genre_interest:
-        try:
-            genre_data = user.genre_interest
-            likes = genre_data.get("likes", [])
-            if likes:
-                genre = likes[-1]  # take last genre
-        except (ValueError, TypeError):
-            genre = None
-    print(f"genre : {genre}")
-
-    game_vibe = None
-    if user and user.game_vibe:
-        try:
-            vibe_data = user.game_vibe
-            vibes = vibe_data.get("vibes", [])
-            if vibes:
-                game_vibe = vibes[-1]  # take last genre
-        except (ValueError, TypeError):
-            game_vibe = None
-    print(f"game vibe : {game_vibe}")
-
-    # ✅ Get platform preference
-    platform = user.platform_preference if user else None
-    print(f"platform : {platform}")
-
-    # ✅ Recommend game only if all user fields are present
-    if mood and game_vibe and genre and platform:
-        game = game_recommendation(db=db, user=user)
-    else:
-        game = None
-    print(f"game : {game}")
-
-    # ✅ Identify which fields are missing vs filled
-    known_fields = {
-    "mood": bool(mood),
-    "game vibe": bool(game_vibe),
-    "genre": bool(genre),
-    "platform": bool(platform)
-}
-    missing = [k for k, v in known_fields.items() if not v]
-    filled = [k for k, v in known_fields.items() if v]
-
-    # ✅ Create dynamic GPT prompt with mood, vibe, genre, platform, and game
-    prompt = f"""
-You're Thrum 🎮 — just a chill, friendly human texting your buddy on WhatsApp to help them find fun games.
-
-Here’s what you know so far:
-- Mood (emotional tone): {mood if mood else "None"}
-- Game Vibe (game feel or atmosphere): {game_vibe if game_vibe else "None"}
-- Genre (game type or category): {genre if genre else "None"}
-- Platform (device used to play): {platform if platform else "None"}
-- Recommended_Game: {game if game else "None"}
-- Last user message: "{user_input if user_input else "None"}"
-
-Fields already known: {", ".join(filled)}
-Fields still missing: {", ".join(missing)}
-
-🎮 If Recommended_Game is present:
-- only recommend game which is in Recommended_Game variable dont made up game by yourself.
-- Don’t ask any questions.
-- Just send a short, friendly 1–2 line message suggesting the game.
-- Highlight the game name and include platform + a fun reason it fits.
-
-✨ Sample lines:
-- “Okay, I’ve got a pick 🎯”
-- “You’ll love this one 👀”
-- “Try this out — perfect for your vibe 💯”
-
-💬 Style rules:
-- Max 2–3 lines per reply
-- Use emojis
-- Never stack multiple questions
-
-🧠 Tone Guide:
-- “tired” → soft and caring
-- “hyped” → energetic and bold
-- “bored” → curious and playful
-- “cozy” → warm and calm
-- “competitive” → confident and focused
-
-🎯 Your goal:
-Sound like a real friend — casual, warm, emoji-friendly. Never robotic.
-Ask **only one thing at a time**, and always follow this exact order:
-**mood → game vibe → genre → platform**
-
-⚠️ DO NOT repeat questions for fields already filled.
-DO NOT confuse:
-- Mood = emotional tone (happy, tired, bored, hyped)
-- Game vibe = feel of game (relaxing, intense, adventurous, cozy)
-- Genre = type of game (driving, puzzle, shooter, horror)
-- Platform = device (PC, PS5, Xbox, Android)
-
-✅ Question examples (feel free to vary wording a bit):these are example question dont ask same question and dont include like (happy, bored, cozy?) make it human like 
-- If mood is missing → “Hey, how are you feeling today? 😊 (happy, bored, cozy?)”
-- If vibe is missing → “What kind of game vibe are you into right now? 🎮 (relaxing, intense, fantasy?)”
-- If genre is missing → “What type of games do you like? 🎲 (shooters, puzzles, racers?)”
-- If platform is missing → “Where do you usually play your games? 💻🎮 (PC, PS5, Xbox?)”
-
-All questions should feel human, friendly, and low-pressure — like you're texting a buddy.
-Ask clearly enough that the user knows **what kind of answer you want**, but never sound formal or robotic.
-
-Return only a short reply — max 1–2 lines (under 12 words), unless recommending a game.
-"""
-
-
-    try:
-        response = openai.ChatCompletion.create(
-            model="gpt-4.1-mini",
-            messages=[
-                {"role": "system", "content": "You are..."},
-                {"role": "user", "content": prompt}
-            ]
-        )
-        return response['choices'][0]['message']['content']
+async def generate_thrum_reply(user: UserProfile, session: Session, user_input: str, db) -> str:
+    # Detect mood (for profile and session)
+    mood = detect_mood_from_text(db=db, user_input=user_input)
+    if mood:
+        user.mood_tags["last"] = mood
+        user.last_updated["mood_tags"] = str(datetime.utcnow())
+        db.commit()
+    is_first_time = len(session.interactions) == 1
+    print(f'------------------------------------------------------------------------------------------------------------is_first_time : {is_first_time}---------- {len(session.interactions)}')
+    # Classify new profile signals (genre, vibe, platform, etc.)
+    classification = classify_user_input(session=session, user_input=user_input)
+    update_user_from_classification(db=db, user=user, classification=classification,session=session)
     
-    # ✅ Handle OpenAI rate limit fallback
-    except OpenAIError:
-        return "⚠️ Something went wrong. Please try again."
+    # 🎯 Get recommended games based on profile
+    recommended_games = game_recommendation(user=user, db=db,session=session)
+    next_game = recommended_games[0] if recommended_games else None
+
+    # 🔁 Get last recommendation and mood
+    last_game = session.game_recommendations[-1].game if session.game_recommendations else None
+    print(f"last_game : {last_game}")
+    
+    thrum_interactions = [i for i in session.interactions if i.sender == SenderEnum.Thrum]
+    last_thrum_reply = thrum_interactions[-1].content if thrum_interactions else None
+    print(f"[🧠] Last Thrum reply: {last_thrum_reply}")
+    # 🧠 Build context JSON for GPT
+    profile_context = {
+        "name": user.name,
+        "mood": user.mood_tags.get("last"),
+        "genre_interest": user.genre_prefs,
+        "platform": user.platform_prefs,
+        "region": user.region,
+        "playtime": user.playtime,
+        "reject_tags": user.reject_tags
+    }
+
+    
+    system_prompt = (
+        "You are Thrum, a warm and playful game matchmaker. "
+        "Your tone is cozy, human, and emoji-friendly. Never robotic. Never generic. "
+        "Each reply should: (1) feel like part of a real conversation, (2) suggest a game *only if appropriate*, and (3) ask one soft follow-up. "
+        "Never ask multiple questions at once. Never list features. Never say 'as an AI'. Never break character. "
+        "Keep it under 25 words. Add 1–2 emojis that match the user's mood."
+    )
+    if is_first_time:
+        user_prompt = f"""
+    The user just said: "{user_input}"
+    This is their first message.
+
+    Write a friendly first reply from Thrum, introducing who you are.
+    Ask softly if they want a game recommendation. Use casual, low-pressure tone.
+    Avoid recommending a game yet. Keep it warm and short.
+    """
+    yes_signals = ["yes", "sure", "ok", "okay", "yeah", "hit me", "go for it", "why not"]
+    # CASE 2: SECOND MESSAGE, USER SAID YES (e.g. "sure", "ok", "hit me", etc.)
+    if len(session.interactions) == 1 and any(word in user_input.lower() for word in yes_signals):
+        
+        user_prompt = f"""
+    The user said: "{user_input}"
+    This is their second message and it sounds like a yes.
+
+    Suggest one cozy, beginner-safe game: "{next_game}"
+    Keep it short and playful.
+    Ask a gentle follow-up to start learning their taste (like “chill or action?”).
+    """
+    # CASE 3: STANDARD CONTINUED CONVERSATION
+    if next_game and not is_first_time:
+        user_prompt = f"""
+    User just said: "{user_input}"
+    Your last message was: "{last_thrum_reply}"
+    Game to suggest now: "{next_game}"
+
+    User profile: {profile_context}
+
+    Write Thrum’s reply:
+    - Mention the game casually
+    - Match the user's tone and mood
+    - Do not ask directly any question for complete 
+    - Ask one soft follow-up to help refine future picks (genre,platform, name, playtime, etc.)
+    Keep it under 25 words. Add 1–2 emojis that match the tone.
+    """
+        
+    # CASE 4: NO GAME TO RECOMMEND
+    if not next_game and not is_first_time:
+        user_prompt = f"""
+    User just said: "{user_input}"
+    You don’t have a strong game recommendation yet.
+
+    Write a playful, reassuring message like “Still thinking...” or “Give me a sec 💭”
+    Keep it short and warm.
+    """
+
+    response = openai.ChatCompletion.create(
+        model='gpt-4.1-mini',
+        messages=[
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt}
+        ],
+        temperature=0.9
+    )
+
+    return response["choices"][0]["message"]["content"]
