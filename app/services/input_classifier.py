@@ -9,6 +9,8 @@ from app.db.models.enums import SenderEnum
 from app.db.models.session import Session
 from sqlalchemy.dialects.postgresql import UUID
 from app.db.models.game_recommendations import GameRecommendation
+from app.db.models.user_profile import UserProfile
+
 from app.db.models import Game
 from app.services.mood_engine import detect_mood_from_text
 from app.services.session_manager import update_or_create_session_mood
@@ -26,24 +28,20 @@ def resolve_game_id(db, game_text: str, session) -> UUID | None:
     return title_lookup[matches[0]] if matches else None
 
 def update_game_feedback_from_json(db, user_id: UUID, feedback_data: list) -> None:
-    from app.db.models.user_profile import UserProfile
 
-    # If it's not a list or empty, skip
     if not isinstance(feedback_data, list) or not feedback_data:
         print("🟡 No valid game feedback provided. Skipping update.")
         return
 
-    # Preload all game titles and IDs
+    # Load all game titles and IDs
     all_games = db.query(Game.game_id, Game.title).all()
     title_lookup = {g.title: g.game_id for g in all_games}
 
-    # Get the user
     user = db.query(UserProfile).filter_by(user_id=user_id).first()
     if not user:
         print("❌ User not found.")
         return
 
-    # Ensure like/dislike dicts exist
     user.likes = user.likes or {}
     user.dislikes = user.dislikes or {}
     user.likes.setdefault("like", [])
@@ -63,21 +61,29 @@ def update_game_feedback_from_json(db, user_id: UUID, feedback_data: list) -> No
         matched_game_id = title_lookup[matched_title]
         print(f"🎯 Matched '{game_title}' → '{matched_title}' (ID: {matched_game_id})")
 
-        # Update GameRecommendation
+        # Try to find existing recommendation
         game_rec = db.query(GameRecommendation).filter_by(user_id=user_id, game_id=matched_game_id).first()
+
         if not game_rec:
-            print(f"⚠️ No GameRecommendation found for game '{matched_title}' and user.")
-            continue
+            print(f"⚠️ No GameRecommendation found for game '{matched_title}' and user. Creating new entry.")
+            game_rec = GameRecommendation(
+                session_id=None,  # Optional: pass actual session if available
+                user_id=user_id,
+                game_id=matched_game_id,
+                accepted=accepted,
+                reason=reason
+            )
+            db.add(game_rec)
+        else:
+            game_rec.accepted = accepted
+            game_rec.reason = reason
+            print(f"✅ Updated: accepted={accepted}, reason='{reason}'")
 
-        game_rec.accepted = accepted
-        game_rec.reason = reason
-        print(f"✅ Updated: accepted={accepted}, reason='{reason}'")
-
-        # Update UserProfile likes/dislikes
-        if accepted is True and matched_game_id not in user.likes["like"]:
+        # Update user profile like/dislike
+        if accepted is True and str(matched_game_id) not in user.likes["like"]:
             user.likes["like"].append(str(matched_game_id))
             print(f"👍 Added to likes: {matched_game_id}")
-        elif accepted is False and matched_game_id not in user.dislikes["dislike"]:
+        elif accepted is False and str(matched_game_id) not in user.dislikes["dislike"]:
             user.dislikes["dislike"].append(str(matched_game_id))
             print(f"👎 Added to dislikes: {matched_game_id}")
 
@@ -113,7 +119,7 @@ def update_user_from_classification(db: Session, user, classification: dict,sess
         mood_result = detect_mood_from_text(db, mood)
         user.mood_tags[today] = mood_result
         user.last_updated["mood_tags"] = str(datetime.utcnow())
-        update_or_create_session_mood(db, user, new_mood=mood_result)
+        # update_or_create_session_mood(db, user, new_mood=mood_result)
 
     # -- Game Vibe
     if game_vibe and game_vibe != "None":
@@ -202,67 +208,6 @@ def update_user_from_classification(db: Session, user, classification: dict,sess
     db.commit()
 
 
-async def have_to_recommend(db: Session, user, classification: dict, session) -> bool:
-    print(f"call have_to_recommend")
-    # Retrieve the last game recommendation for the user in the current session
-    last_rec = db.query(GameRecommendation).filter(
-        GameRecommendation.user_id == user.user_id,
-        GameRecommendation.session_id == session.session_id
-    ).order_by(GameRecommendation.timestamp.desc()).first()
-    print(f"last_rec : {last_rec}")
-    # If no previous recommendation exists, return True (new recommendation needed)
-    if not last_rec:
-        return True
-    # Extract the user's current preferences from the classification dictionary
-    user_genre = classification.get('genre', None)
-    user_mood = classification.get('mood', None)
-    user_platform = classification.get('platform_pref', None)
-    user_reject_tags = classification.get('regect_tag', [])
-    user_game_feedback = classification.get('game_feedback', [])
-    # Extract the preferences of the last recommended game
-    last_rec_genre = last_rec.game.genre if last_rec.game else None
-    last_rec_mood = last_rec.mood_tag if last_rec else None
-    last_rec_platforms = [gp.platform for gp in last_rec.game.platforms] if last_rec.game else []  # Platforms from GamePlatform table
-    last_rec_reject_tags = user.reject_tags.get("genre", [])  # Extracted from the user's reject tags
-    last_rec_game_feedback = user.likes  # Assume the game feedback is stored in likes
-    # Fetch the genre preferences from the user's profile (UserProfile table)
-    today = datetime.utcnow().date().isoformat()
-    user_profile_genre = user.genre_prefs.get(today, []) if user.genre_prefs else []
-    print(f"user_profile_genre : {user_profile_genre}")
-    user_profile_platform = user.platform_prefs.get(today, []) if user.platform_prefs else []
-    print(f"user_profile_platform : {user_profile_platform}")
-    # Check if the genre in classification matches the user's profile genre
-    if user_genre:
-        # Check if any genre in user_profile_genre matches the genres in last_rec_genre
-        if user_profile_genre and not any(user_genre.lower() in genre.lower() for genre in last_rec_genre):
-            print(f"genre")
-            return True  # Genre mismatch, new recommendation needed
-    # Check if the mood in classification matches the user's last mood
-    # if user_mood:
-    #     if user.mood_tags.get('last') != last_rec_mood:
-    #         print(f"mood")
-    #         return True  # Mood mismatch, new recommendation needed
-    # Check if the platform preference matches any of the platforms in last_rec_platforms
-    if user_platform:
-        if user_profile_platform and not any(p.lower() in [lp.lower() for lp in last_rec_platforms] for p in user_profile_platform):
-            print("user_platform")
-            return True  # Platform mismatch
-    # Check for reject tag mismatches
-    print(f'user_reject_tags : {user_reject_tags}')
-    # Flatten all tags from user.reject_tags across all categories
-    user_reject_genres = user.reject_tags.get("genre", []) if user.reject_tags else []
-    # Check if any tag in classification is not in user.reject_tags["genre"]
-    if user_reject_tags:
-        if any(tag.lower() not in [g.lower() for g in user_reject_genres] for tag in user_reject_tags):
-            return True  # New reject tag detected, recommend a new game
-    # Check for game feedback mismatches
-    if any(feedback not in last_rec_game_feedback for feedback in user_game_feedback):
-        print("feedbback")
-        return True  # Game feedback mismatch, new recommendation needed
-    return False  # No new recommendation needed, preferences match
-
-
-
 # ✅ Use OpenAI to classify mood, vibe, genre, and platform from free text
 def classify_user_input(session, user_input: str) -> dict | str:
     # Get the last message from Thrum to include as context
@@ -305,7 +250,8 @@ You must infer from both keywords and tone — even if the user is casual, brief
    → Phrases like “I'm in Canada” → "Canada", “I'm from the UK” → "UK".
 
 7. age (string)  
-   → e.g., "teen", "18-25", "30s", "50+".  
+   → extract age as single number not a range. like 18, 25, 30, 50, etc.
+   → from input e.g., "teen", "18-25", "30s", "50+".  
    → If mentioned or implied (e.g., “my kids” = likely 30s+), extract.
 
 8. story_pref (boolean)  
@@ -330,7 +276,7 @@ You must infer from both keywords and tone — even if the user is casual, brief
    → Hints: “I don't like shooters”, “not into mobile games”, “too realistic”.
 
 11. game_feedback (list of dicts)  (** strict rule**)
-   → if from the user input it is concluded that user does not like the recommended game (just for an example. if user input is "no i don't like that" and you infere they actually don't like that game)then in game put the title from the last recommended game, accepted as False, and reason as the reason why they do not like it.
+   → if from the user input it is concluded that user does not like the recommended game (just for an example. if user input is "i don't like that" and you infere they actually don't like that game)then in game put the title from the last recommended game, accepted as False, and reason as the reason why they do not like it.
     if from the user input it is concluded that user like the recommended game (just for an example. if user input is "yeah i like that" and you infere they actually like that game)then in game put the title from the last recommended game, accepted as True, and reason as the reason why they like it.
    → If they like the game, put accepted as True and reason as why they like it
    → If they react to specific games with name they mentioned in user input(just for an example. if user input is "i love Celeste" and you infere they actually like that game),then put that title in game, accepted as True or False based on their reaction, and reason as the reason why they like or dislike it.
@@ -391,7 +337,9 @@ User reply:
 "{user_input}"
 
 last recommended game:
-"{last_game.title if last_game else 'None'}"
+"{last_game}"
+
+- classify based on user's reply and thrum's message (undersand it deeply waht they want to say.)
 Now classify into the format below.
 '''
 
@@ -429,3 +377,87 @@ Now classify into the format below.
     except OpenAIError as e:
         print(f"⚠️ OpenAI Error: {e}")
         return "⚠️ Something went wrong. Please try again."
+    
+async def have_to_recommend(db: Session, user, classification: dict, session) -> bool:
+    print(f"call have_to_recommend")
+    # Retrieve the last game recommendation for the user in the current session
+    last_rec = db.query(GameRecommendation).filter(
+        GameRecommendation.user_id == user.user_id,
+        GameRecommendation.session_id == session.session_id
+    ).order_by(GameRecommendation.timestamp.desc()).first()
+    print(f"last_rec : {last_rec}")
+    # If no previous recommendation exists, return True (new recommendation needed)
+    if not last_rec:
+        return True
+    
+    # Extract the user's current preferences from the classification dictionary
+    user_genre = classification.get('genre', None)
+    user_mood = classification.get('mood', None)
+    user_platform = classification.get('platform_pref', None)
+    user_reject_tags = classification.get('regect_tag', [])
+    user_game_feedback = classification.get("game_feedback", [])
+
+    # Extract the preferences of the last recommended game
+    today = datetime.utcnow().date().isoformat()
+    last_rec_mood = user.mood_tags.get(today)
+    last_rec_genre = last_rec.game.genre if last_rec.game else None
+    last_rec_platforms = [gp.platform for gp in last_rec.game.platforms] if last_rec.game else []  # Platforms from GamePlatform table
+    last_rec_reject_tags = user.reject_tags.get("genre", [])  # Extracted from the user's reject tags
+
+    # Fetch the genre preferences from the user's profile (UserProfile table)
+    user_profile_genre = user.genre_prefs.get(today, []) if user.genre_prefs else []
+    print(f"user_profile_genre : {user_profile_genre}")
+    user_profile_platform = user.platform_prefs.get(today, []) if user.platform_prefs else []
+
+    print(f"user_profile_platform : {user_profile_platform}")
+
+    # Check if the genre in classification matches the user's profile genre
+    if user_genre:
+        # Check if any genre in user_profile_genre matches the genres in last_rec_genre
+        if user_profile_genre and not any(user_genre.lower() in genre.lower() for genre in last_rec_genre):
+            print(f"genre")
+            last_rec.accepted = False
+            last_rec.reason = f"likes specific {user_genre} games"
+            db.commit()
+            return True  # Genre mismatch, new recommendation needed
+    
+    # Check if the mood in classification matches the user's last mood
+    if user_mood:
+        today = datetime.utcnow().date().isoformat()
+        if user.mood_tags.get(today) != last_rec_mood:
+            print(f"mood")
+            last_rec.accepted = False
+            last_rec.reason = f"want game of specific {user_mood}"
+            db.commit()
+            return True  # Mood mismatch, new recommendation needed
+
+    # Check if the platform preference matches any of the platforms in last_rec_platforms
+    if user_platform:
+        if user_profile_platform and not any(p.lower() in [lp.lower() for lp in last_rec_platforms] for p in user_profile_platform):
+            print("user_platform")
+            last_rec.accepted = False
+            last_rec.reason = f"want {user_platform} games but this is not in that platform"
+            db.commit()
+            return True  # Platform mismatch
+
+    # Check for reject tag mismatches
+    print(f'user_reject_tags : {user_reject_tags}')
+    # Flatten all tags from user.reject_tags across all categories
+    user_reject_genres = user.reject_tags.get("genre", []) if user.reject_tags else []
+    last_genre_reject_tag = user_reject_genres[-1] if user_reject_genres else None
+
+    if last_genre_reject_tag and last_rec_genre:
+        if any(last_genre_reject_tag.lower() == genre.lower() for genre in last_rec_genre):
+            print(f"❌ Last rejected genre '{last_genre_reject_tag}' is present in game's genre: {last_rec_genre}")
+            last_rec.accepted = False
+            last_rec.reason = f"user recently rejected genre: {last_genre_reject_tag}"
+            db.commit()
+            return True
+
+    # Loop through feedbacks and update last_rec if any are negative
+    for fb in user_game_feedback:
+        if isinstance(fb, dict) and fb.get("accepted") is False:
+            print("🛑 Feedback: user rejected a game")
+            return True  # Trigger new recommendation
+
+    return False  # No new recommendation needed, preferences match

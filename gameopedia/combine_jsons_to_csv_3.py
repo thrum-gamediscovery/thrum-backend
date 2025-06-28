@@ -68,6 +68,43 @@ def extract_visual_style(taxonomy_list):
                     styles.add(dp.get("name"))
     return ", ".join(sorted(styles))
 
+def extract_age_rating(taxonomy_list):
+    for category in taxonomy_list:
+        if category.get("name", "").lower() == "main demographic":
+            for dp in category.get("datapoints", []):
+                if dp.get("name", "").lower() == "age group":
+                    for sub_dp in dp.get("sub_datapoints", []):
+                        age = sub_dp.get("name", "")
+                        if age:
+                            return ''.join(filter(str.isdigit, age))  # 👈 only digits
+    return ""
+def extract_region(game):
+    return game.get("region", "")
+
+def is_story_game(taxonomy):
+    story_keywords = {
+        "Advancement": ["Story Driven"],
+        "Linearity": ["Story - Linear", "Story - Non-linear"],
+        "Story / Campaign Length": [],
+        "Narrative / Story Tropes": []
+    }
+
+    for section in taxonomy:
+        section_name = section.get("name", "")
+        for dp in section.get("datapoints", []):
+            # Check if this taxonomy section is story-related
+            if section_name in story_keywords:
+                # Case 1: The name matches our known story tags
+                if dp.get("name") in story_keywords[section_name]:
+                    return True
+
+                # Case 2: It's a category like "Story / Campaign Length" or "Narrative / Story Tropes"
+                if section_name in ["Story / Campaign Length", "Narrative / Story Tropes"]:
+                    return True
+
+    return False
+
+    
 def flatten_game_for_csv(game):
     taxonomy = game.get("game_taxonomy", [])
     return {
@@ -81,6 +118,9 @@ def flatten_game_for_csv(game):
         "distribution": game.get("distribution", ""),
         "platform": game.get("platform", ""),
         "visual_style": extract_visual_style(taxonomy),
+        "age_rating": extract_age_rating(taxonomy),
+        "region": extract_region(game),  
+        "story_pref": is_story_game(taxonomy),
     }
 
 def jsons_to_csv(folder, csv_path):
@@ -124,6 +164,6 @@ def jsons_to_csv(folder, csv_path):
 
 
 if __name__ == "__main__":
-    json_folder = "./games_data/extracted"
+    json_folder = "./game_s_data/extracted"
     output_csv = "./games_data/games_custom.csv"
     jsons_to_csv(folder=json_folder, csv_path=output_csv)

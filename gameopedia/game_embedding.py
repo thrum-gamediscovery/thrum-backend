@@ -35,6 +35,9 @@ for _, row in df.iterrows():
             mechanics=row.get('mechanics'),
             visual_style=row.get('visual_style'),
             emotional_fit=row.get('emotional_fit'),
+            age_rating =row.get('age_rating'),
+            region =row.get('region'),
+            has_story=row.get('story_pref'),
             mood_tags=mood_tags,
             game_embedding=game_embedding,
             mood_embedding=mood_embedding

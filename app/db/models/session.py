@@ -13,7 +13,7 @@ from app.db.base import Base
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy import Column, String, ForeignKey, TIMESTAMP, JSON, Enum
+from sqlalchemy import Column, String, ForeignKey, TIMESTAMP, DateTime, Enum, Boolean
 from app.db.models.enums import SessionTypeEnum
 
 class Session(Base):
@@ -26,7 +26,8 @@ class Session(Base):
     entry_mood = Column(String)
     exit_mood = Column(String)
     state = Column(Enum(SessionTypeEnum), default=SessionTypeEnum.ONBOARDING)
-
+    awaiting_reply = Column(Boolean, default=False)
+    last_thrum_timestamp = Column(DateTime, nullable=True)
     user = relationship("UserProfile", back_populates="sessions")
     interactions = relationship("Interaction", back_populates="session", cascade="all, delete-orphan")
     game_recommendations = relationship("GameRecommendation", back_populates="session", cascade="all, delete-orphan")

@@ -91,7 +91,12 @@ def update_or_create_session_mood(db: DBSession, user, new_mood: str) -> Session
         db.commit()
         db.refresh(session)
         return session
-
+    if not last_session.entry_mood:
+        last_session.entry_mood = new_mood
+        last_session.exit_mood = new_mood
+        db.commit()
+        return last_session
+    
     if last_session.exit_mood == new_mood:
         # Mood unchanged — just update timestamp
         last_session.exit_mood = new_mood

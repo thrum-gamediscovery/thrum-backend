@@ -93,12 +93,6 @@ source venv/bin/activate
 # Install dependencies
 pip install -r requirements.txt
 
-# Initialize Migrations Directory
-alembic init alembic
-
-# Generate the Migration Script
-alembic revision --autogenerate -m "Initial migration"
-
 # Apply DB migrations
 alembic upgrade head
 

@@ -7,7 +7,7 @@ These embeddings enable efficient similarity search using pgvector to power pers
 """
 
 from uuid import uuid4
-from sqlalchemy import Column, String, Text, JSON, ARRAY
+from sqlalchemy import Column, String, Text, JSON, ARRAY, Boolean
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from pgvector.sqlalchemy import Vector
@@ -25,6 +25,8 @@ class Game(Base):
     mechanics = Column(String)
     visual_style = Column(String)
     age_rating = Column(String, nullable=True)
+    region = Column(String, nullable=True)  # e.g., "US", "UK"
+    has_story = Column(Boolean, default=False)  # Flag if game is story-driven
     emotional_fit = Column(String)
     mood_tags = Column(JSON)
     game_embedding = Column(Vector(384))

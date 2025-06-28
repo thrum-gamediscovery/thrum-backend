@@ -9,7 +9,7 @@ print("sentence-transformers version:", sentence_transformers.__version__)
 df = pd.read_csv('./games_data/games_custom_with_emotion.csv')
 
 # Fill NaNs with empty strings to avoid issues in concatenation
-for col in ['title', 'description', 'genre', 'game_vibes', 'mechanics', 'visual_style', 'platform', 'emotional_fit', 'mood_tags']:
+for col in ['title', 'description', 'genre', 'game_vibes', 'mechanics', 'visual_style', 'platform', 'age_rating', 'region', 'story_pref', 'emotional_fit', 'mood_tags']:
     df[col] = df[col].fillna('')
 
 # Combine relevant columns into one text string per game for embedding
@@ -19,7 +19,7 @@ def combine_text_game(row):
         row['genre'],
         row['game_vibes'],
         row['mechanics'],
-        row['visual_style']
+        row['visual_style'],
     ])
 
 def combine_text_mood(row):
@@ -59,7 +59,7 @@ df['game_embedding'] = embeddings_game.tolist()
 df['mood_embedding'] = embeddings_mood.tolist()
 
 # Select only desired columns for output, including embedding
-output_cols = ['title', 'description', 'genre', 'game_vibes', 'mechanics', 'visual_style', 'platform', 'emotional_fit', 'mood_tags', 'game_embedding', 'mood_embedding']
+output_cols = ['title', 'description', 'genre', 'game_vibes', 'mechanics', 'visual_style', 'platform', 'age_rating', 'region', 'story_pref', 'emotional_fit', 'mood_tags', 'game_embedding', 'mood_embedding']
 output_df = df[output_cols]
 
 # Save to CSV (embedding stored as list string)
