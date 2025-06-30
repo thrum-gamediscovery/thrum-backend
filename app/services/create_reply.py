@@ -4,7 +4,8 @@ import openai
 from datetime import datetime
 from app.services.mood_engine import detect_mood_from_text
 from app.services.game_recommend import game_recommendation
-from app.services.input_classifier import classify_user_input, update_user_from_classification, have_to_recommend
+from app.services.input_classifier import classify_user_input, have_to_recommend
+from app.services.user_profile_update import update_user_from_classification
 from app.db.models.enums import SenderEnum
 from app.db.models.session import Session
 from app.db.models.game_recommendations import GameRecommendation
@@ -23,6 +24,7 @@ async def generate_thrum_reply(user: UserProfile, session: Session, user_input: 
         should_rec = False
     print(f"have_to_rec : {should_rec}")
     # 🎯 Get recommended games based on profile
+    should_rec = True
     if should_rec:
         next_game, age_ask_required = game_recommendation(user=user, db=db, session=session)
 
@@ -38,6 +40,8 @@ async def generate_thrum_reply(user: UserProfile, session: Session, user_input: 
     print(f"[🧠] Last Thrum reply: {last_thrum_reply}")
     today = datetime.utcnow().date().isoformat()
     # 🧠 Build context JSON for GPT
+    user_interactions = [i for i in session.interactions if i.sender == SenderEnum.User]
+    user_tone = user_interactions[-1].tone_tag if user_interactions else None
     profile_context = {
         "name": user.name,
         "mood": user.mood_tags.get(today),
@@ -62,13 +66,13 @@ async def generate_thrum_reply(user: UserProfile, session: Session, user_input: 
         field = missing_fields[0]
 
         if field == 'genre':
-            prompt = f'This one leans {game['genre']} do not talk about all genre just talk for one or two — does that sound like your kind of game, or would you rather try something different?'
+            prompt = f"This one leans {game['genre']} do not talk about all genre just talk for one or two — does that sound like your kind of game, or would you rather try something different?"
 
         elif field == 'platform':
-            prompt = f'you usually game on one of those, or something else? just curious'
+            prompt = f'you usually game on one of those, or something else? just curious - ask this question based on new games platform or previous game platform like. like this game is on this many platform do you like to play on this platform or have other preferences?'
 
         elif field == 'story_pref':
-            prompt = f'do you want to enjoy games with a story, or prefer more gameplay-driven stuff?'
+            prompt = f'do you want to enjoy games with a story, or prefer more gameplay-driven stuff? and make this question accoding the value of previous game or new games story pref.like if the game is already storydriven then ask like this is sotry driven want to play more like this or not?'
 
         elif field == 'name':
             prompt = f'BTW, I can remember your name for next time if you want – totally optional!'
@@ -81,10 +85,16 @@ async def generate_thrum_reply(user: UserProfile, session: Session, user_input: 
     system_prompt = (
         "You are Thrum, a warm and playful game matchmaker. "
         "Your tone is cozy, human, and emoji-friendly. Never robotic. Never generic. "
+        f"you must must must have to use {user_tone} tone to create thrum reply."
+        "Reusing the user’s own language intelligently, not just mimicking it"
+        "Keep it under 20 words. Add 1–2 emojis that match the user's mood. if user prefer small answer so give user short reply"
         "Each reply should: (1) feel like part of a real conversation, (2) suggest a game *only if appropriate*, and (3) ask one soft follow-up. "
         "Never ask multiple questions at once. Never list features. Never say 'as an AI'. Never break character. "
-        "Keep it under 25 words. Add 1–2 emojis that match the user's mood."
+        "in one reply there should not be two questions, if you are asking one question then do not ask another question in same reply."
         "Make reply based on user's tone. You can use short forms if user is using that."
+        "if user is providing their favourite genre or game or platform then just make reply that shows that it is noticed."
+        "if user input is about specific game, genre, or platform liking or not liking then just Reflecting user choices more visibly,Showing adaptive memory to that like example: 'Noted. I won’t push puzzle-platformers again unless you say so'. it's just an example do not copy this make your own."
+        "If there is any missing field then the question of that field should always relate to the previous game (e.g., contrast it, ask if they'd like more/less of a trait)"
     )
     if is_first_time:
         last_session = (
@@ -148,9 +158,12 @@ async def generate_thrum_reply(user: UserProfile, session: Session, user_input: 
     User profile: {profile_context}
 
     Write Thrum’s reply:
-    - Mention the game casually(game name should be highlighted) with user's profile if have but do not add all context just show one or last.
+    - if the user input is liking or disliking genre, game, or platform then just react to that like example:"Noted. I won’t push puzzle-platformers again unless you say so". it's just an example do not copy this make your own.
+    - Mention the game casually(make it interesting with all data for that game)(game name should be highlighted) with user's profile if have but do not add all context just show one or last.
     - Match the user's tone and mood
     {get_missing(game=next_game,missing_fields=missing_fields)}
+    - Your follow-up question should always relate to the suggested game (e.g., contrast it, ask if they'd like more/less of a trait)
+    - Never switch to an unrelated topic suddenly.
     - Do not suggest any game by you only suggest which is given.
     Keep it under 25 words. Add 2–3 emojis that match the tone.
     """
@@ -165,9 +178,12 @@ async def generate_thrum_reply(user: UserProfile, session: Session, user_input: 
     User profile: {profile_context}
 
     Write Thrum’s reply:
+    - if the user input is liking or disliking genre, game, or platform then just react to that like example:"Noted. I won’t push puzzle-platformers again unless you say so". it's just an example do not copy this make your own.
     - discribe last suggested game shortly based on user's last input.
     - Match the user's tone and mood
     {get_missing(game=last_game,missing_fields=missing_fields)}
+    - Your follow-up question should always relate to the last suggested game (e.g., contrast it, ask if they'd like more/less of a trait)
+    - Never switch to an unrelated topic suddenly.
     - Do not suggest any game by you only suggest which is given.
     Keep it under 25 words. Add 2–3 emojis that match the tone.
     """
@@ -180,7 +196,4 @@ async def generate_thrum_reply(user: UserProfile, session: Session, user_input: 
         ],
         temperature=0.9
     )
-    session.awaiting_reply = True
-    session.last_thrum_timestamp = datetime.utcnow()
-    db.commit()
     return response["choices"][0]["message"]["content"]

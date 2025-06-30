@@ -41,6 +41,16 @@ def game_recommendation(db: Session, user, session) -> Optional[Tuple[Dict, bool
 
         platform_rows = db.query(GamePlatform.platform).filter(
             GamePlatform.game_id == random_game.game_id).all()
+        game_rec = GameRecommendation(
+            session_id=session.session_id,
+            user_id=user.user_id,
+            game_id=random_game.game_id,
+            platform=platform,
+            mood_tag=mood,
+            accepted=None
+        )
+        db.add(game_rec)
+        db.commit()
         return {
             "title": random_game.title,
             "genre": random_game.genre,

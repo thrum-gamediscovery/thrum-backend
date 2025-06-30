@@ -68,6 +68,9 @@ async def whatsapp_webhook(request: Request, From: str = Form(...), Body: str = 
 
     # 📤 Send response and maintain session state
     await bot_reply(request=request, db=db, user=user, reply=reply)
+    session.awaiting_reply = True
+    session.last_thrum_timestamp = datetime.utcnow()
+    db.commit()
     
     # 📩 Return final reply to WhatsApp
     return reply
