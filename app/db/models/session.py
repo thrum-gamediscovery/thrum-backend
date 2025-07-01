@@ -15,6 +15,7 @@ from sqlalchemy.sql import func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy import Column, String, ForeignKey, TIMESTAMP, DateTime, Enum, Boolean
 from app.db.models.enums import SessionTypeEnum
+from sqlalchemy.dialects.postgresql import JSON
 
 class Session(Base):
     __tablename__ = "sessions"
@@ -31,3 +32,4 @@ class Session(Base):
     user = relationship("UserProfile", back_populates="sessions")
     interactions = relationship("Interaction", back_populates="session", cascade="all, delete-orphan")
     game_recommendations = relationship("GameRecommendation", back_populates="session", cascade="all, delete-orphan")
+    meta_data = Column(JSON, nullable=True)
