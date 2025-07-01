@@ -5,6 +5,7 @@ from app.db.session import SessionLocal
 from app.db.models import Interaction, Session
 from app.db.models.enums import ResponseTypeEnum
 from app.services.send_feedback_message import send_feedback_followup_message
+from app.services.tone_shift_detection import detect_tone_shift, mark_session_cold
 
 @shared_task
 def send_feedback_followups():
@@ -30,4 +31,69 @@ def send_feedback_followups():
 
     finally:
         db.close()
+
+
+def handle_followup_logic(session, db):
+    """
+    Check tone shift and nudge user softly if cold.
+    """
+    if detect_tone_shift(session):
+        print("⚠️ Tone shift detected — user may be disengaging.")
+        mark_session_cold(db, session)
+        return {
+            "message": "Getting some low vibes… wanna switch it up? Or take a break — totally cool.",
+            "flag": "cold"
+        }
+
+    return {
+        "message": None,
+        "flag": "normal"
+    }
+
+def get_post_recommendation_reply(user_input: str, last_game_name: str, session: Session, db) -> str | None:
+    """
+    Detect if the user is reacting to a game we just recommended.
+    Log reaction and return soft follow-up.
+    """
+
+    positive_signals = ["cool", "nice", "sounds good", "love it", "let's go", "excited"]
+    vague_signals = ["okay", "hmm", "maybe", "not sure", "fine", "guess"]
+    cold_signals = ["nah", "skip", "not into it", "meh", "nope", "boring", "too slow", "pass"]
+
+    input_lower = user_input.lower()
+    tone = None
+    reply = None
+
+    if any(p in input_lower for p in cold_signals):
+        tone = "cold"
+        reply = f"Too off with *{last_game_name}*? Want me to change it up?"
+
+    elif any(p in input_lower for p in positive_signals):
+        tone = "positive"
+        reply = f"You’re into *{last_game_name}* vibes then? Wanna go deeper or switch it up?"
+
+    elif any(p in input_lower for p in vague_signals):
+        tone = "vague"
+        reply = f"Not sure if *{last_game_name}* hit right? I can keep digging if you want."
+
+    if tone:
+        # Log reaction
+        meta = session.meta_data or {}
+        history = meta.get("reaction_history", [])
+        history.append({
+            "game": last_game_name,
+            "tone": tone,
+            "timestamp": datetime.utcnow().isoformat()
+        })
+
+        # Detect preference shift if 2+ cold/vague in last 3
+        recent = [h["tone"] for h in history[-3:]]
+        shift = recent.count("cold") + recent.count("vague") >= 2
+        meta["reaction_history"] = history
+        meta["user_preference_shift"] = shift
+
+        session.meta_data = meta
+        db.commit()
+
+    return reply
 

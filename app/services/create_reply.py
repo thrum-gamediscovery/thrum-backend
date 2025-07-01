@@ -9,11 +9,15 @@ from app.db.models.session import Session
 from app.db.models.game_recommendations import GameRecommendation
 from app.db.models.user_profile import UserProfile
 from app.services.tone_engine import tone_match_validator
+from app.tasks.followup import handle_followup_logic, get_post_recommendation_reply
 
 async def generate_thrum_reply(user: UserProfile, session: Session, user_input: str, db) -> str:
     is_first_time = len(session.interactions) == 1
     classification = classify_user_input(session=session, user_input=user_input)
     update_user_from_classification(db=db, user=user, classification=classification, session=session)
+    cold_check = handle_followup_logic(session, db)
+    if cold_check["flag"] == "cold":
+        return cold_check["message"]
     should_rec = not is_first_time and await have_to_recommend(db=db, user=user, classification=classification, session=session)
     should_rec = True
     if should_rec:
@@ -22,6 +26,10 @@ async def generate_thrum_reply(user: UserProfile, session: Session, user_input: 
         next_game, age_ask_required = None, None
 
     last_game = session.game_recommendations[-1].game if session.game_recommendations else None
+    if last_game:
+        post_reply = get_post_recommendation_reply(user_input, last_game.name, session, db)
+        if post_reply:
+            return post_reply
     thrum_interactions = [i for i in session.interactions if i.sender == SenderEnum.Thrum]
     last_thrum_reply = thrum_interactions[-1].content if thrum_interactions else None
     today = datetime.utcnow().date().isoformat()
