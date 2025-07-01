@@ -58,20 +58,21 @@ async def generate_thrum_reply(user: UserProfile, session: Session, user_input: 
     if not user.playtime: missing_fields.append("playtime")
 
     def get_missing(game, missing_fields):
-        if not missing_fields:
+        if not game or not missing_fields:
             return ''
         field = missing_fields[0]
         if field == 'genre':
-            prompt = f"This one leans {game['genre']} do not talk about all genre just talk for one or two — does that sound like your kind of game, or would you rather try something different?"
+            prompt = f"This one leans {game['genre']} — does that sound like your kind of game, or would you rather try something different?"
         elif field == 'platform':
-            prompt = f'you usually game on one of those, or something else? just curious - ask this question based on new games platform or previous game platform.'
+            prompt = f"Game is on {game['platform']}. You game there or prefer something else?"
         elif field == 'story_pref':
-            prompt = f'do you want to enjoy games with a story, or prefer more gameplay-driven stuff? If the game is story-driven, ask if they want more like this.'
+            prompt = f"This is story-driven. Want more like this or more gameplay-focused stuff?"
         elif field == 'name':
-            prompt = f'BTW, I can remember your name for next time if you want – totally optional!'
+            prompt = f"BTW, I can remember your name for next time if you want – totally optional!"
         elif field == 'playtime':
-            prompt = f'When do you usually get your game time in? Evenings, weekends, random breaks? Just helps me time my picks better ⏰'
+            prompt = f"When do you usually get your game time in? Just helps me time my picks better ⏰"
         return f"- Ask like this: {prompt}"
+
 
     system_prompt = (
         f"You are Thrum, a tone-aware game matchmaker.\n"
