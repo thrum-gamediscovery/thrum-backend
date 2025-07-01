@@ -3,7 +3,7 @@ import openai
 from app.db.session import SessionLocal
 from app.db.models.session import Session as DBSession
 
-# GPT tone → internal style
+# GPT tone → internal style mapping
 TONE_STYLE_MAP = {
     "genz": "gen_z",
     "chaotic": "gen_z",
@@ -19,22 +19,69 @@ TONE_STYLE_MAP = {
     "open": "neutral"
 }
 
+# 🔥 Gen-Z Slang Generator
+async def generate_genz_slang_line(base_reply: str) -> str:
+    prompt = f"""
+You are a Gen-Z slang generator helping a game recommender sound witty and relatable.
+Given this response: "{base_reply}", add a short Gen-Z-style phrase at the end.
+It should sound playful or confident, like "this one slaps" or "bet".
+Return only the phrase. No emojis. Max 5 words.
+"""
+    try:
+        response = openai.ChatCompletion.create(
+            model="gpt-4.1-mini",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.9,
+            max_tokens=12,
+        )
+        return response["choices"][0]["message"]["content"].strip()
+    except Exception as e:
+        print(f"⚠️ Gen-Z phrase generation failed: {e}")
+        return ""
+
+# 🪄 Modular reply transformers by tone
+def replace_punctuation(exclamation=False):
+    def inner(text):
+        return text.replace(".", "!") if exclamation else text.replace("!", ".")
+    return inner
+
+def add_flame():
+    return lambda text: text.strip() + " 🔥"
+
+def soften_and_capitalize():
+    return lambda text: text.lower().capitalize()
+
+def flatten_sentence():
+    return lambda text: re.sub(r"[!\\.]", "", text).split(".")[0] + "."
+
+TONE_TRANSFORMS = {
+    "gen_z": [replace_punctuation(exclamation=True), add_flame()],
+    "chill": [replace_punctuation(exclamation=False), soften_and_capitalize()],
+    "dry": [flatten_sentence()],
+}
+
 def apply_tone_style(reply: str, tone: str) -> str:
-    """
-    Adjusts Thrum's final reply based on detected tone.
-    """
-    if tone == "gen_z":
-        reply = reply.replace(".", "!") + " 🔥"
-    elif tone == "chill":
-        reply = reply.replace("!", ".").capitalize()
-    elif tone == "dry":
-        reply = re.sub(r"[!]", "", reply).strip().split(".")[0].strip() + "."
+    for transform in TONE_TRANSFORMS.get(tone, []):
+        reply = transform(reply)
     return reply
 
+# 🎯 Optional Gen-Z slang injection
+async def get_response_style(tone: str, reply: str) -> str:
+    if tone != "gen_z":
+        return reply
+    if re.search(r"\b(sorry|apologies|let me check)\b", reply, re.IGNORECASE):
+        return reply  # don't slangify fallback answers
+
+    if re.search(r"[a-zA-Z]", reply) and "." in reply:
+        phrase = await generate_genz_slang_line(reply)
+        if phrase:
+            parts = reply.split(".")
+            parts[-2] += f" — {phrase}"
+            reply = ".".join(parts)
+    return reply
+
+# 🧠 GPT-Based Tone Detection
 async def detect_tone_cluster(db, session, user_input: str) -> str:
-    """
-    Uses GPT to classify the user's tone based on latest input.
-    """
     prompt = f"""
 You are a tone detector for a conversational assistant.
 Classify the user's message below into one of these tone clusters:
@@ -44,7 +91,6 @@ Message: "{user_input}"
 
 Only respond with ONE WORD that best describes the tone. No punctuation.
 """
-
     try:
         response = openai.ChatCompletion.create(
             model="gpt-4.1-mini",
@@ -56,28 +102,25 @@ Only respond with ONE WORD that best describes the tone. No punctuation.
     except Exception as e:
         print(f"⚠️ Tone detection failed: {e}")
         tone = "neutral"
-
     return tone
 
+# 🎛️ Final Tone Validator + Styling
 async def tone_match_validator(reply: str, user_id: str, user_input: str, db) -> str:
-    """
-    Detects user's tone and adjusts reply to match it.
-    """
     try:
         gpt_tone = await detect_tone_cluster(db, None, user_input)
         mapped_tone = TONE_STYLE_MAP.get(gpt_tone, "neutral")
-        print(f"✅ Tone applied: {mapped_tone} (from GPT tone: {gpt_tone})")
+        print(f"✅ Tone applied: {mapped_tone} (from GPT: {gpt_tone})")
     except Exception as e:
         print(f"⚠️ Tone validation fallback: {e}")
         mapped_tone = "neutral"
 
     store_user_tone(user_id, mapped_tone)
-    return apply_tone_style(reply, mapped_tone)
+    styled_reply = apply_tone_style(reply, mapped_tone)
+    final_reply = await get_response_style(mapped_tone, styled_reply)
+    return final_reply
 
+# 💾 Store tone in session meta
 def store_user_tone(user_id: str, tone: str):
-    """
-    Stores tone in the most recent session's meta_data for reuse.
-    """
     db = SessionLocal()
     try:
         session = (

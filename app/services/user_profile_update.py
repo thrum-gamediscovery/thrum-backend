@@ -16,7 +16,6 @@ from app.utils.platform_utils import get_best_platform_match
 
 # ✅ Update user profile with parsed classification fields
 def update_game_feedback_from_json(db, user_id: UUID, feedback_data: list) -> None:
-
     if not isinstance(feedback_data, list) or not feedback_data:
         print("🟡 No valid game feedback provided. Skipping update.")
         return
@@ -40,12 +39,18 @@ def update_game_feedback_from_json(db, user_id: UUID, feedback_data: list) -> No
         accepted = feedback.get("accepted", None)
         reason = feedback.get("reason", "").strip()
 
-        match = process.extractOne(game_title, list(title_lookup.keys()), score_cutoff=75)
+        # ✅ NEW: Skip if game title is missing or invalid
+        if not game_title or game_title.strip().lower() in ["none", "null", ""]:
+            print("⛔ Skipping feedback: game title is missing or invalid.")
+            continue
+
+        # ✅ CHANGED: Use rapidfuzz instead of fuzzywuzzy
+        match = process.extractOne(game_title, title_lookup.keys(), score_cutoff=75)
         if not match:
             print(f"❌ No match found for game title: {game_title}")
             continue
 
-        matched_title = match[0]
+        matched_title = match[0]  # rapidfuzz returns (match, score, index)
         matched_game_id = title_lookup[matched_title]
         print(f"🎯 Matched '{game_title}' → '{matched_title}' (ID: {matched_game_id})")
 
@@ -55,7 +60,7 @@ def update_game_feedback_from_json(db, user_id: UUID, feedback_data: list) -> No
         if not game_rec:
             print(f"⚠️ No GameRecommendation found for game '{matched_title}' and user. Creating new entry.")
             game_rec = GameRecommendation(
-                session_id=None,  # Optional: pass actual session if available
+                session_id=None,
                 user_id=user_id,
                 game_id=matched_game_id,
                 accepted=accepted,
@@ -67,7 +72,7 @@ def update_game_feedback_from_json(db, user_id: UUID, feedback_data: list) -> No
             game_rec.reason = reason
             print(f"✅ Updated: accepted={accepted}, reason='{reason}'")
 
-        # Update user profile like/dislike
+        # ✅ Only update likes/dislikes if valid title matched
         if accepted is True and str(matched_game_id) not in user.likes["like"]:
             user.likes["like"].append(str(matched_game_id))
             print(f"👍 Added to likes: {matched_game_id}")
@@ -83,12 +88,15 @@ def update_game_feedback_from_json(db, user_id: UUID, feedback_data: list) -> No
 
 # ✅ Update user profile with parsed classification fields
 def update_user_from_classification(db: Session, user, classification: dict,session):
+
+    print(f"update classification : {classification}")
     today = date.today().isoformat()
 
     name = classification.get("name")
     mood = classification.get("mood")
     game_vibe = classification.get("game_vibe")
     genre = classification.get("genre")
+    print(f"update genre :; {genre}")
     platform = classification.get("platform_pref")
     region = classification.get("region")
     age = classification.get("age")
@@ -117,6 +125,7 @@ def update_user_from_classification(db: Session, user, classification: dict,sess
     # -- Genre Preferences
     if genre and genre != "None":
         matched_genre = get_best_genre_match(db=db, input_genre=genre)
+        print(f"update matched genre : {matched_genre}")
         if matched_genre:
             user.genre_prefs.setdefault(today, [])
             if matched_genre not in user.genre_prefs[today]:

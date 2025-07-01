@@ -4,6 +4,12 @@ from app.db.models.session import Session
 from app.db.models.enums import SessionTypeEnum
 from app.services.nudge_checker import detect_user_is_cold  # ✅ import smart tone checker
 
+def is_session_idle(session, idle_minutes=10):
+    if not session.interactions:
+        return False
+    last_time = session.interactions[-1].timestamp
+    return (datetime.utcnow() - last_time) > timedelta(minutes=idle_minutes)
+
 # 🧠 Decide session state based on last activity timestamp
 def get_session_state(last_active: datetime) -> SessionTypeEnum:
     now = datetime.utcnow()

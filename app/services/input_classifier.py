@@ -77,6 +77,7 @@ You must infer from both keywords and tone — even if the user is casual, brief
    → What they dislike. Genres, moods, mechanics, or platforms.  
    → e.g., ["horror", "mobile", "realistic"]  
    → Hints: “I don't like shooters”, “not into mobile games”, “too realistic”.
+   → only add anything in regected_tag if it is sure otherwise not
 
 11. game_feedback (list of dicts)  (** strict rule**)
    → if from the user input it is concluded that user does not like the recommended game (just for an example. if user input is "i don't like that" and you infere they actually don't like that game)then in game put the title from the last recommended game, accepted as False, and reason as the reason why they do not like it.
@@ -222,10 +223,10 @@ async def have_to_recommend(db: Session, user, classification: dict, session) ->
             return True  # Trigger new recommendation
         
     # Check if the genre in classification matches the user's profile genre
-    if user_genre:
+    if user_genre and user_genre is not None:
         print(f"user's genre : {user_genre}")
         # Check if any genre in user_profile_genre matches the genres in last_rec_genre
-        if user_profile_genre and not any(user_genre.lower() in genre.lower() for genre in last_rec_genre):
+        if user_profile_genre and not any(user_profile_genre[-1].lower() in genre.lower() for genre in last_rec_genre):
             print(f"genre")
             last_rec.accepted = False
             last_rec.reason = f"likes specific {user_genre} games"

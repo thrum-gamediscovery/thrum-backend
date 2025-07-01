@@ -63,5 +63,19 @@ def check_for_nudge():
             # :white_tick: Track that user was nudged
             s.awaiting_reply = False
             user.silence_count = (user.silence_count or 0) + 1
+            if user.silence_count >= 3:
+                s.meta_data = s.meta_data or {}
+                s.meta_data["is_user_cold"] = True
+            if user.silence_count >= 4:
+                farewell = random.choice([
+                    "Ghost mode? Cool, I’ll be here when you’re back 👻",
+                    "I’ll dip for now — ping me when you want more hits 🎮",
+                    "Looks like you’re out — no stress. Catch you later! 👋"
+                ])
+                send_whatsapp_message(user.phone_number, farewell)
+                s.awaiting_reply = False
+                s.state = "CLOSED"
+                db.commit()
+                continue  # Skip the rest of the nudge logic
             db.commit()
     db.close()

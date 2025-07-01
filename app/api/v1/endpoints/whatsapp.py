@@ -1,5 +1,5 @@
 # 📄 File: app/api/v1/endpoints/whatsapp.py (updated to ask mood first, then continue based on mood)
-
+import asyncio
 from fastapi import APIRouter, Form, Depends, Request
 from fastapi.responses import PlainTextResponse
 from sqlalchemy.orm import Session
@@ -8,7 +8,7 @@ from app.db.models.user_profile import UserProfile
 from app.db.deps import get_db
 from app.db.models.enums import PlatformEnum
 from app.api.v1.endpoints.chat import user_chat_with_thrum, bot_chat_with_thrum, ChatRequest
-from app.services.session_manager import update_or_create_session
+from app.services.session_manager import update_or_create_session, is_session_idle
 from app.services.create_reply import generate_thrum_reply
 from app.utils.region_utils import infer_region_from_phone, get_timezone_from_region
 
@@ -65,6 +65,8 @@ async def whatsapp_webhook(request: Request, From: str = Form(...), Body: str = 
         session.awaiting_reply = False
 
     reply = await generate_thrum_reply(user=user, session=session, user_input=Body, db=db)
+    if len(session.interactions) == 0 or is_session_idle(session):
+        await asyncio.sleep(5)
 
     # 📤 Send response and maintain session state
     await bot_reply(request=request, db=db, user=user, reply=reply)

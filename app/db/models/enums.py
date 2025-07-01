@@ -29,3 +29,4 @@ class SessionTypeEnum(str, enum.Enum):
     ACTIVE = "active"
     PASSIVE = "passive"
     COLD = "cold"
+    CLOSED = "closed"
