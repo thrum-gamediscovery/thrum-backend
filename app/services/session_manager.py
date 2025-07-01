@@ -130,3 +130,21 @@ def update_or_create_session_mood(db: DBSession, user, new_mood: str) -> Session
     db.commit()
     db.refresh(new_session)
     return new_session
+
+def is_session_idle_or_fading(session) -> bool:
+    now = datetime.utcnow()
+    last_time = session.end_time or session.start_time
+    minutes_idle = (now - last_time).total_seconds() / 60
+
+    # Smart idle threshold — adapt based on how many user replies exist
+    reply_count = len([i for i in session.interactions if i.sender.name == "User"])
+    idle_threshold = 3 if reply_count <= 2 else 8
+
+    if minutes_idle > idle_threshold:
+        return True
+
+    # Extra check: if is_user_cold is already flagged
+    if session.meta_data.get("is_user_cold"):
+        return True
+
+    return False

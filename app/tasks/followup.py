@@ -6,6 +6,8 @@ from app.db.models import Interaction, Session
 from app.db.models.enums import ResponseTypeEnum
 from app.services.send_feedback_message import send_feedback_followup_message
 from app.services.tone_shift_detection import detect_tone_shift, mark_session_cold
+import random
+from app.utils.whatsapp import send_whatsapp_message
 
 @shared_task
 def send_feedback_followups():
@@ -31,7 +33,6 @@ def send_feedback_followups():
 
     finally:
         db.close()
-
 
 def handle_followup_logic(session, db):
     """
@@ -97,3 +98,30 @@ def get_post_recommendation_reply(user_input: str, last_game_name: str, session:
 
     return reply
 
+FAREWELL_LINES = [
+    "Ghost mode? Cool, I’ll be here later 👻",
+    "No pressure — ping me when you're ready for more 🎮",
+    "Alrighty, I’ll vanish till you need me 😄",
+    "Catch you later! Got plenty more when you’re in the mood 🕹️"
+]
+
+def handle_soft_session_close(session, db):
+    from app.services.session_manager import is_session_idle_or_fading
+
+    if not is_session_idle_or_fading(session):
+        return
+
+    user = session.user
+    already_closed = session.meta_data.get("session_closed")
+
+    if already_closed:
+        return
+
+    # ✅ Log mood on exit if available
+    session.meta_data["closed_at"] = datetime.utcnow().isoformat()
+    session.meta_data["session_closed"] = True
+    session.exit_mood = session.exit_mood or user.mood_tags.get(datetime.utcnow().date().isoformat())
+
+    farewell = random.choice(FAREWELL_LINES)
+    send_whatsapp_message(user.phone_number, farewell)
+    db.commit()

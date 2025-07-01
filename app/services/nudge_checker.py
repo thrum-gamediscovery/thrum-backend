@@ -11,6 +11,7 @@ from app.utils.whatsapp import send_whatsapp_message
 from app.db.models.enums import SenderEnum
 import random
 import openai
+from app.tasks.followup import handle_soft_session_close
 
 # 🧠 GPT-based tone detection
 async def detect_user_is_cold(session, db) -> bool:
@@ -45,14 +46,17 @@ def check_for_nudge():
     db = SessionLocal()
     now = datetime.utcnow()
     sessions = db.query(Session).filter(Session.awaiting_reply == True).all()
+
     for s in sessions:
         user = s.user
         if not s.last_thrum_timestamp:
             continue
-        # :stopwatch: Adaptive nudge delay
+
+        # ⏱️ Adaptive delay based on silence count
         delay = timedelta(seconds=30 if (user.silence_count or 0) > 2 else 60)
+
         if now - s.last_thrum_timestamp > delay:
-            # :dart: Soft nudge
+            # 🎯 Soft nudge message
             nudge = random.choice([
                 "Still there? 👀",
                 "Want another rec? 🎮",
@@ -60,13 +64,17 @@ def check_for_nudge():
                 "No rush — just poke me when ready 😄"
             ])
             send_whatsapp_message(user.phone_number, nudge)
-            # :white_tick: Track that user was nudged
+
+            # 🧠 Track nudge + potential coldness
             s.awaiting_reply = False
             user.silence_count = (user.silence_count or 0) + 1
+
             if user.silence_count >= 3:
                 s.meta_data = s.meta_data or {}
                 s.meta_data["is_user_cold"] = True
+
             if user.silence_count >= 4:
+                # 🧊 Session is fading — say goodbye and close it
                 farewell = random.choice([
                     "Ghost mode? Cool, I’ll be here when you’re back 👻",
                     "I’ll dip for now — ping me when you want more hits 🎮",
@@ -76,6 +84,11 @@ def check_for_nudge():
                 s.awaiting_reply = False
                 s.state = "CLOSED"
                 db.commit()
-                continue  # Skip the rest of the nudge logic
+                continue  # Skip post-farewell logic
+
             db.commit()
+
+        # 💬 Optional followup logic (e.g. for logging exit mood)
+        handle_soft_session_close(s, db)
+
     db.close()
