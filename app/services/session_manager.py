@@ -41,7 +41,7 @@ def update_or_create_session(db: DBSession, user):
         return new_session
 
     # ✅ Detect if user is cold based on interaction pattern
-    is_cold = detect_user_is_cold(last_session)
+    is_cold = detect_user_is_cold(last_session, db)
     last_session.meta_data = last_session.meta_data or {}
     last_session.meta_data["is_user_cold"] = is_cold
 
