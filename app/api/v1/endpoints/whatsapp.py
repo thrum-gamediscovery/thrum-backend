@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from datetime import datetime, timedelta
 from app.db.models.user_profile import UserProfile
 from app.db.deps import get_db
-from app.db.models.enums import PlatformEnum
+from app.db.models.enums import PlatformEnum, SessionTypeEnum
 from app.api.v1.endpoints.chat import user_chat_with_thrum, bot_chat_with_thrum, ChatRequest
 from app.services.session_manager import update_or_create_session
 from app.services.create_reply import generate_thrum_reply
@@ -56,6 +56,7 @@ async def whatsapp_webhook(request: Request, From: str = Form(...), Body: str = 
         db.refresh(user)
     
     session = await user_chat(request=request, db=db, user=user, Body=Body)
+    session.state = SessionTypeEnum.ACTIVE  # Mark session as active again
     if session.awaiting_reply:
         now = datetime.utcnow()
         if session.last_thrum_timestamp and now - session.last_thrum_timestamp < timedelta(seconds=60):

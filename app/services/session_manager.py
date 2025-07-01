@@ -117,3 +117,10 @@ def update_or_create_session_mood(db: DBSession, user, new_mood: str) -> Session
     db.commit()
     db.refresh(new_session)
     return new_session
+
+def close_session(db, session, reason="idle", mood=None):
+    session.state = SessionTypeEnum.PASSIVE  # or COLD if long enough
+    session.end_time = datetime.utcnow()
+    session.exit_mood = mood or session.exit_mood
+    session.awaiting_reply = False
+    db.commit()
