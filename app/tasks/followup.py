@@ -6,8 +6,9 @@ from app.db.models import Interaction, Session
 from app.db.models.enums import ResponseTypeEnum
 from app.services.send_feedback_message import send_feedback_followup_message
 from app.services.tone_shift_detection import detect_tone_shift, mark_session_cold
-import random
 from app.utils.whatsapp import send_whatsapp_message
+from app.services.tone_classifier import classify_tone  # ✅ LLM-powered tone classifier
+import random
 
 @shared_task
 def send_feedback_followups():
@@ -22,7 +23,7 @@ def send_feedback_followups():
         ).all()
 
         for interaction in interactions:
-            user = interaction.session.user  # Access user through session
+            user = interaction.session.user
             game = interaction.game
 
             if user and user.phone_number:
@@ -30,7 +31,6 @@ def send_feedback_followups():
                     user_phone=user.phone_number.replace("whatsapp:", ""),
                     message=f"👋 Hey! Did you get a chance to try *{game.name if game else 'the game'}*? Let me know 👍 or 👎!"
                 )
-
     finally:
         db.close()
 
@@ -56,29 +56,18 @@ def get_post_recommendation_reply(user_input: str, last_game_name: str, session:
     Detect if the user is reacting to a game we just recommended.
     Log reaction and return soft follow-up.
     """
-
-    positive_signals = ["cool", "nice", "sounds good", "love it", "let's go", "excited"]
-    vague_signals = ["okay", "hmm", "maybe", "not sure", "fine", "guess"]
-    cold_signals = ["nah", "skip", "not into it", "meh", "nope", "boring", "too slow", "pass"]
-
-    input_lower = user_input.lower()
-    tone = None
+    tone = classify_tone(user_input)
     reply = None
 
-    if any(p in input_lower for p in cold_signals):
-        tone = "cold"
+    if tone == "cold":
         reply = f"Too off with *{last_game_name}*? Want me to change it up?"
-
-    elif any(p in input_lower for p in positive_signals):
-        tone = "positive"
+    elif tone == "positive":
         reply = f"You’re into *{last_game_name}* vibes then? Wanna go deeper or switch it up?"
-
-    elif any(p in input_lower for p in vague_signals):
-        tone = "vague"
+    elif tone == "vague":
         reply = f"Not sure if *{last_game_name}* hit right? I can keep digging if you want."
 
     if tone:
-        # Log reaction
+        # 📝 Log tone reaction
         meta = session.meta_data or {}
         history = meta.get("reaction_history", [])
         history.append({
@@ -87,12 +76,11 @@ def get_post_recommendation_reply(user_input: str, last_game_name: str, session:
             "timestamp": datetime.utcnow().isoformat()
         })
 
-        # Detect preference shift if 2+ cold/vague in last 3
+        # 🧠 Detect shift if 2+ cold/vague in last 3
         recent = [h["tone"] for h in history[-3:]]
         shift = recent.count("cold") + recent.count("vague") >= 2
         meta["reaction_history"] = history
         meta["user_preference_shift"] = shift
-
         session.meta_data = meta
         db.commit()
 
@@ -112,12 +100,9 @@ def handle_soft_session_close(session, db):
         return
 
     user = session.user
-    already_closed = session.meta_data.get("session_closed")
-
-    if already_closed:
+    if session.meta_data.get("session_closed"):
         return
 
-    # ✅ Log mood on exit if available
     session.meta_data["closed_at"] = datetime.utcnow().isoformat()
     session.meta_data["session_closed"] = True
     session.exit_mood = session.exit_mood or user.mood_tags.get(datetime.utcnow().date().isoformat())
