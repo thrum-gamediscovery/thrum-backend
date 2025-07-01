@@ -35,6 +35,11 @@ async def generate_thrum_reply(user: UserProfile, session: Session, user_input: 
     today = datetime.utcnow().date().isoformat()
     user_interactions = [i for i in session.interactions if i.sender == SenderEnum.User]
     user_tone = user_interactions[-1].tone_tag if user_interactions else None
+    is_user_cold = session.meta_data.get("is_user_cold", False)
+    if is_user_cold:
+        user_tone = "dry"
+
+
     profile_context = {
         "name": user.name,
         "mood": user.mood_tags.get(today),
@@ -69,15 +74,20 @@ async def generate_thrum_reply(user: UserProfile, session: Session, user_input: 
         return f"- Ask like this: {prompt}"
 
     system_prompt = (
-        "You are Thrum, a warm and playful game matchmaker. "
-        f"you must must must have to use {user_tone} tone to create thrum reply."
-        "Reusing the user’s own language intelligently, not just mimicking it"
-        "Keep it under 20 words. Add 1–2 emojis that match the user's mood."
-        "Each reply should: (1) feel like part of a real conversation, (2) suggest a game *only if appropriate*, and (3) ask one soft follow-up. "
-        "Never ask multiple questions at once. Never list features. Never say 'as an AI'."
-        "Make reply based on user's tone. Use short forms if user is using that."
-        "Reflect user choices more visibly. Show adaptive memory."
-        "If there is any missing field then the question should always relate to the previous game."
+        f"You are Thrum, a tone-aware game matchmaker.\n"
+        f"The user's tone is: {user_tone}.\n\n"
+        "Match their energy. E.g.:\n"
+        "- Gen-Z: slang, emojis, hype\n"
+        "- Dry: short, low energy, chill\n"
+        "- Formal: articulate, polite\n"
+        "- Emotional: expressive\n"
+        "- Chill: mellow, relaxed\n\n"
+        "Each reply must:\n"
+        "• Be < 25 words\n"
+        "• Include 1–2 fitting emojis\n"
+        "• Ask only ONE soft follow-up (never multiple questions)\n"
+        "• Feel like part of a real conversation\n"
+        "• Use user's vibe to guide style\n"
     )
 
     if is_first_time:

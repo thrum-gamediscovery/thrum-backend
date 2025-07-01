@@ -45,6 +45,7 @@ async def user_chat_with_thrum(
         sender=SenderEnum.User,
         content=payload.user_input,
         tone_tag=tone,
+        timestamp=datetime.utcnow(),
     )
     
     try:
@@ -79,6 +80,7 @@ async def bot_chat_with_thrum(request: Request, bot_reply: str, db: DBSession = 
         content=bot_reply,
         response_type=ResponseTypeEnum.GameRec,  # 📌 default response type
         confidence_score=0.92,                   # 📊 default confidence
+        timestamp=datetime.utcnow(),
         tone_tag=tone,
     )
     
