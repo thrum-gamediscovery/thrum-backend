@@ -13,7 +13,7 @@ router = APIRouter()
 
 # 🚀 Starts or resumes a session for the given user
 @router.post("/session/start")
-def start_session(user_id: str, db: DBSession = Depends(get_db)):
+async def start_session(user_id: str, db: DBSession = Depends(get_db)):
     # 🔍 Find user by user_id
     user = db.query(UserProfile).filter(UserProfile.user_id == user_id).first()
     if not user:
@@ -30,3 +30,4 @@ def start_session(user_id: str, db: DBSession = Depends(get_db)):
         "start_time": session.start_time,
         "end_time": session.end_time
     }
+
