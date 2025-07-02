@@ -30,3 +30,10 @@ class SessionTypeEnum(str, enum.Enum):
     PASSIVE = "passive"
     COLD = "cold"
     CLOSED = "closed"
+
+class PhaseEnum(str, enum.Enum):
+    INTRO = "intro"
+    DISCOVERY = "discovery"
+    CONFIRMATION = "confirmation"
+    DELIVERY = "delivery"
+    FOLLOWUP = "followup"

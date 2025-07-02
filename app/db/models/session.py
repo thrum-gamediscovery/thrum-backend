@@ -13,9 +13,10 @@ from app.db.base import Base
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy import Column, String, ForeignKey, TIMESTAMP, DateTime, Enum, Boolean
+from sqlalchemy import Column, String, ForeignKey, TIMESTAMP, DateTime, Enum as SQLAlchemyEnum, Boolean, Integer, ARRAY
 from app.db.models.enums import SessionTypeEnum
 from sqlalchemy.dialects.postgresql import JSON
+from app.db.models.enums import PhaseEnum
 
 class Session(Base):
     __tablename__ = "sessions"
@@ -26,10 +27,20 @@ class Session(Base):
     end_time = Column(TIMESTAMP(timezone=False), server_default=func.now())
     entry_mood = Column(String)
     exit_mood = Column(String)
-    state = Column(Enum(SessionTypeEnum), default=SessionTypeEnum.ONBOARDING)
+    state = Column(SQLAlchemyEnum(SessionTypeEnum), default=SessionTypeEnum.ONBOARDING)
     awaiting_reply = Column(Boolean, default=False)
     last_thrum_timestamp = Column(DateTime, nullable=True)
     user = relationship("UserProfile", back_populates="sessions")
     interactions = relationship("Interaction", back_populates="session", cascade="all, delete-orphan")
     game_recommendations = relationship("GameRecommendation", back_populates="session", cascade="all, delete-orphan")
     meta_data = Column(JSON, nullable=True)
+
+    # Phase tracking
+    phase = Column(SQLAlchemyEnum(PhaseEnum), default=PhaseEnum.INTRO)
+
+    # Short Memory fields
+    platform_preference = Column(String, nullable=True)
+    mood_tag = Column(String, nullable=True)
+    last_recommended_game = Column(String, nullable=True)
+    rejected_games = Column(ARRAY(String), default=[])
+    discovery_questions_asked = Column(Integer, default=0)
