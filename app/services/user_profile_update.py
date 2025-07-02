@@ -15,7 +15,7 @@ from app.utils.platform_utils import get_best_platform_match
 
 
 # ✅ Update user profile with parsed classification fields
-def update_game_feedback_from_json(db, user_id: UUID, feedback_data: list) -> None:
+async def update_game_feedback_from_json(db, user_id: UUID, feedback_data: list) -> None:
     if not isinstance(feedback_data, list) or not feedback_data:
         print("🟡 No valid game feedback provided. Skipping update.")
         return
@@ -112,7 +112,7 @@ def update_user_from_classification(db: Session, user, classification: dict,sess
 
     # -- Mood
     if mood and mood != "None":
-        mood_result = detect_mood_from_text(db, mood)
+        mood_result = await detect_mood_from_text(db, mood)
         user.mood_tags[today] = mood_result
         user.last_updated["mood_tags"] = str(datetime.utcnow())
         # update_or_create_session_mood(db, user, new_mood=mood_result)
@@ -124,7 +124,7 @@ def update_user_from_classification(db: Session, user, classification: dict,sess
 
     # -- Genre Preferences
     if genre and genre != "None":
-        matched_genre = get_best_genre_match(db=db, input_genre=genre)
+        matched_genre = await get_best_genre_match(db=db, input_genre=genre)
         print(f"update matched genre : {matched_genre}")
         if matched_genre:
             user.genre_prefs.setdefault(today, [])
@@ -134,7 +134,7 @@ def update_user_from_classification(db: Session, user, classification: dict,sess
 
     # -- Platform Preferences
     if platform and platform != "None":
-        matched_platform = get_best_platform_match(db=db, user_input=platform)
+        matched_platform = await get_best_platform_match(db=db, user_input=platform)
         if matched_platform:
             user.platform_prefs.setdefault(today, [])
             if matched_platform not in user.platform_prefs[today]:
@@ -176,7 +176,7 @@ def update_user_from_classification(db: Session, user, classification: dict,sess
             tag_clean = tag.strip().lower()
 
             # Try platform match
-            matched_platform = get_best_platform_match(user_input=tag_clean, db=db)
+            matched_platform = await get_best_platform_match(user_input=tag_clean, db=db)
             if matched_platform:
                 if matched_platform not in user.reject_tags["platform"]:
                     user.reject_tags["platform"].append(matched_platform)
@@ -184,7 +184,7 @@ def update_user_from_classification(db: Session, user, classification: dict,sess
                 continue
 
             # Try genre match
-            matched_genre = get_best_genre_match(input_genre=tag_clean, db=db)
+            matched_genre = await get_best_genre_match(input_genre=tag_clean, db=db)
             if matched_genre:
                 if matched_genre not in user.reject_tags["genre"]:
                     user.reject_tags["genre"].append(matched_genre)
@@ -198,7 +198,7 @@ def update_user_from_classification(db: Session, user, classification: dict,sess
 
         user.last_updated["reject_tags"] = str(datetime.utcnow())
 
-    update_game_feedback_from_json(db=db, user_id=user.user_id, feedback_data=game_feedback)
+    await update_game_feedback_from_json(db=db, user_id=user.user_id, feedback_data=game_feedback)
 
     user.last_updated["game_feedback"] = str(datetime.utcnow())
 

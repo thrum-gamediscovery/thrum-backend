@@ -43,8 +43,8 @@ async def whatsapp_webhook(request: Request, From: str = Form(...), Body: str = 
     # ✅ Step 1: Create new user if not found in DB
     if not user:
         print(f"From : {From}")
-        region = infer_region_from_phone(From)
-        timezone_str = get_timezone_from_region(region)
+        region = await infer_region_from_phone(From)
+        timezone_str = await get_timezone_from_region(region)
         user = UserProfile(
             phone_number=From,
             region=region,

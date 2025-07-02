@@ -3,15 +3,15 @@ from celery import shared_task
 from datetime import datetime, timedelta
 from app.db.session import SessionLocal
 from app.db.models import Interaction, Session
-from app.db.models.enums import ResponseTypeEnum
-from app.services.send_feedback_message import send_feedback_followup_message
+from app.db.models.enums import ResponseTypeEnum, PhaseEnum
+
 from app.services.tone_shift_detection import detect_tone_shift, mark_session_cold
 from app.utils.whatsapp import send_whatsapp_message
 from app.services.tone_classifier import classify_tone  # ✅ LLM-powered tone classifier
 import random
 
 @shared_task
-def send_feedback_followups():
+async def send_feedback_followups():
     db = SessionLocal()
     try:
         cutoff = datetime.utcnow() - timedelta(minutes=30)
@@ -34,24 +34,17 @@ def send_feedback_followups():
     finally:
         db.close()
 
-def handle_followup_logic(session, db):
-    """
-    Check tone shift and nudge user softly if cold.
-    """
-    if detect_tone_shift(session):
-        print("⚠️ Tone shift detected — user may be disengaging.")
-        mark_session_cold(db, session)
-        return {
-            "message": "Getting some low vibes… wanna switch it up? Or take a break — totally cool.",
-            "flag": "cold"
-        }
+async def handle_followup_logic(user_input, session):
+    if "another" in user_input.lower():
+        session.phase = PhaseEnum.DISCOVERY
+        return "Cool — let’s find you another one."
 
-    return {
-        "message": None,
-        "flag": "normal"
-    }
+    elif "no" in user_input.lower():
+        return "No problem! Want something slower or in a different style?"
 
-def get_post_recommendation_reply(user_input: str, last_game_name: str, session: Session, db) -> str | None:
+    return "Wanna explore something new or share this with a friend?"
+
+async def get_post_recommendation_reply(user_input: str, last_game_name: str, session: Session, db) -> str | None:
     """
     Detect if the user is reacting to a game we just recommended.
     Log reaction and return soft follow-up.
@@ -93,7 +86,7 @@ FAREWELL_LINES = [
     "Catch you later! Got plenty more when you’re in the mood 🕹️"
 ]
 
-def handle_soft_session_close(session, db):
+async def handle_soft_session_close(session, db):
     from app.services.session_manager import is_session_idle_or_fading
 
     if not is_session_idle_or_fading(session):

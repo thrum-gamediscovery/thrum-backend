@@ -1,75 +1,47 @@
-import random
 import openai
+import os
 
-async def generate_intro(is_first_message: bool, idle_reconnect: bool, user_input:str, user=None) -> str:
-    user_name = user.name if user and user.name else None
+openai.api_key = os.getenv("OPENAI_API_KEY")
 
-    # Variation tags for GPT
-    vibe_tags = [
-        "Keep it bold and confident.",
-        "Sound a little mysterious.",
-        "Be short and snappy.",
-        "Use one metaphor if it fits.",
-        "Make it feel like a cool friend texting.",
-        "Make it feel like the user just bumped into someone who gets them.",
-    ]
+async def generate_intro(is_first_message: bool, idle_reconnect: bool, user_input: str, user=None) -> str:
+    print("generate_intro called")
+    tone = "first-time" if is_first_message else "idle" if idle_reconnect else "reengage"
+    name = getattr(user, "name", None) if user else None
+    user_line = f'The user is named "{name}".' if name else ""
 
-    if idle_reconnect:
-        gpt_prompt = (
-            "You are Thrum — a warm, chill friend who knows games inside-out. "
-            "The user just came back after being quiet for a bit. "
-            "Welcome them back casually, like a friend would. "
-            "No questions. Just a quick, real check-in. "
-        )
-        if user_name:
-            gpt_prompt += f"You know their name is {user_name}, so you can say it. "
-        gpt_prompt += random.choice(vibe_tags)
+    system_prompt = f"""
+You are Thrum — a warm, confident, and human-sounding game discovery assistant on WhatsApp.
 
-        fallback_lines = [
-            f"Hey {user_name}, still got something queued up for you." if user_name else None,
-            f"{user_name}, ready to dive back in?" if user_name else None,
-            "Hey, you're back. Still got something lined up for your vibe.",
-            "Took a pause? All good. Let's pick up where we left off.",
-            "Back again? I was just thinking of something you'd probably love.",
-        ]
-        fallback_lines = [line for line in fallback_lines if line]
+Your job: Send a short intro message (under 2 lines) to start the conversation.
 
-    elif is_first_message:
-        gpt_prompt = (
-            f"You are Thrum — a human, clever, game-savvy friend. "
-            f"This is your first-ever message to a new user. You don't know their name. "
-            f"The user just messaged: \"{user_input}\".\n"
-            "Start with a greeting like 'hey', 'hi', or 'hello'. "
-            "Introduce yourself naturally — like 'I'm Thrum'. "
-            "Then say something short and bold that sets the tone. "
-            "No questions, no emojis, no robotic phrases. "
-            "Do NOT mention journeys, adventures, or unlocking anything. "
-            "Sound confident, casual, and short — max 2 lines, 15–20 words. "
-            "Think like a cool gamer friend texting you."
-            "and ask to recommend game."
-        ) + " " + random.choice(vibe_tags)
+Strict rules:
+- NEVER ask questions.
+- NEVER mention genres, moods, or preferences yet.
+- NEVER use the same wording every time.
+- ALWAYS vary the phrasing, sentence rhythm, punctuation, or emoji (subtly or clearly).
+- Include the user's name if provided: {user_line}
 
-        fallback_lines = [
-            "Hey, I'm Thrum. Not here to list stuff—let's skip the scroll and find your next game.",
-            "Hi — I'm Thrum. I know what slaps. You just vibe.",
-            "Hello, I'm Thrum. Skip the endless scroll — I've got something better.",
-            "Hey — name's Thrum. I've got something that might actually hit.",
-            "Hey. I'm Thrum. I've been saving a good one just in case you showed up.",
-            "Hi. I'm Thrum. No noise, no filler — just real picks.",
-            "Hey. You made it. I've got something that might just click.",
-        ]
-    else:
-        return None
+Scenarios:
+- First-time → welcome the user and casually explain what Thrum does
+- Idle → user was silent for 5–10s, softly nudge them back
+- Reengage → user typed something vague, gently keep things moving
+
+Speak naturally. No filler. No template voice. Avoid sounding like a bot.
+
+Mode: {tone.upper()}
+"""
 
     try:
-        response = openai.ChatCompletion.create(
+        print(f"generate_intro : {user_input} :: {system_prompt}")
+        response = await openai.ChatCompletion.acreate(
             model="gpt-4.1-mini",
-            messages=[{"role": "user", "content": gpt_prompt}],
-            temperature=0.95,
-            top_p=0.9,
-            max_tokens=60,
+            temperature=0.5,
+            messages=[
+                {"role": "system", "content": system_prompt.strip()},
+                {"role": "user", "content": f"The user said: {user_input}"}
+            ]
         )
         return response["choices"][0]["message"]["content"].strip()
     except Exception as e:
-        print("❌ GPT intro fallback used:", e)
-        return random.choice(fallback_lines)
+        print("GPT intro fallback:", e)
+        return "Hey there 👋 I help people find games that match their vibe. Tell me a mood or game you’re into!"

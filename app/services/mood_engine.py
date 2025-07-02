@@ -12,11 +12,11 @@ from scipy.spatial.distance import cosine
 model = SentenceTransformer('all-MiniLM-L12-v2')
 
 # ✅ Convert input text into embedding vector
-def embed_text(text: str) -> list[float]:
+async def embed_text(text: str) -> list[float]:
     return model.encode(text).tolist()
 
 # ✅ Detect user mood from input text using keyword or embedding similarity
-def detect_mood_from_text(db: Session, user_input: str) -> Optional[str]:
+async def detect_mood_from_text(db: Session, user_input: str) -> Optional[str]:
     print(f"user input : {user_input}")
     
     # 🔍 Preprocess: lowercase word set for direct match

@@ -34,7 +34,7 @@ REGION_TIMEZONE_MAP = {
     "CN": "Asia/Shanghai",
 }
 
-def clean_phone_number(raw: str) -> str:
+async def clean_phone_number(raw: str) -> str:
     """
     Removes prefixes like 'whatsapp:', 'discord:', etc.
     """
@@ -42,19 +42,19 @@ def clean_phone_number(raw: str) -> str:
         return ""
     return raw.split(":")[-1]
 
-def infer_region_from_phone(phone: str) -> str | None:
+async def infer_region_from_phone(phone: str) -> str | None:
     """
     Returns region code (e.g., 'US', 'UK') from phone prefix.
     """
     if not phone:
         return None
-    phone = clean_phone_number(phone)
+    phone = await clean_phone_number(phone)
     for prefix, region in PHONE_REGION_MAP.items():
         if phone.startswith(prefix):
             return region
     return None
 
-def get_timezone_from_region(region: str) -> str | None:
+async def get_timezone_from_region(region: str) -> str | None:
     """
     Returns timezone string (e.g., "Asia/Kolkata") for a region code like "IN".
     """

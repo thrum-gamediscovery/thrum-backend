@@ -13,7 +13,7 @@ from random import choice
 
 model = SentenceTransformer("all-MiniLM-L12-v2")
 
-def game_recommendation(db: Session, user, session) -> Optional[Tuple[Dict, bool]]:
+async def game_recommendation(db: Session, user, session) -> Optional[Tuple[Dict, bool]]:
     today = datetime.utcnow().date().isoformat()
     mood = user.mood_tags.get(today) if user.mood_tags and today in user.mood_tags else (
         next(reversed(user.mood_tags.values()), None) if user.mood_tags else None
