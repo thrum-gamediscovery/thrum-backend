@@ -42,10 +42,11 @@ class Session(Base):
     # Mood / vibe / memory tracking
     entry_mood = Column(String, nullable=True)
     exit_mood = Column(String, nullable=True)
-    platform_preference = Column(String, nullable=True)
-    mood_tag = Column(String, nullable=True)
+    genre = Column(ARRAY(String), nullable=True)
+    platform_preference = Column(ARRAY(String), nullable=True)
     last_recommended_game = Column(String, nullable=True)
     rejected_games = Column(ARRAY(String), default=[]) 
+    story_preference = Column(Boolean, nullable=True)
 
     # Flow control flags — these help manage session dynamics, tone shifts, and user engagement
     # All of these are reset per session and used by the dialog engine to track behavioral shifts

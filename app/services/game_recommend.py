@@ -9,6 +9,7 @@ from sqlalchemy import func, cast, Integer
 from scipy.spatial.distance import cosine
 from datetime import datetime
 from typing import Optional, Dict, Tuple
+import numpy as np
 from random import choice
 
 model = SentenceTransformer("all-MiniLM-L12-v2")
@@ -117,16 +118,27 @@ async def game_recommendation(db: Session, user, session) -> Optional[Tuple[Dict
     mood_vector = model.encode(mood) if mood else None
     genre_vector = model.encode(genre) if genre else None
 
+    def to_vector(v):
+        if v is None:
+            return None
+        v = np.array(v)
+        if v.ndim == 2 and v.shape[0] == 1:
+            v = v.flatten()
+        return v if v.ndim == 1 else None
+    
     def compute_score(game: Game):
         mood_sim = 0
         genre_sim = 0
         mood_weight = 0.6 if mood_vector is not None else 0
         genre_weight = 0.4 if genre_vector is not None else 0
 
-        if mood_vector is not None and game.mood_embedding is not None:
-            mood_sim = 1 - cosine(mood_vector, game.mood_embedding)
-        if genre_vector is not None and game.game_embedding is not None:
-            genre_sim = 1 - cosine(genre_vector, game.game_embedding)
+        game_mood_vector = to_vector(game.mood_embedding)
+        game_genre_vector = to_vector(game.game_embedding)
+
+        if mood_vector is not None and game_mood_vector is not None:
+            mood_sim = 1 - cosine(mood_vector, game_mood_vector)
+        if genre_vector is not None and game_genre_vector is not None:
+            genre_sim = 1 - cosine(genre_vector, game_genre_vector)
 
         if mood_weight + genre_weight == 0:
             return 0.01

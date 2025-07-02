@@ -8,6 +8,7 @@ from app.db.models.user_profile import UserProfile
 from app.db.models import Game
 from typing import Dict
 from datetime import date
+from sqlalchemy.orm.attributes import flag_modified
 from app.services.mood_engine import detect_mood_from_text
 from app.services.session_manager import update_or_create_session_mood
 from app.utils.genre import get_best_genre_match 
@@ -87,7 +88,7 @@ async def update_game_feedback_from_json(db, user_id: UUID, feedback_data: list)
 
 
 # ✅ Update user profile with parsed classification fields
-def update_user_from_classification(db: Session, user, classification: dict,session):
+async def update_user_from_classification(db: Session, user, classification: dict,session):
 
     print(f"update classification : {classification}")
     today = date.today().isoformat()
@@ -114,13 +115,9 @@ def update_user_from_classification(db: Session, user, classification: dict,sess
     if mood and mood != "None":
         mood_result = await detect_mood_from_text(db, mood)
         user.mood_tags[today] = mood_result
+        session.exit_mood = mood_result
         user.last_updated["mood_tags"] = str(datetime.utcnow())
         # update_or_create_session_mood(db, user, new_mood=mood_result)
-
-    # -- Game Vibe
-    if game_vibe and game_vibe != "None":
-        user.game_vibe = game_vibe.lower()
-        user.last_updated["game_vibe"] = str(datetime.utcnow())
 
     # -- Genre Preferences
     if genre and genre != "None":
@@ -130,6 +127,24 @@ def update_user_from_classification(db: Session, user, classification: dict,sess
             user.genre_prefs.setdefault(today, [])
             if matched_genre not in user.genre_prefs[today]:
                 user.genre_prefs[today].append(matched_genre)
+
+            # Safely handle and persist session.genre updates
+            if session:
+                session_genres = session.genre or []
+
+                if matched_genre not in session_genres:
+                    session_genres.append(matched_genre)
+                    session.genre = session_genres
+
+                    # ✅ Ensure SQLAlchemy detects the change
+                    flag_modified(session, "genre")
+
+                    print(f"[✅ Genre added to session]: {session_genres}")
+                else:
+                    print(f"[ℹ️ Genre already present]: {matched_genre}")
+            else:
+                print("❌ Session object is missing or invalid.")
+
             user.last_updated["genre_prefs"] = str(datetime.utcnow())
 
     # -- Platform Preferences
@@ -139,6 +154,24 @@ def update_user_from_classification(db: Session, user, classification: dict,sess
             user.platform_prefs.setdefault(today, [])
             if matched_platform not in user.platform_prefs[today]:
                 user.platform_prefs[today].append(matched_platform)
+
+            # Safely handle and persist session.platform_preference updates
+            if session:
+                session_platforms = session.platform_preference or []
+
+                if matched_platform not in session_platforms:
+                    session_platforms.append(matched_platform)
+                    session.platform_preference = session_platforms
+
+                    # ✅ Ensure SQLAlchemy detects the change
+                    flag_modified(session, "platform_preference")
+
+                    print(f"[✅ Platform added to session]: {session_platforms}")
+                else:
+                    print(f"[ℹ️ Platform already present]: {matched_platform}")
+            else:
+                print("❌ Session object is missing or invalid.")
+
             user.last_updated["platform_prefs"] = str(datetime.utcnow())
 
     # -- Region
@@ -154,6 +187,7 @@ def update_user_from_classification(db: Session, user, classification: dict,sess
     # -- Story Preference
     if story_pref is not None and story_pref != "None":
         user.story_pref = bool(story_pref)
+        session.story_preference = bool(story_pref)
         user.last_updated["story_pref"] = str(datetime.utcnow())
 
     # -- Playtime
@@ -168,6 +202,16 @@ def update_user_from_classification(db: Session, user, classification: dict,sess
         # Ensure proper structure
         if not isinstance(user.reject_tags, dict):
             user.reject_tags = {}
+        # Ensure meta_data and structure
+        if session.meta_data is None:
+            session.meta_data = {}
+
+        session.meta_data.setdefault("reject_tags", {})
+        reject_data = session.meta_data["reject_tags"]
+
+        reject_data.setdefault("genre", [])
+        reject_data.setdefault("platform", [])
+        reject_data.setdefault("other", [])
 
         user.reject_tags.setdefault("genre", [])
         user.reject_tags.setdefault("platform", [])
@@ -180,6 +224,8 @@ def update_user_from_classification(db: Session, user, classification: dict,sess
             if matched_platform:
                 if matched_platform not in user.reject_tags["platform"]:
                     user.reject_tags["platform"].append(matched_platform)
+                if matched_platform not in reject_data["platform"]:
+                    reject_data["platform"].append(matched_platform)
                 print(f"✅ Platform matched: {tag_clean} → {matched_platform}")
                 continue
 
@@ -188,12 +234,16 @@ def update_user_from_classification(db: Session, user, classification: dict,sess
             if matched_genre:
                 if matched_genre not in user.reject_tags["genre"]:
                     user.reject_tags["genre"].append(matched_genre)
+                if matched_genre not in reject_data["genre"]:
+                    reject_data["genre"].append(matched_genre)
                 print(f"✅ Genre matched: {tag_clean} → {matched_genre}")
                 continue
 
             # If no match, store in "other"
             if tag_clean not in user.reject_tags["other"]:
                 user.reject_tags["other"].append(tag_clean)
+            if tag_clean not in reject_data["other"]:
+                reject_data["other"].append(tag_clean)
                 print(f"⚠️ No match found for: {tag_clean} → added to 'other'")
 
         user.last_updated["reject_tags"] = str(datetime.utcnow())

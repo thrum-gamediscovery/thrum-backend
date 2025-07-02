@@ -78,55 +78,58 @@ async def deliver_game_immediately(db:Session,user, session, markdown=False) -> 
 
     # Optional: build user_context from session
     user_context = {
-        "mood": session.mood_tag,
+        "mood": session.exit_mood,
         "genre": getattr(session, "genre", None),
         "platform": session.platform_preference
     }
 
     return await format_game_output(game, user_context=user_context, markdown=markdown)
 
-async def confirm_input_summary(data: dict | object) -> str:
+async def confirm_input_summary(session) -> str:
     """
-    Uses GPT to generate a one-line friendly summary of extracted mood, genre, and platform,
-    just before delivering the game.
-
-    Parameters:
-        data (dict or session object): should contain 'mood', 'genre', and 'platform' fields
-
-    Returns:
-        str: A short natural confirmation sentence
+    Uses GPT-4.1-mini to generate a short, human-sounding confirmation line from mood, genre, and platform.
+    No game names or suggestions — just a fun, natural acknowledgment.
     """
-    # Extract fields
-    mood = getattr(data, "mood_tag", None) or data.get("mood") if isinstance(data, dict) else None
-    genre = getattr(data, "genre", None) or data.get("genre") if isinstance(data, dict) else None
-    platform = getattr(data, "platform_preference", None) or data.get("platform") if isinstance(data, dict) else None
-
-    # Fallback if no data
+    mood = session.exit_mood or None
+    genre_list = session.genre or []
+    platform_list = session.platform_preference or []
+    genre = genre_list[-1] if isinstance(genre_list, list) and genre_list else None
+    platform = platform_list[-1] if isinstance(platform_list, list) and platform_list else None
+    print(f"genre: {genre} :: platform: {platform} :: mood: {mood}")
     if not any([mood, genre, platform]):
         return "Got it — let me find something for you."
-
-    # Build a system prompt
-    prompt = f"""
-The user has provided these preferences:
+    # Human tone prompt
+    system_prompt = f"""
+You're Thrum, a friendly game assistant.
+The user gave you:
 - Mood: {mood or "unknown"}
 - Genre: {genre or "unknown"}
 - Platform: {platform or "unknown"}
-
-Write a short friendly one-liner to confirm this before recommending a game.
-Do NOT ask questions or restate exactly. Make it natural and confident.
+Your job: Write a short, confident, natural-sounding **one-liner** to confirm their vibe — like a real person would.
+:white_tick: Make it feel warm, casual, and expressive — like you're chatting with a friend.
+:white_tick: Use at most ONE emoji (optional).
+:x: Do NOT recommend or name any games.
+:x: Do NOT say “let me find” or “I’ll suggest”.
+:x: Avoid robotic keyword lists or bullet-style phrasing.
+:white_tick: Merge mood, genre, and platform naturally into one smooth sentence.
+Only return the final sentence. No intro, no tags.
 """.strip()
-
     try:
-        response = openai.ChatCompletion.create(
+        response = await openai.ChatCompletion.acreate(
             model="gpt-4.1-mini",
-            temperature=0.3,
-            messages=[{"role": "user", "content": prompt}]
+            temperature=0.5,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": "Give me the confirmation sentence only."}
+            ]
         )
+        session.phase = PhaseEnum.DELIVERY
         return response["choices"][0]["message"]["content"].strip()
     except Exception as e:
         print("GPT summary fallback:", e)
-        parts = [genre, mood, platform]
+        parts = [mood, genre, platform]
         summary = ", ".join([p for p in parts if p])
+        session.phase = PhaseEnum.DELIVERY
         return f"Cool — something {summary} coming up!" if summary else "Finding something you'll like..."
     
 
@@ -144,68 +147,115 @@ class DiscoveryData:
         return {"mood": self.mood, "genre": self.genre, "platform": self.platform}
 
 
-async def extract_discovery_signals(user_input: str) -> DiscoveryData:
-    prompt = f"""
-You are a classification agent for a game recommender.
 
-Extract any mood, genre, and platform from this message:
-"{user_input}"
-
-Respond ONLY in JSON:
-{{
-  "mood": "...",
-  "genre": "...",
-  "platform": "..."
-}}
-If something is missing, leave it null.
-"""
-
-    try:
-        response = openai.ChatCompletion.create(
-            model="gpt-4.1-mini",
-            temperature=0.3,
-            messages=[{"role": "user", "content": prompt.strip()}]
-        )
-        data = json.loads(response["choices"][0]["message"]["content"].strip())
-        return DiscoveryData(
-            mood=data.get("mood"),
-            genre=data.get("genre"),
-            platform=data.get("platform")
-        )
-    except Exception as e:
-        print("Discovery signal GPT failed:", e)
+async def extract_discovery_signals(session) -> DiscoveryData:
+    """
+    Fetch mood, genre, and platform directly from the session table.
+    This skips GPT classification and uses stored session values.
+    """
+    if not session:
+        print("❌ Session not found.")
         return DiscoveryData()
-    
 
+    mood = session.exit_mood or session.entry_mood
+    genre = session.genre[-1] if session.genre else None
+    platform = session.platform_preference[-1] if session.platform_preference else None
 
-async def store_in_session_memory(session, discovery_data):
-    """
-    Stores extracted mood/genre/platform in session object.
-    """
-    if discovery_data.mood:
-        session.mood_tag = discovery_data.mood
-    if discovery_data.genre:
-        setattr(session, "genre", discovery_data.genre)  # If genre isn't a session column, use metadata
-        if hasattr(session, "meta_data") and session.meta_data is not None:
-            session.meta_data["genre"] = discovery_data.genre
-        elif hasattr(session, "meta_data"):
-            session.meta_data = {"genre": discovery_data.genre}
-    if discovery_data.platform:
-        session.platform_preference = discovery_data.platform
+    print(f"🔍 Extracted from session — Mood: {mood}, Genre: {genre}, Platform: {platform}")
+    return DiscoveryData(
+        mood=mood,
+        genre=genre,
+        platform=platform
+    )
 
+import openai
 
 async def ask_discovery_question(session) -> str:
     """
-    Asks one more discovery question based on what’s missing.
-    Only uses mood, genre, platform.
+    Dynamically generate a discovery question using gpt-4.1-mini.
+    Auto-detects the first missing field (mood → genre → platform).
+    Ensures only one question is asked with a natural tone and no greetings.
     """
-    if not session.mood_tag:
-        return "What kind of vibe are you in the mood for? Cozy, chaotic, emotional?"
+    def get_last(arr):
+        return arr[-1] if isinstance(arr, list) and arr else None
 
-    if not getattr(session, "genre", None):
-        return "Got a favorite genre? Like puzzle, action, or story-driven?"
+    # Detect what's missing
+    if not session.exit_mood:
+        missing_field = "mood"
+        mood = None
+        genre = get_last(session.genre)
+        platform = get_last(session.platform_preference)
+        system_prompt = f"""
+You're Thrum, a fast, friendly game assistant.
 
-    if not session.platform_preference:
-        return "Which platform are you playing on — PlayStation, PC, or mobile?"
+You already know:
+- Genre: {genre or "unknown"}
+- Platform: {platform or "unknown"}
 
-    return "Tell me anything else you'd like in the game."  # fallback
+Now, ask exactly ONE short, casual question to discover the user's **current mood or emotional vibe**.
+
+✅ Make it sound human, fun, and natural  
+✅ Use at most ONE emoji (optional)  
+❌ Do NOT ask multiple questions  
+❌ Do NOT start with greetings like "Hi", "Hey", or "Hello"  
+Only return the one question. No explanation.
+""".strip()
+        user_input = "Ask about mood."
+
+    elif not session.genre:
+        missing_field = "genre"
+        mood = session.exit_mood
+        genre = None
+        platform = get_last(session.platform_preference)
+        system_prompt = f"""
+You're Thrum, helping someone find a game.
+
+You already know:
+- Mood: {mood or "unknown"}
+- Platform: {platform or "unknown"}
+
+Ask exactly ONE human-sounding question to find out what **genre or style** of games they enjoy.
+
+✅ Keep it natural, playful, and friendly  
+✅ ONE emoji max (optional)  
+❌ Do NOT combine multiple questions  
+❌ Never start with "Hi", "Hey", or "Hello"  
+Return just one clear, casual question — nothing else.
+""".strip()
+        user_input = "Ask about genre."
+
+    elif not session.platform_preference:
+        missing_field = "platform"
+        mood = session.exit_mood
+        genre = get_last(session.genre)
+        platform = None
+        system_prompt = f"""
+You're Thrum, a clever game-suggester.
+
+You already know:
+- Mood: {mood or "unknown"}
+- Genre: {genre or "unknown"}
+
+Ask exactly ONE friendly question to learn what **platform** the user plays on — like console, PC, or mobile.
+
+✅ Make it short, relaxed, and natural  
+✅ Optional emoji (only one)  
+❌ Don’t ask more than one question  
+❌ Never begin with "Hey", "Hi", or similar greetings  
+Just return the one question, nothing else.
+""".strip()
+        user_input = "Ask about platform."
+
+    else:
+        return "Tell me anything else you'd like in the game."
+
+    print(f"ask_discovery_question : {missing_field} :: {system_prompt}")
+    response = await openai.ChatCompletion.acreate(
+        model="gpt-4.1-mini",
+        temperature=0.5,
+        messages=[
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_input}
+        ]
+    )
+    return response.choices[0].message["content"].strip()

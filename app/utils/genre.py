@@ -20,7 +20,7 @@ async def load_genre_embeddings_from_db(db: Session):
 
 async def get_best_genre_match(input_genre: str, db: Session) -> Optional[str]:
     # Find best semantic match for input genre
-    VALID_GENRE_EMBEDDINGS = load_genre_embeddings_from_db(db)
+    VALID_GENRE_EMBEDDINGS = await load_genre_embeddings_from_db(db)
     input_vec = model.encode(input_genre)
 
     best_match = None
