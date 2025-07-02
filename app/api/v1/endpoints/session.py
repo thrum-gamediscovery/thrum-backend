@@ -20,7 +20,7 @@ def start_session(user_id: str, db: DBSession = Depends(get_db)):
         return {"error": "User not found"}
 
     # 🔁 Create new session or update existing one based on last activity
-    session = await update_or_create_session(db, user)
+    session = update_or_create_session(db, user)
 
     # 📤 Return session details
     return {
