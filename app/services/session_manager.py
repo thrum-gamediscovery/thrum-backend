@@ -24,7 +24,7 @@ def get_session_state(last_active: datetime) -> SessionTypeEnum:
         return SessionTypeEnum.ACTIVE
 
 # 🔁 Create or update session based on user activity
-async def update_or_create_session(db: DBSession, user):
+def update_or_create_session(db: DBSession, user):
     now = datetime.utcnow()
     last_session = (
         db.query(Session)

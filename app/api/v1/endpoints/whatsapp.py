@@ -17,7 +17,7 @@ router = APIRouter()
 
 # 🔁 Handles session update and sends the bot reply to chat processor
 async def user_chat(request, db, user, Body):
-    session = await update_or_create_session(db, user)
+    session = update_or_create_session(db, user)
     request.scope["headers"] = list(request.scope["headers"]) + [
         (b"x-user-id", str(user.user_id).encode())
     ]
@@ -27,7 +27,7 @@ async def user_chat(request, db, user, Body):
     return session
 
 async def bot_reply(request, db, user, reply):
-    session = await update_or_create_session(db, user)
+    session = update_or_create_session(db, user)
     request.scope["headers"] = list(request.scope["headers"]) + [
         (b"x-user-id", str(user.user_id).encode())
     ]
