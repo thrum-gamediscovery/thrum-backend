@@ -53,7 +53,7 @@ async def check_for_nudge():
             continue
 
         # ⏱️ Adaptive delay based on silence count
-        delay = timedelta(seconds=30 if (user.silence_count or 0) > 2 else 60)
+        delay = timedelta(seconds=30 if (user.silence_count or 0) > 2 else 30)
 
         if now - s.last_thrum_timestamp > delay:
             # 🎯 Soft nudge message
