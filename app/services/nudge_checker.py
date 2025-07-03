@@ -43,6 +43,7 @@ Respond with one word only.
     return dry_like_count >= 2
 
 async def check_for_nudge():
+    print('call check_for_nudge..................................................................')
     db = SessionLocal()
     now = datetime.utcnow()
     sessions = db.query(Session).filter(Session.awaiting_reply == True).all()
