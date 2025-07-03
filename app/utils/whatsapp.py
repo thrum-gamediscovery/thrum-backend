@@ -16,7 +16,7 @@ async def send_whatsapp_message(phone_number: str, message: str):
     from app.api.v1.endpoints.whatsapp import bot_reply 
     account_sid = os.getenv('TWILIO_ACCOUNT_SID')
     auth_token = os.getenv('TWILIO_AUTH_TOKEN')
-    from_whatsapp_number = "whatsapp:+12764000071"
+    from_whatsapp_number = os.getenv('TWILIO_WHATSAPP_NUMBER')
 
     payload = {
         "From": from_whatsapp_number,
