@@ -42,7 +42,7 @@ Respond with one word only.
 
     return dry_like_count >= 2
 
-def check_for_nudge():
+async def check_for_nudge():
     db = SessionLocal()
     now = datetime.utcnow()
     sessions = db.query(Session).filter(Session.awaiting_reply == True).all()
@@ -63,7 +63,7 @@ def check_for_nudge():
                 "Can I throw you a wild card pick?",
                 "No rush — just poke me when ready 😄"
             ])
-            send_whatsapp_message(user.phone_number, nudge)
+            await send_whatsapp_message(user.phone_number, nudge)
 
             # 🧠 Track nudge + potential coldness
             s.awaiting_reply = False

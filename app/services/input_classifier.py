@@ -213,3 +213,39 @@ Now classify into the format below.
         print(f"⚠️ OpenAI Error: {e}")
         return "⚠️ Something went wrong. Please try again."
     
+
+async def analyze_followup_feedback(user_reply: str, session) -> dict:
+    game_title = session.last_recommended_game
+    thrum_interactions = [i for i in session.interactions if i.sender == SenderEnum.Thrum]
+    last_thrum_reply = thrum_interactions[-1].content if thrum_interactions else ""
+    prompt = f"""
+You're Thrum — a fast, friendly, emotionally smart game recommender.
+
+The user was recommended the game: *{game_title}*
+last thrum question : {last_thrum_reply}
+user reply : "{user_reply}"
+
+Your task is to classify whether user is satisfied with that game or not, if you find that input is sounds like user want other game and then return "want_another" 
+and if the user input is like they like the recommended game or they are satisfy with that game and it is not sounds like they want other game then return "dont_want_another" as intent.
+and the most important thing is that you must infere user input by referencing the last thrum question.
+Return only a valid JSON object like this:
+
+{{
+  "intent": "want_another" | "dont_want_another"
+}}
+
+Rules:
+- If they liked it and want another → "want_another"
+- If they liked it but don’t want more → "dont_want_another"
+- If they disliked it or said no → "want_another"
+- If they’re vague, silent, or unsure → "dont_want_another"
+
+Only return valid JSON. No explanation.
+"""
+
+    response = await openai.ChatCompletion.acreate(
+        model="gpt-4.1-mini",
+        temperature=0.3,
+        messages=[{"role": "system", "content": prompt}]
+    )
+    return response.choices[0].message.content.strip()

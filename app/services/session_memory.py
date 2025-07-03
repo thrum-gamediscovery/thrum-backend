@@ -7,61 +7,63 @@ import os
 
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
-async def format_game_output(game: dict, user_context: dict = None, markdown: bool = False) -> str:
+async def format_game_output(game: dict, user_context: dict = None) -> str:
     title = game.get("title", "Unknown Game")
-    reason = game.get("reason", "It fits your vibe.")
-    platform = user_context.get("platform") if user_context else None
-
-    # Build fallback search instruction
+    description = game.get("description", "")
+    genre = game.get("genre", "")
+    vibes = game.get("game_vibes", "")
+    mechanics = game.get("mechanics", "")
+    visual_style = game.get("visual_style", "")
+    has_story = "has a story" if game.get("has_story") else "does not focus on story"
+    platforms = game.get("platforms", [])
+    # Get user context
+    user_mood = user_context.get("mood") if user_context else None
+    user_genre = user_context.get("genre") if user_context else None
+    platform = user_context.get("platform") if user_context and user_context.get("platform") else (platforms[0] if platforms else None)
+    # Construct search line
     if platform:
         search_line = f"Search '{title}' on {platform} or Google."
     else:
         search_line = f"Search '{title} game' online."
-
-    context = ""
-    if user_context:
-        parts = []
-        if user_context.get("mood"):
-            parts.append(f"mood: {user_context['mood']}")
-        if user_context.get("genre"):
-            parts.append(f"genre: {user_context['genre']}")
-        if platform:
-            parts.append(f"platform: {platform}")
-        if parts:
-            context = "The user is looking for a game with " + ", ".join(parts) + "."
-
-    # Markdown-bold if allowed
-    title_formatted = f"**{title}**" if markdown else title
-
+    # Summarize user context
+    user_summary = ""
+    if user_mood:
+        user_summary += f"Mood: {user_mood}\n"
+    if user_genre:
+        user_summary += f"Preferred Genre: {user_genre}\n"
+    if platform:
+        user_summary += f"Platform: {platform}\n"
+    # Game trait summary
+    trait_summary = f"Description: {description}\nGenre: {genre}\nVibes: {vibes}\nMechanics: {mechanics}\nVisual Style: {visual_style}\nStory: {has_story}"
+    # Final GPT prompt
     prompt = f"""
-You are a game assistant.
-
+You are Thrum — a fast, confident game assistant.
+The user is looking for a game with:
+{user_summary.strip()}
+You’re considering:
 Game: {title}
-Why it fits: {reason}
-{context}
-
-Create a 3-line response:
-Line 1: Game title ({'bolded with **' if markdown else 'plain'})
-Line 2: One expressive reason the user will enjoy it
-Line 3: A helpful search instruction (no link available)
-
-Return only the formatted message.
+{trait_summary}
+Write exactly 3 lines:
+1. Game title (complusary bold)
+2. A strong half-line (10–12 words) explaining why it fits **this user’s vibe** use confident language and should sound like it is perfect fit for this user.
+3. A clear platform-specific search instruction like “Search 'Half-Life' on Steam”
+Avoid weak phrases like “maybe”, “you could”, or “might like”.
+use 1-2 emojis, no links. Just 3 direct lines.
 """
-
     try:
         response = openai.ChatCompletion.create(
             model="gpt-4.1-mini",
             temperature=0.4,
             messages=[{"role": "user", "content": prompt.strip()}]
         )
-        return response["choices"][0]["message"]["content"].strip()
+        reply = response["choices"][0]["message"]["content"].strip()
+        return reply
+    except Exception:
+        return f"{title}\nA good match for your vibe and preferences.\n{search_line}"
 
-    except Exception as e:
-        # fallback formatting
-        return f"{title_formatted}\n{reason}\n{search_line}"
 
 
-async def deliver_game_immediately(db:Session,user, session, markdown=False) -> str:
+async def deliver_game_immediately(db:Session,user, session) -> str:
     """
     Instantly delivers a game recommendation, skipping discovery.
 
@@ -71,10 +73,12 @@ async def deliver_game_immediately(db:Session,user, session, markdown=False) -> 
     game,_ = await game_recommendation(db=db, user=user, session=session)
     if not game:
         return "Hmm, couldn't find a match right now. Try again soon!"
+    else:
 
-    session.last_recommended_game = game["title"]
+        session.last_recommended_game = game["title"]
 
-    session.phase = PhaseEnum.FOLLOWUP
+        session.phase = PhaseEnum.FOLLOWUP
+        session.followup_triggered = True
 
     # Optional: build user_context from session
     user_context = {
@@ -83,7 +87,7 @@ async def deliver_game_immediately(db:Session,user, session, markdown=False) -> 
         "platform": session.platform_preference
     }
 
-    return await format_game_output(game, user_context=user_context, markdown=markdown)
+    return await format_game_output(game, user_context=user_context)
 
 async def confirm_input_summary(session) -> str:
     """
@@ -124,12 +128,15 @@ Only return the final sentence. No intro, no tags.
             ]
         )
         session.phase = PhaseEnum.DELIVERY
+        session.intent_override_triggered = True
         return response["choices"][0]["message"]["content"].strip()
     except Exception as e:
         print("GPT summary fallback:", e)
         parts = [mood, genre, platform]
         summary = ", ".join([p for p in parts if p])
         session.phase = PhaseEnum.DELIVERY
+        session.intent_override_triggered = True
+
         return f"Cool — something {summary} coming up!" if summary else "Finding something you'll like..."
     
 
@@ -168,59 +175,63 @@ async def extract_discovery_signals(session) -> DiscoveryData:
         platform=platform
     )
 
-import openai
-
 async def ask_discovery_question(session) -> str:
     """
     Dynamically generate a discovery question using gpt-4.1-mini.
-    Auto-detects the first missing field (mood → genre → platform).
-    Ensures only one question is asked with a natural tone and no greetings.
+    Now adds freedom-language to each question (e.g. 'or something totally different?')
     """
     def get_last(arr):
         return arr[-1] if isinstance(arr, list) and arr else None
 
-    # Detect what's missing
     if not session.exit_mood:
         missing_field = "mood"
-        mood = None
         genre = get_last(session.genre)
         platform = get_last(session.platform_preference)
         system_prompt = f"""
-You're Thrum, a fast, friendly game assistant.
+You're Thrum — a playful, emotionally smart game assistant.
 
 You already know:
 - Genre: {genre or "unknown"}
 - Platform: {platform or "unknown"}
 
-Now, ask exactly ONE short, casual question to discover the user's **current mood or emotional vibe**.
+Ask ONE friendly, expressive question to discover the user’s **current mood or emotional vibe**.
+ask question of 10-12 words only.
+✅ Use casual, human language  
+✅ Mention some example moods (e.g. “emotional”, “competitive”, “funny”)  
+✅ Add a soft ending like “or something totally different?”  
+✅ One emoji max  
+❌ No greetings, no double questions
 
-✅ Make it sound human, fun, and natural  
-✅ Use at most ONE emoji (optional)  
-❌ Do NOT ask multiple questions  
-❌ Do NOT start with greetings like "Hi", "Hey", or "Hello"  
-Only return the one question. No explanation.
+🧠 Example styles:
+- What mood are you in — emotional, competitive, or funny? Or something totally different? 🎮
+- Feeling chill, chaotic, or in a story-rich kinda headspace… or something else entirely?
+- What’s the vibe today — sneaky, calm, cozy? Or are we breaking all the molds?
 """.strip()
         user_input = "Ask about mood."
 
     elif not session.genre:
         missing_field = "genre"
         mood = session.exit_mood
-        genre = None
         platform = get_last(session.platform_preference)
         system_prompt = f"""
-You're Thrum, helping someone find a game.
+You're Thrum — helping someone discover the perfect game.
 
 You already know:
 - Mood: {mood or "unknown"}
 - Platform: {platform or "unknown"}
 
-Ask exactly ONE human-sounding question to find out what **genre or style** of games they enjoy.
+Ask ONE fun, casual question to find the user's **preferred game genre**.
+ask question of 10-12 words only.
+✅ Mention a few examples: e.g. puzzle, action, life-sim, party chaos  
+✅ End with something like “or something totally different?”  
+✅ Keep tone relaxed and expressive  
+✅ Use max one emoji  
+❌ Don’t use greetings
 
-✅ Keep it natural, playful, and friendly  
-✅ ONE emoji max (optional)  
-❌ Do NOT combine multiple questions  
-❌ Never start with "Hi", "Hey", or "Hello"  
-Return just one clear, casual question — nothing else.
+🧠 Example styles:
+- Are you in the mood for platformers, chill sims, sneaky shooters — or something totally different? 🕹️
+- Puzzlers? Action? Party chaos? Or something totally offbeat?
+- Looking for strategy, sports, role-playing… or just whatever breaks the rules?
 """.strip()
         user_input = "Ask about genre."
 
@@ -228,31 +239,35 @@ Return just one clear, casual question — nothing else.
         missing_field = "platform"
         mood = session.exit_mood
         genre = get_last(session.genre)
-        platform = None
         system_prompt = f"""
-You're Thrum, a clever game-suggester.
+You're Thrum — a fast, friendly game suggester.
 
 You already know:
 - Mood: {mood or "unknown"}
 - Genre: {genre or "unknown"}
 
-Ask exactly ONE friendly question to learn what **platform** the user plays on — like console, PC, or mobile.
+Ask ONE casual, human question to discover the **platform** the user prefers.
+ask question of 10-12 words only.
+✅ Mention real examples: PS5, Switch, mobile, browser, VR  
+✅ Add a free-choice option like “or something else entirely?”  
+✅ Use natural tone  
+✅ 1 emoji max  
+❌ Never say hello or ask more than one question
 
-✅ Make it short, relaxed, and natural  
-✅ Optional emoji (only one)  
-❌ Don’t ask more than one question  
-❌ Never begin with "Hey", "Hi", or similar greetings  
-Just return the one question, nothing else.
+🧠 Example styles:
+- Do you usually game on PlayStation, Switch, or mobile — or something else entirely? 🎮
+- Is it Xbox, VR, mobile taps… or some off-the-map setup?
+- PS5 or Switch? Or do you roll with browser games and retro consoles?
 """.strip()
         user_input = "Ask about platform."
 
     else:
         return "Tell me anything else you'd like in the game."
 
-    print(f"ask_discovery_question : {missing_field} :: {system_prompt}")
+    print(f"ask_discovery_question: {missing_field}")
     response = await openai.ChatCompletion.acreate(
         model="gpt-4.1-mini",
-        temperature=0.5,
+        temperature=0.65,
         messages=[
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_input}

@@ -4,10 +4,12 @@ from datetime import datetime, timedelta
 from app.db.session import SessionLocal
 from app.db.models import Interaction, Session
 from app.db.models.enums import ResponseTypeEnum, PhaseEnum
-
-from app.services.tone_shift_detection import detect_tone_shift, mark_session_cold
+import json
 from app.utils.whatsapp import send_whatsapp_message
-from app.services.tone_classifier import classify_tone  # ✅ LLM-powered tone classifier
+from app.services.tone_classifier import classify_tone  
+from app.services.input_classifier import analyze_followup_feedback  
+from app.services.thrum_router.phase_ending import handle_ending
+from app.services.thrum_router.phase_delivery import handle_delivery
 import random
 
 @shared_task
@@ -34,16 +36,22 @@ async def send_feedback_followups():
     finally:
         db.close()
 
-async def handle_followup_logic(user_input, session):
-    if "another" in user_input.lower():
-        session.phase = PhaseEnum.DISCOVERY
-        return "Cool — let’s find you another one."
+async def handle_followup_logic(db, session, user, user_input):
+    feedback = await analyze_followup_feedback(user_input, session)
+    print(f"feedback : {feedback}")
+    parsed = json.loads(feedback)
+    intent = parsed.get("intent")
 
-    elif "no" in user_input.lower():
-        return "No problem! Want something slower or in a different style?"
+    if intent in ["want_another"]:
+        session.phase = PhaseEnum.DELIVERY
+        return await handle_delivery(db=db, session=session, user=user)
 
-    return "Wanna explore something new or share this with a friend?"
-
+    if intent in ["dont_want_another"]:
+        session.phase = PhaseEnum.ENDING
+        if not user.name:
+            return "BTW, what's your name? I'd love to remember you next time 😊"
+        else:
+            await handle_ending(session)
 async def get_post_recommendation_reply(user_input: str, last_game_name: str, session: Session, db) -> str | None:
     """
     Detect if the user is reacting to a game we just recommended.
@@ -101,5 +109,5 @@ async def handle_soft_session_close(session, db):
     session.exit_mood = session.exit_mood or user.mood_tags.get(datetime.utcnow().date().isoformat())
 
     farewell = random.choice(FAREWELL_LINES)
-    send_whatsapp_message(user.phone_number, farewell)
+    await send_whatsapp_message(user.phone_number, farewell)
     db.commit()

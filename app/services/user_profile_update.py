@@ -16,7 +16,7 @@ from app.utils.platform_utils import get_best_platform_match
 
 
 # ✅ Update user profile with parsed classification fields
-async def update_game_feedback_from_json(db, user_id: UUID, feedback_data: list) -> None:
+async def update_game_feedback_from_json(db, user_id: UUID, session,feedback_data: list) -> None:
     if not isinstance(feedback_data, list) or not feedback_data:
         print("🟡 No valid game feedback provided. Skipping update.")
         return
@@ -79,8 +79,10 @@ async def update_game_feedback_from_json(db, user_id: UUID, feedback_data: list)
             print(f"👍 Added to likes: {matched_game_id}")
         elif accepted is False and str(matched_game_id) not in user.dislikes["dislike"]:
             user.dislikes["dislike"].append(str(matched_game_id))
+            if str(matched_game_id) not in session.rejected_games:
+                session.rejected_games.append(str(matched_game_id))
             print(f"👎 Added to dislikes: {matched_game_id}")
-
+        user.last_updated["game_feedback"] = str(datetime.utcnow())
     db.commit()
     print("💾 All feedback processed and saved.")
 
@@ -115,6 +117,8 @@ async def update_user_from_classification(db: Session, user, classification: dic
     if mood and mood != "None":
         mood_result = await detect_mood_from_text(db, mood)
         user.mood_tags[today] = mood_result
+        if not session.entry_mood:
+            session.entry_mood = mood_result
         session.exit_mood = mood_result
         user.last_updated["mood_tags"] = str(datetime.utcnow())
         # update_or_create_session_mood(db, user, new_mood=mood_result)
@@ -202,16 +206,17 @@ async def update_user_from_classification(db: Session, user, classification: dic
         # Ensure proper structure
         if not isinstance(user.reject_tags, dict):
             user.reject_tags = {}
-        # Ensure meta_data and structure
+
+        # Ensure the session meta_data exists
         if session.meta_data is None:
             session.meta_data = {}
-
-        session.meta_data.setdefault("reject_tags", {})
+        print(f"reject_tags : {session.meta_data}")
+        # Initialize the reject_tags structure if not already initialized
+        if "reject_tags" not in session.meta_data:
+            session.meta_data["reject_tags"] = {"genre": [], "platform": [], "other": []}
+        print(f"reject_tags : {session.meta_data}")
         reject_data = session.meta_data["reject_tags"]
-
-        reject_data.setdefault("genre", [])
-        reject_data.setdefault("platform", [])
-        reject_data.setdefault("other", [])
+        print(f"reject_data : {reject_data}")
 
         user.reject_tags.setdefault("genre", [])
         user.reject_tags.setdefault("platform", [])
@@ -248,8 +253,5 @@ async def update_user_from_classification(db: Session, user, classification: dic
 
         user.last_updated["reject_tags"] = str(datetime.utcnow())
 
-    await update_game_feedback_from_json(db=db, user_id=user.user_id, feedback_data=game_feedback)
-
-    user.last_updated["game_feedback"] = str(datetime.utcnow())
-
     db.commit()
+    await update_game_feedback_from_json(db=db, user_id=user.user_id, session=session, feedback_data=game_feedback)

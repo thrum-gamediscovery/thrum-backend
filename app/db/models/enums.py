@@ -37,3 +37,4 @@ class PhaseEnum(str, enum.Enum):
     CONFIRMATION = "confirmation"
     DELIVERY = "delivery"
     FOLLOWUP = "followup"
+    ENDING = "ending"

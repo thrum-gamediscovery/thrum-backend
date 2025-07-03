@@ -18,7 +18,7 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.types import Enum as SQLAlchemyEnum
-
+from sqlalchemy.ext.mutable import MutableDict
 from app.db.base import Base
 from app.db.models.enums import SessionTypeEnum, PhaseEnum
 
@@ -55,6 +55,7 @@ class Session(Base):
     # Example: ONBOARDING, ACTIVE, CLOSED — used to segment session state in analytics or trigger logic
 
     intent_override_triggered = Column(Boolean, default=False)
+    followup_triggered = Column(Boolean, default=False)
     # Example: Set to True if user says "just give me a game" and bot skips to direct delivery
 
     opted_out = Column(Boolean, default=False)
@@ -70,7 +71,7 @@ class Session(Base):
     # Example: Values like 'low', 'medium', or 'high' — helps tailor future reply length or pacing
 
     # Flexible metadata field (for debug logs, GPT traces, etc.)
-    meta_data = Column(JSON, nullable=True)
+    meta_data = Column(MutableDict.as_mutable(JSON), nullable=True)
 
     # Relationships
     user = relationship("UserProfile", back_populates="sessions")

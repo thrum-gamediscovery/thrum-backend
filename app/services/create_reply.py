@@ -3,6 +3,7 @@ from app.services.thrum_router.phase_discovery import handle_discovery
 from app.services.thrum_router.phase_confirmation import handle_confirmation
 from app.services.thrum_router.phase_delivery import handle_delivery
 from app.services.thrum_router.phase_followup import handle_followup
+from app.services.thrum_router.phase_ending import handle_ending
 from app.services.thrum_router.interrupt_logic import check_intent_override
 from app.services.input_classifier import classify_user_input
 from app.services.user_profile_update import update_user_from_classification
@@ -34,6 +35,9 @@ async def generate_thrum_reply(db:Session, user_input: str, session, user) -> st
         return await handle_delivery(db, session, user)
 
     elif phase == PhaseEnum.FOLLOWUP:
-        return await handle_followup(user_input, session, user)
+        return await handle_followup(db,session,user,user_input)
+    
+    elif phase == PhaseEnum.ENDING:
+        return await handle_ending(session)
 
     return "Hmm, something went wrong. Let's try again!"
