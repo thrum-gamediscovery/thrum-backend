@@ -15,6 +15,7 @@ async def handle_discovery(db, session, user):
 
     elif session.discovery_questions_asked >= 2:
         session.phase = PhaseEnum.DELIVERY
+        session.discovery_questions_asked = 0
         return await deliver_game_immediately(db,user, session)
 
     else:

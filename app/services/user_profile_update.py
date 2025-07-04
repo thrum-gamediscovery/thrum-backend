@@ -97,7 +97,6 @@ async def update_user_from_classification(db: Session, user, classification: dic
 
     name = classification.get("name")
     mood = classification.get("mood")
-    game_vibe = classification.get("game_vibe")
     genre = classification.get("genre")
     print(f"update genre :; {genre}")
     platform = classification.get("platform_pref")
@@ -131,11 +130,23 @@ async def update_user_from_classification(db: Session, user, classification: dic
             user.genre_prefs.setdefault(today, [])
             if matched_genre not in user.genre_prefs[today]:
                 user.genre_prefs[today].append(matched_genre)
+                print(f"✅ Added genre '{matched_genre}' to user.genre_prefs[{today}]")
 
-            # Safely handle and persist session.genre updates
+            # ✅ Remove from user.reject_tags["genre"]
+            if matched_genre in user.reject_tags.get("genre", []):
+                user.reject_tags["genre"].remove(matched_genre)
+                print(f"🧹 Removed genre '{matched_genre}' from user.reject_tags")
+
+            # ✅ Remove from session.meta_data["reject_tags"]["genre"]
+            if session and session.meta_data and "reject_tags" in session.meta_data:
+                reject_data = session.meta_data["reject_tags"]
+                if matched_genre in reject_data.get("genre", []):
+                    reject_data["genre"].remove(matched_genre)
+                    print(f"🧹 Removed genre '{matched_genre}' from session.meta_data['reject_tags']['genre']")
+
+            # ✅ Add to session.genre
             if session:
                 session_genres = session.genre or []
-
                 if matched_genre not in session_genres:
                     session_genres.append(matched_genre)
                     session.genre = session_genres
@@ -158,11 +169,23 @@ async def update_user_from_classification(db: Session, user, classification: dic
             user.platform_prefs.setdefault(today, [])
             if matched_platform not in user.platform_prefs[today]:
                 user.platform_prefs[today].append(matched_platform)
+                print(f"✅ Added platform '{matched_platform}' to user.platform_prefs[{today}]")
 
-            # Safely handle and persist session.platform_preference updates
+            # ✅ Remove from user.reject_tags["platform"]
+            if matched_platform in user.reject_tags.get("platform", []):
+                user.reject_tags["platform"].remove(matched_platform)
+                print(f"🧹 Removed platform '{matched_platform}' from user.reject_tags")
+
+            # ✅ Remove from session.meta_data["reject_tags"]["platform"]
+            if session and session.meta_data and "reject_tags" in session.meta_data:
+                reject_data = session.meta_data["reject_tags"]
+                if matched_platform in reject_data.get("platform", []):
+                    reject_data["platform"].remove(matched_platform)
+                    print(f"🧹 Removed platform '{matched_platform}' from session.meta_data['reject_tags']['platform']")
+
+            # ✅ Add to session.platform_preference
             if session:
                 session_platforms = session.platform_preference or []
-
                 if matched_platform not in session_platforms:
                     session_platforms.append(matched_platform)
                     session.platform_preference = session_platforms
@@ -221,10 +244,11 @@ async def update_user_from_classification(db: Session, user, classification: dic
         user.reject_tags.setdefault("genre", [])
         user.reject_tags.setdefault("platform", [])
         user.reject_tags.setdefault("other", [])
+        
         for tag in reject_tags:
             tag_clean = tag.strip().lower()
 
-            # Try platform match
+            # ✅ Try platform match
             matched_platform = await get_best_platform_match(user_input=tag_clean, db=db)
             if matched_platform:
                 if matched_platform not in user.reject_tags["platform"]:
@@ -232,9 +256,22 @@ async def update_user_from_classification(db: Session, user, classification: dic
                 if matched_platform not in reject_data["platform"]:
                     reject_data["platform"].append(matched_platform)
                 print(f"✅ Platform matched: {tag_clean} → {matched_platform}")
+
+                # ✅ Remove from user.platform_prefs
+                for day, platforms in user.platform_prefs.items():
+                    if matched_platform in platforms:
+                        platforms.remove(matched_platform)
+                        print(f"🧹 Removed rejected platform '{matched_platform}' from user.platform_prefs[{day}]")
+
+                # ✅ Remove from session.platform_preference
+                if session and session.platform_preference and matched_platform in session.platform_preference:
+                    session.platform_preference.remove(matched_platform)
+                    flag_modified(session, "platform_preference")
+                    print(f"🧹 Removed rejected platform '{matched_platform}' from session.platform_preference")
+
                 continue
 
-            # Try genre match
+            # ✅ Try genre match
             matched_genre = await get_best_genre_match(input_genre=tag_clean, db=db)
             if matched_genre:
                 if matched_genre not in user.reject_tags["genre"]:
@@ -242,15 +279,30 @@ async def update_user_from_classification(db: Session, user, classification: dic
                 if matched_genre not in reject_data["genre"]:
                     reject_data["genre"].append(matched_genre)
                 print(f"✅ Genre matched: {tag_clean} → {matched_genre}")
+
+                # ✅ Remove from user.genre_prefs
+                for day, genres in user.genre_prefs.items():
+                    if matched_genre in genres:
+                        genres.remove(matched_genre)
+                        print(f"🧹 Removed rejected genre '{matched_genre}' from user.genre_prefs[{day}]")
+
+                # ✅ Remove from session.genre
+                if session and session.genre and matched_genre in session.genre:
+                    session.genre.remove(matched_genre)
+                    flag_modified(session, "genre")
+                    print(f"🧹 Removed rejected genre '{matched_genre}' from session.genre")
+
                 continue
 
-            # If no match, store in "other"
+            # ✅ If no match, store in "other"
             if tag_clean not in user.reject_tags["other"]:
                 user.reject_tags["other"].append(tag_clean)
             if tag_clean not in reject_data["other"]:
                 reject_data["other"].append(tag_clean)
-                print(f"⚠️ No match found for: {tag_clean} → added to 'other'")
+            print(f"⚠️ No match found for: {tag_clean} → added to 'other'")
 
+        print(f"-------------------- reject_tags : {session.meta_data}")
+        flag_modified(session, "meta_data")
         user.last_updated["reject_tags"] = str(datetime.utcnow())
 
     db.commit()

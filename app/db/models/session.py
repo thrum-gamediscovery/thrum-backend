@@ -58,9 +58,8 @@ class Session(Base):
     followup_triggered = Column(Boolean, default=False)
     # Example: Set to True if user says "just give me a game" and bot skips to direct delivery
 
-    opted_out = Column(Boolean, default=False)
-    # Example: Set to True if user says "not now", "go away", etc. — bot ends session politely
-
+    game_rejection_count = Column(Integer, default=0)
+    
     shared_with_friend = Column(Boolean, default=False)
     # Example: Set to True if user responds positively to "Send this to your friends: ..."
 

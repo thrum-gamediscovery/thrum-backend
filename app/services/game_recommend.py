@@ -5,7 +5,7 @@ from app.db.models.game_platforms import GamePlatform
 from app.db.models.game_recommendations import GameRecommendation
 from app.db.models.session import Session as UserSession
 from app.db.models.game import Game
-from sqlalchemy import func, cast, Integer
+from sqlalchemy import func, cast, Integer, or_
 from scipy.spatial.distance import cosine
 from datetime import datetime
 from typing import Optional, Dict, Tuple
@@ -31,14 +31,50 @@ async def game_recommendation(db: Session, user, session) -> Optional[Tuple[Dict
     )
     print(f"[🎯] Final values — platform: {platform}, genre: {genre}, mood: {mood}")
 
-    # Step 1.5: Cold start → recommend random safe game
+    # Step 2: Base query and rejection filters
+    rejected_game_ids = set(session.rejected_games or [])
+    recommended_ids = set(
+        r[0] for r in db.query(GameRecommendation.game_id).filter(
+            GameRecommendation.session_id == session.session_id
+        )
+    )
+    reject_genres = set((session.meta_data or {}).get("reject_tags", {}).get("genre", []))
+
+    base_query = db.query(Game).filter(
+        Game.mood_embedding.isnot(None),
+        Game.game_embedding.isnot(None),
+        ~Game.game_id.in_(rejected_game_ids),
+        ~Game.game_id.in_(recommended_ids)
+    )
+
+    if reject_genres:
+        genre_filters = [
+            Game.genre.any(func.lower(genre.strip().lower()))
+            for genre in reject_genres
+        ]
+        base_query = base_query.filter(~or_(*genre_filters))
+
+    # Step 3: Filter games above user age if user_age is known
+    user_age = None
+    if user.age_range:
+        try:
+            user_age = int(user.age_range)
+        except ValueError:
+            pass
+
+    if user_age is not None:
+        base_query = base_query.filter(
+            cast(Game.age_rating, Integer) <= user_age
+        )
+
+    base_games = base_query.all()
+    if not base_games:
+        return None, None
+    session.game_rejection_count += 1
+        # Step 1.5: Cold start → recommend random safe game
     if not platform and not genre and not mood:
         print("[🧊] Cold start: returning a safe random game.")
-        random_game = db.query(Game).filter(
-            Game.mood_embedding.isnot(None),
-            Game.game_embedding.isnot(None),
-            cast(Game.age_rating, Integer) < 18
-        ).order_by(func.random()).first()
+        random_game = base_query.order_by(func.random()).first()
 
         if not random_game:
             return None, None
@@ -68,42 +104,7 @@ async def game_recommendation(db: Session, user, session) -> Optional[Tuple[Dict
             "has_story": random_game.has_story,
             "platforms": [p[0] for p in platforms]
         }, False
-
-    # Step 2: Base query and rejection filters
-    rejected_game_ids = set(session.rejected_games or [])
-    recommended_ids = set(
-        r[0] for r in db.query(GameRecommendation.game_id).filter(
-            GameRecommendation.session_id == session.session_id
-        )
-    )
-    reject_genres = set((session.meta_data or {}).get("reject_tags", {}).get("genre", []))
-
-    base_query = db.query(Game).filter(
-        Game.mood_embedding.isnot(None),
-        Game.game_embedding.isnot(None),
-        ~Game.game_id.in_(rejected_game_ids),
-        ~Game.game_id.in_(recommended_ids)
-    )
-    if reject_genres:
-        base_query = base_query.filter(~Game.genre.overlap(list(reject_genres)))
-
-    # Step 3: Filter games above user age if user_age is known
-    user_age = None
-    if user.age_range:
-        try:
-            user_age = int(user.age_range)
-        except ValueError:
-            pass
-
-    if user_age is not None:
-        base_query = base_query.filter(
-            cast(Game.age_rating, Integer) <= user_age
-        )
-
-    base_games = base_query.all()
-    if not base_games:
-        return None, None
-
+    
     # Step 4: Mood cluster for soft filtering
     cluster_tags = []
     if mood:

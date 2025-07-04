@@ -8,38 +8,54 @@ from app.db.models.enums import SenderEnum
 # Set API Key
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
-
-async def is_intent_override(user_input: str) -> bool:
+async def classify_user_intent(user_input: str,session) -> dict:
     """
-    Uses GPT to decide if the user is overriding intent and wants a game immediately.
-
-    Returns True if GPT believes the message skips discovery and demands a direct game.
+    Classifies user input into:
+    - intent_override: User wants to skip discovery and get a game immediately.
+    - not_in_the_mood: User does not want to engage right now or wants to leave.
+    Returns:
+        {
+            "intent_override": True/False,
+            "not_in_the_mood": True/False
+        }
     """
-    
-    prompt = (
-        "You are a classification agent for a game recommendation bot.\n"
-        "Your task is to detect if the user's message is a direct request for a game,\n"
-        "bypassing all mood/genre/platform questions (called an 'intent override').\n\n"
-        f"User message: \"{user_input}\"\n\n"
-        "Is this an intent override?\n"
-        "Respond with just: true or false."
-    )
+    thrum_interactions = [i for i in session.interactions if i.sender == SenderEnum.Thrum]
+    last_thrum_reply = thrum_interactions[-1].content if thrum_interactions else ""
+    prompt = f"""
+User message: "{user_input}"
+You are a classification engine for a conversational game assistant.
+last thrum reply :{last_thrum_reply} (for your reference that user input is reply of this thrum's message)
+You must detect whether the user is:
+1. intent_override = true:
+If the user wants to skip the assistant’s usual discovery questions (about mood, genre, platform), and prefers the assistant to choose a game immediately on their behalf.
+If user want to skip the questions and directly asking for the suggesting the game and input is like not want that game and want another game at that time tis should be True.
+This includes direct demands, urgency, or input that avoids or defers decision-making — even politely or vaguely.
+2. not_in_the_mood = true:
+If the user expresses disinterest, wants to stop interacting, postpone, or end the session.
+This includes emotional opt-outs, dismissals, or indirect rejection of further conversation.
+These flags are not mutually exclusive. Respond only with a compact JSON object:
+{{"intent_override": boolean, "not_in_the_mood": boolean}}
+User message: "{user_input}"
+"""
 
     try:
-        response = openai.ChatCompletion.create(
+        response = await openai.ChatCompletion.acreate(
             model="gpt-4.1-mini",
             temperature=0,
-            messages=[
-                {"role": "user", "content": prompt}
-            ]
+            messages=[{"role": "user", "content": prompt}]
         )
-        content = response['choices'][0]['message']['content'].strip().lower()
-        print(f"content : {content} ::: {'true' in content}")
-        return "true" in content
+        content = response['choices'][0]['message']['content'].strip()
+        print("🧠 GPT Raw Response:", content)
+
+        result = json.loads(content.lower())
+        return {
+            "intent_override": bool(result.get("intent_override", False)),
+            "not_in_the_mood": bool(result.get("not_in_the_mood", False))
+        }
 
     except Exception as e:
-        print("GPT override check failed:", e)
-        return False
+        print("❌ GPT classification failed:", e)
+        return {"intent_override": False, "not_in_the_mood": False}
     
 # ✅ Use OpenAI to classify mood, vibe, genre, and platform from free text
 async def classify_user_input(session, user_input: str) -> dict | str:
@@ -177,8 +193,8 @@ last recommended game:
 - 
 Now classify into the format below.
 '''
-
-    try:
+    print(f'print prompt : {user_prompt}')
+    try:    
         response = openai.ChatCompletion.create(
             model="gpt-4.1-mini",
             messages=[
