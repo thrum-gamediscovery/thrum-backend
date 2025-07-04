@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 from app.db.session import SessionLocal
 from app.db.models.session import Session
 from app.utils.whatsapp import send_whatsapp_message
-from app.db.models.enums import SenderEnum
+from app.db.models.enums import SenderEnum, PhaseEnum
 import random
 import openai
 from app.tasks.followup import handle_soft_session_close
@@ -43,10 +43,9 @@ Respond with one word only.
     return dry_like_count >= 2
 
 async def check_for_nudge():
-    print('call check_for_nudge..................................................................')
     db = SessionLocal()
     now = datetime.utcnow()
-    sessions = db.query(Session).filter(Session.awaiting_reply == True).all()
+    sessions = db.query(Session).filter(Session.awaiting_reply == True, Session.phase != PhaseEnum.ENDING).all()
 
     for s in sessions:
         user = s.user
