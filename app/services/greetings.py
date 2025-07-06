@@ -1,47 +1,46 @@
-import openai
-import os
-
-openai.api_key = os.getenv("OPENAI_API_KEY")
+import random
 
 async def generate_intro(is_first_message: bool, idle_reconnect: bool, user_input: str, user=None) -> str:
-    print("generate_intro called")
-    tone = "first-time" if is_first_message else "idle" if idle_reconnect else "reengage"
     name = getattr(user, "name", None) if user else None
-    user_line = f'The user is named "{name}".' if name else ""
-
-    system_prompt = f"""
-You are Thrum — a warm, confident, and human-sounding game discovery assistant on WhatsApp.
-
-Your job: Send a short intro message (under 2 lines) to start the conversation.
-
-Strict rules:
-- NEVER ask questions.
-- NEVER mention genres, moods, or preferences yet.
-- NEVER use the same wording every time.
-- ALWAYS vary the phrasing, sentence rhythm, punctuation, or emoji (subtly or clearly).
-- Include the user's name if provided: {user_line}
-
-Scenarios:
-- First-time → welcome the user and casually explain what Thrum does
-- Idle → user was silent for 5–10s, softly nudge them back
-- Reengage → user typed something vague, gently keep things moving
-
-Speak naturally. No filler. No template voice. Avoid sounding like a bot.
-
-Mode: {tone.upper()}
-"""
-
-    try:
-        print(f"generate_intro : {user_input} :: {system_prompt}")
-        response = await openai.ChatCompletion.acreate(
-            model="gpt-4.1-mini",
-            temperature=0.5,
-            messages=[
-                {"role": "system", "content": system_prompt.strip()},
-                {"role": "user", "content": f"The user said: {user_input}"}
+    
+    # Detect user's tone from input for matching
+    user_tone = "casual"
+    if any(word in user_input.lower() for word in ["hey", "heyy", "yo", "sup"]):
+        user_tone = "casual"
+    elif any(word in user_input.lower() for word in ["hello", "hi", "good"]):
+        user_tone = "friendly"
+    elif "lol" in user_input.lower() or "😄" in user_input or "😂" in user_input:
+        user_tone = "playful"
+    
+    # Natural intro variations based on examples and user tone
+    if is_first_message:
+        if user_tone == "playful":
+            intros = [
+                "Haha I'll take that title 😄 Yep – I'm Thrum, and I help people find games that fit their mood, not just their genre. Want a little rec to start?",
+                "Hey 👋 I'm Thrum – I help people find games that match their mood. Want a quick rec? Totally chill if not. 😎"
             ]
-        )
-        return response["choices"][0]["message"]["content"].strip()
-    except Exception as e:
-        print("GPT intro fallback:", e)
-        return "Hey there 👋 I help people find games that match their vibe. Tell me a mood or game you’re into!"
+        elif user_tone == "casual":
+            intros = [
+                "Hey 👋 I'm Thrum – I help people find games that actually fit their vibe. Want a quick recommendation? No pressure.",
+                "Hey 👋 I'm Thrum – I help people find games that match their mood. Want a quick rec? Totally optional, no strings 😎"
+            ]
+        else:
+            intros = [
+                "Hey 👋 Nice to meet you. I'm Thrum – I help people find games that actually fit their mood. Want a quick recommendation? No pressure.",
+                "Hey 👋 I'm Thrum – I help people find games that match their mood. Want a quick rec? Totally chill if not. 😎"
+            ]
+        return random.choice(intros)
+    
+    # For returning users with name - personalized greetings
+    if name and not is_first_message:
+        if idle_reconnect:
+            return f"Hey {name} 👋 Back for more game recs? What's the vibe today?"
+        else:
+            return f"Nice to meet you properly, {name} 🙌"
+    
+    # Returning users without name
+    if not is_first_message and not name:
+        return "Hey again 👋 Ready for another game rec?"
+    
+    # Fallback
+    return "Hey 👋 I'm Thrum – I help people find games that match your vibe. Want a quick rec?"

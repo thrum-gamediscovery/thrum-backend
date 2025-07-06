@@ -14,6 +14,31 @@ async def handle_followup(db, session, user, user_input):
     return await handle_followup_logic(db=db, session=session, user=user, user_input=user_input)
 
 async def ask_followup_que(session) -> str:
+    # Context-aware followup questions
+    asked_questions = getattr(session, 'asked_questions', []) or []
+    platform = session.platform_preference[-1] if session.platform_preference else None
+    
+    # Platform-specific questions
+    if platform and "PC" in str(platform) and "steam" not in asked_questions:
+        if not hasattr(session, 'asked_questions'):
+            session.asked_questions = []
+        session.asked_questions.append("steam")
+        return "Want me to send you the Steam link if you have a Steam account?"
+    
+    # Natural conversation continuers
+    followup_questions = [
+        "How did that sound to you?",
+        "Let me know if that clicks. If not, I've got other curveballs ready to throw your way.",
+        "Sound good or want something else?",
+        "That work for you or should I find something different?",
+        "Ring a bell?",
+        "Worth a shot?"
+    ]
+    
+    return random.choice(followup_questions)
+
+# Legacy function kept for compatibility
+async def ask_followup_que_legacy(session) -> str:
     if session.story_preference is None:
         last_game = session.game_recommendations[-1].game if session.game_recommendations else None
         if last_game and last_game.has_story is True:
