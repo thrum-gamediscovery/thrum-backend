@@ -33,6 +33,16 @@ PLATFORM_EMOJIS = {
     "Web Browser": "🌐"
 }
 
+import random
+
+VARIATION_LINES = [
+    "Feels like a great match for your current vibe.",
+    "This one fits your energy perfectly.",
+    "Matches your style — give it a shot!",
+    "Vibe check passed ✅ This one’s for you.",
+    "Could be your next favorite — want to try it?"
+]
+
 async def format_game_output(session, game: dict, user_context: dict = None) -> str:
     last_user_tone = get_last_user_tone_from_session(session)
 
@@ -89,8 +99,15 @@ Game: {title}
 
 Write exactly 3 lines:
 1. Game title (bold using Markdown asterisks)
-2. A confident, casual 10–12 word line explaining why it fits the user’s vibe.
-3. A direct platform-specific line like “Play it on your PlayStation 5 🎮”
+2. A confident, casual 10–12 word sentence — rotate phrasing for variety.
+   For example, use patterns like:
+   - "Gives you fast-paced fun with..."
+   - "If you're into [genre], this hits hard."
+   - "This one totally fits your chill mood and vibe."
+3. A platform line that’s natural. Vary your phrases like:
+   - “Play it on your mobile 📱”
+   - “Best with a controller on PS5 🎮”
+   - “Tap in on iPhone when you’ve got a minute.”
 
 Avoid weak words like “maybe” or “you could”.
 Use 1–2 emojis max. No links. No intro text. Just 3 clean lines.
@@ -109,12 +126,14 @@ Use 1–2 emojis max. No links. No intro text. Just 3 clean lines.
 
         if score < 0.3:
             print("⚠️ Tone mismatch. Falling back to default style.")
-            return f"**{title}**\nFeels like a great match for your current mood.\n{search_line}"
+            fallback = random.choice(VARIATION_LINES)
+            return f"**{title}**\n{fallback}\n{search_line}"
 
         return raw_reply
 
     except Exception:
-        return f"**{title}**\nFeels like a great match for your current mood.\n{search_line}"
+        fallback = random.choice(VARIATION_LINES)
+        return f"**{title}**\n{fallback}\n{search_line}"
 
 
 async def deliver_game_immediately(db:Session,user, session) -> str:
