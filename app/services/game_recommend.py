@@ -70,7 +70,7 @@ async def game_recommendation(db: Session, user, session) -> Optional[Tuple[Dict
     base_games = base_query.all()
     if not base_games:
         return None, None
-    session.game_rejection_count += 1
+    # session.game_rejection_count += 1
         # Step 1.5: Cold start → recommend random safe game
     if not platform and not genre and not mood:
         print("[🧊] Cold start: returning a safe random game.")

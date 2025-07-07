@@ -42,8 +42,9 @@ async def handle_followup_logic(db, session, user, user_input):
     intent = parsed.get("intent")
 
     if intent in ["want_another"]:
+        session.game_rejection_count = (session.game_rejection_count or 0) + 1
         session.phase = PhaseEnum.DISCOVERY
-        return await handle_discovery(db=db,session=session, user=user)
+        return await handle_discovery(db=db, session=session, user=user)
 
     if intent in ["dont_want_another"]:
         if not user.name:

@@ -17,6 +17,7 @@ async def generate_thrum_reply(db: Session, user_input: str, session, user) -> s
     # 🔥 Intent override (e.g., "just give me a game")
     classification = await classify_user_input(session=session, user_input=user_input)
     await update_user_from_classification(db=db, user=user, classification=classification, session=session)
+
     if detect_tone_shift(session):
         session.tone_shift_detected = True
         db.commit()
@@ -24,6 +25,7 @@ async def generate_thrum_reply(db: Session, user_input: str, session, user) -> s
     override_reply = await check_intent_override(db, user_input, user, session)
     if override_reply:
         return override_reply
+
 
     phase = session.phase
 
