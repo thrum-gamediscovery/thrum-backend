@@ -53,15 +53,21 @@ async def check_for_nudge():
             continue
 
         # ⏱️ Adaptive delay based on silence count
-        delay = timedelta(seconds=30 if (user.silence_count or 0) > 2 else 30)
+        delay = timedelta(seconds=60)
 
         if now - s.last_thrum_timestamp > delay:
             # 🎯 Soft nudge message
             nudge = random.choice([
-                "Still there? 👀",
-                "Want another rec? 🎮",
-                "Can I throw you a wild card pick?",
-                "No rush — just poke me when ready 😄"
+                "Still there? 😊",
+                "Just drop a word, I’m here.",
+                "You can say anything — no pressure.",
+                "Take your time. I’m listening.",
+                "Feel free to toss in a mood or thought.",
+                "Whenever you’re ready, just type something.",
+                "No rush — I’m right here when you are.",
+                "Even one word is enough 👀",
+                "Say anything — a vibe, a genre, a name.",
+                "Let’s keep this going when you’re ready!"
             ])
             await send_whatsapp_message(user.phone_number, nudge)
 

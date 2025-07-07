@@ -16,3 +16,13 @@ async def get_best_platform_match(user_input: str, db: Session, threshold: int =
 
     result = process.extractOne(user_input, valid_platforms, score_cutoff=threshold)
     return result[0] if result else None
+
+
+DEFAULT_PLATFORM_MAP = {
+    "mobile": "iPhone / iPod Touch",
+    "pc": "Windows",
+    "console": "PlayStation 4"
+}
+
+def get_default_platform(platform: str) -> str:
+    return DEFAULT_PLATFORM_MAP.get(platform.lower(), platform)

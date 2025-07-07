@@ -1,4 +1,5 @@
 from app.tasks.followup import handle_followup_logic
+from app.services.tone_engine import get_last_user_tone_from_session
 from app.db.models.enums import PhaseEnum
 from app.db.models.session import Session
 from datetime import datetime, timedelta
@@ -14,6 +15,7 @@ async def handle_followup(db, session, user, user_input):
     return await handle_followup_logic(db=db, session=session, user=user, user_input=user_input)
 
 async def ask_followup_que(session) -> str:
+    last_user_tone = get_last_user_tone_from_session(session)
     if session.story_preference is None:
         last_game = session.game_recommendations[-1].game if session.game_recommendations else None
         if last_game and last_game.has_story is True:
@@ -39,6 +41,8 @@ async def ask_followup_que(session) -> str:
     else:
         game_title = session.last_recommended_game or "that game"
         prompt = f"""
+        Speak entirely in the user's tone: {last_user_tone}.  
+Use their style, energy, and attitude naturally. Do not describe or name the tone — just talk like that.
 You're Thrum — a fast, friendly, emotionally smart game recommender.
 The user just got a game suggestion: "{game_title}"
 Now, ask them *one* natural, human-sounding question that combines:

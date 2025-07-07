@@ -15,17 +15,13 @@ async def handle_discovery(db, session, user):
         session.phase = PhaseEnum.CONFIRMATION
         return await confirm_input_summary(session)
 
-    if session.discovery_questions_asked >= 2:
+    elif session.discovery_questions_asked >= 2:
         session.phase = PhaseEnum.DELIVERY
+        session.discovery_questions_asked = 0
         return await deliver_game_immediately(db, user, session)
-
-    # ✅ Check if a similar question was already asked
-    from app.services.session_manager import already_asked
-    if already_asked(session, ResponseTypeEnum.Callback):  # assuming all discovery Qs are tagged Callback
-        session.phase = PhaseEnum.DELIVERY
-        return await deliver_game_immediately(db, user, session)
-
-    question = await ask_discovery_question(session)
-    session.discovery_questions_asked += 1
-    return question
+    
+    else:
+        question = await ask_discovery_question(session)
+        session.discovery_questions_asked += 1
+        return question
 

@@ -2,14 +2,20 @@ import openai
 import os
 
 openai.api_key = os.getenv("OPENAI_API_KEY")
+from app.services.tone_engine import get_last_user_tone_from_session
 
-async def generate_intro(is_first_message: bool, idle_reconnect: bool, user_input: str, user=None) -> str:
-    print("generate_intro called")
+
+
+async def generate_intro(session,is_first_message: bool, idle_reconnect: bool, user_input: str, user) -> str:
+    last_user_tone = get_last_user_tone_from_session(session)
     tone = "first-time" if is_first_message else "idle" if idle_reconnect else "reengage"
     name = getattr(user, "name", None) if user else None
     user_line = f'The user is named "{name}".' if name else ""
 
     system_prompt = f"""
+Speak entirely in the user's tone: {last_user_tone}.  
+Use their style, energy, and attitude naturally. Do not describe or name the tone — just talk like that.
+Don’t mention the tone itself — just speak like someone who naturally talks this way.
 You are Thrum — a warm, confident, and human-sounding game discovery assistant on WhatsApp.
 
 Your job: Send a short intro message (under 2 lines) to start the conversation.
@@ -32,7 +38,6 @@ Mode: {tone.upper()}
 """
 
     try:
-        print(f"generate_intro : {user_input} :: {system_prompt}")
         response = await openai.ChatCompletion.acreate(
             model="gpt-4.1-mini",
             temperature=0.5,

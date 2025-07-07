@@ -45,7 +45,6 @@ User message: "{user_input}"
             messages=[{"role": "user", "content": prompt}]
         )
         content = response['choices'][0]['message']['content'].strip()
-        print("🧠 GPT Raw Response:", content)
 
         result = json.loads(content.lower())
         return {
@@ -90,9 +89,18 @@ You must infer from both keywords and tone — even if the user is casual, brief
    → e.g., puzzle, horror, racing, shooter, strategy, farming, simulation, narrative, platformer.  
    → Accept synonyms like “scary” = horror, “farming sim” = farming.
 
-5. platform_pref (string)  
-   → PC, mobile, Xbox, PlayStation, Switch, etc.  
-   → Detect implied platforms too: “on the train” = mobile, “on my couch” = console.
+5. platform_pref (string)
+   → Use platform **exactly as provided** if it matches one of these:
+     Android, Linux, Macintosh, "Meta Quest 2", "New Nintendo 3DS", "Nintendo 3DS",
+     "Nintendo Switch", "Nintendo Switch 2", "Nintendo Wii U", "Oculus Quest",
+     "PlayStation 3", "PlayStation 4", "PlayStation 5", "PlayStation Vita",
+     "Web Browser", Windows, "Xbox 360", "Xbox One", "Xbox Series X|S", iPad, "iPhone / iPod Touch"
+   → Also accept these generic terms as-is:
+     "mobile", "pc", "console"
+   → If user says "Android", return "Android"
+     If user says "mobile", return "mobile"
+     If user says "console", return "console"
+   → Do NOT map or infer platforms from phrases like “on my couch” or “on the train” — only extract explicit matches.
 
 6. region (string)  
    → Location like India, US, UK, etc.  
@@ -193,7 +201,6 @@ last recommended game:
 - 
 Now classify into the format below.
 '''
-    print(f'print prompt : {user_prompt}')
     try:    
         response = openai.ChatCompletion.create(
             model="gpt-4.1-mini",

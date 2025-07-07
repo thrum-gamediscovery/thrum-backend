@@ -17,7 +17,6 @@ async def embed_text(text: str) -> list[float]:
 
 # ✅ Detect user mood from input text using keyword or embedding similarity
 async def detect_mood_from_text(db: Session, user_input: str) -> Optional[str]:
-    print(f"user input : {user_input}")
     input_words = set(word.lower() for word in user_input.split())
     moods = db.query(MoodCluster).all()
     mood_names = [m.mood.lower() for m in moods]
@@ -25,7 +24,6 @@ async def detect_mood_from_text(db: Session, user_input: str) -> Optional[str]:
     for word in input_words:
         if word in mood_names:
             matched_mood = next((m.mood for m in moods if m.mood.lower() == word), None)
-            print(f"⚡ Direct word match found: '{word}' → mood: {matched_mood}")
             return matched_mood
 
     # ✅ Fix: Await the async embed_text call
@@ -42,7 +40,6 @@ async def detect_mood_from_text(db: Session, user_input: str) -> Optional[str]:
             continue
 
         sim = 1 - cosine(user_vector, mood_vector)
-        print(f"{mood.mood} → cosine similarity: {sim:.4f}")
         if sim > best_score:
             best_score = sim
             best_mood = mood.mood

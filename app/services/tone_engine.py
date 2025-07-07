@@ -2,6 +2,18 @@ import re
 import openai
 from app.db.session import SessionLocal
 from app.db.models.session import Session as DBSession
+from app.db.models.enums import SenderEnum
+
+# 🧠 Extract latest user tone from session.interactions
+def get_last_user_tone_from_session(session) -> str:
+    if not session or not session.interactions:
+        return "neutral"
+
+    user_interactions = [i for i in session.interactions if i.sender == SenderEnum.User]
+    if not user_interactions:
+        return "neutral"
+
+    return user_interactions[-1].tone_tag or "neutral"
 
 # GPT tone → internal style mapping
 TONE_STYLE_MAP = {
@@ -83,10 +95,17 @@ async def get_response_style(tone: str, reply: str) -> str:
 # 🧠 GPT-Based Tone Detection
 async def detect_tone_cluster(db, session, user_input: str) -> str:
     prompt = f"""
-You are a tone detector for a conversational assistant.
-Classify the user's message below into one of these tone clusters:
+You are a tone classifier.
+
+Classify the tone of this message into one of:
 [genz, chaotic, sincere, ironic, casual, neutral, warm, open, closed, funny, defiant, excited]
 
+Consider:
+- Language style (slang, punctuation, emojis, length)
+- Emotional energy (lowkey, honest, hyped, distant, bold)
+- Vibe (friendly, dry, loud, short, quirky, chill)
+- if there is genz word then pass the tone genz.
+- analyse given all tone and return most relevant.
 Message: "{user_input}"
 
 Only respond with ONE WORD that best describes the tone. No punctuation.

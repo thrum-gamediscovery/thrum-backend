@@ -11,6 +11,7 @@ from app.api.v1.endpoints.chat import user_chat_with_thrum, bot_chat_with_thrum,
 from app.services.session_manager import update_or_create_session, is_session_idle
 from app.services.create_reply import generate_thrum_reply
 from app.utils.region_utils import infer_region_from_phone, get_timezone_from_region
+from app.utils.whatsapp import send_whatsapp_message
 
 
 router = APIRouter()
@@ -42,7 +43,6 @@ async def whatsapp_webhook(request: Request, From: str = Form(...), Body: str = 
     
     # ✅ Step 1: Create new user if not found in DB
     if not user:
-        print(f"From : {From}")
         region = await infer_region_from_phone(From)
         timezone_str = await get_timezone_from_region(region)
         user = UserProfile(
@@ -75,4 +75,8 @@ async def whatsapp_webhook(request: Request, From: str = Form(...), Body: str = 
     db.commit()
     
     # 📩 Return final reply to WhatsApp
-    return reply
+    await send_whatsapp_message(
+        phone_number=user.phone_number,
+        message=reply,
+        sent_from_thrum=False
+    )
