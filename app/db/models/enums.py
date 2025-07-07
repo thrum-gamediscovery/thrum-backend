@@ -20,9 +20,20 @@ class SenderEnum(str, enum.Enum):
 
 class ResponseTypeEnum(str, enum.Enum):
     GameRec = "GameRec"
-    Callback = "Callback"
-    ReEntry = "ReEntry"
+    Intro = "Intro"
+    DiscoveryQ = "DiscoveryQ"
+    Confirmation = "Confirmation"
+    Followup = "Followup"
+    RejectionAck = "RejectionAck"
     IdleChat = "IdleChat"
+    ReEntry = "ReEntry"
+    Callback = "Callback"
+    MoodlessFallback = "MoodlessFallback"
+    IntentOverride = "IntentOverride"
+    ExitMessage = "ExitMessage"
+    ErrorRecovery = "ErrorRecovery"
+    NotInTheMood = "NotInTheMood"
+    SharePrompt = "SharePrompt"
 
 class SessionTypeEnum(str, enum.Enum):
     ONBOARDING = "onboarding"

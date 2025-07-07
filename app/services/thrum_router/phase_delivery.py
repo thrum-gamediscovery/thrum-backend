@@ -21,7 +21,8 @@ async def handle_delivery(db: DBSession, session, user):
         "genre": getattr(session, "genre", None),
         "platform": session.platform_preference
     }
-    return await format_game_output(game,user_context)
+    return await format_game_output(session, game, user_context)
+    
 
 async def recommend_game():
     db = SessionLocal()

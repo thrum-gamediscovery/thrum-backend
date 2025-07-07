@@ -155,10 +155,3 @@ def detect_tone_shift(session) -> bool:
         if i.tone_tag and i.sender.name == "User"
     ]
     return len(set(tones)) > 1 if len(tones) >= 3 else False
-
-def already_asked(session, response_type: ResponseTypeEnum) -> bool:
-    return any(
-        i.response_type == response_type
-        for i in session.interactions
-        if i.sender.name == "Thrum"
-    )

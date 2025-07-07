@@ -12,7 +12,7 @@ from sqlalchemy.orm.attributes import flag_modified
 from app.services.mood_engine import detect_mood_from_text
 from app.services.session_manager import update_or_create_session_mood
 from app.utils.genre import get_best_genre_match 
-from app.utils.platform_utils import get_best_platform_match
+from app.utils.platform_utils import get_best_platform_match, get_default_platform
 
 
 # ✅ Update user profile with parsed classification fields
@@ -91,14 +91,11 @@ async def update_game_feedback_from_json(db, user_id: UUID, session,feedback_dat
 
 # ✅ Update user profile with parsed classification fields
 async def update_user_from_classification(db: Session, user, classification: dict,session):
-
-    print(f"update classification : {classification}")
     today = date.today().isoformat()
 
     name = classification.get("name")
     mood = classification.get("mood")
     genre = classification.get("genre")
-    print(f"update genre :; {genre}")
     platform = classification.get("platform_pref")
     region = classification.get("region")
     age = classification.get("age")
@@ -165,6 +162,8 @@ async def update_user_from_classification(db: Session, user, classification: dic
     # -- Platform Preferences
     if platform and platform != "None":
         matched_platform = await get_best_platform_match(db=db, user_input=platform)
+        if not matched_platform:
+            matched_platform = get_default_platform(matched_platform or platform)
         if matched_platform:
             user.platform_prefs.setdefault(today, [])
             if matched_platform not in user.platform_prefs[today]:
@@ -233,14 +232,10 @@ async def update_user_from_classification(db: Session, user, classification: dic
         # Ensure the session meta_data exists
         if session.meta_data is None:
             session.meta_data = {}
-        print(f"reject_tags : {session.meta_data}")
         # Initialize the reject_tags structure if not already initialized
         if "reject_tags" not in session.meta_data:
-            session.meta_data["reject_tags"] = {"genre": [], "platform": [], "other": []}
-        print(f"reject_tags : {session.meta_data}")
+            session.meta_data["reject_tags"] = {"genre": [], "platform": [], "other": []}    
         reject_data = session.meta_data["reject_tags"]
-        print(f"reject_data : {reject_data}")
-
         user.reject_tags.setdefault("genre", [])
         user.reject_tags.setdefault("platform", [])
         user.reject_tags.setdefault("other", [])
@@ -250,6 +245,8 @@ async def update_user_from_classification(db: Session, user, classification: dic
 
             # ✅ Try platform match
             matched_platform = await get_best_platform_match(user_input=tag_clean, db=db)
+            if not matched_platform:
+                matched_platform = get_default_platform(platform=tag_clean)
             if matched_platform:
                 if matched_platform not in user.reject_tags["platform"]:
                     user.reject_tags["platform"].append(matched_platform)
@@ -300,8 +297,6 @@ async def update_user_from_classification(db: Session, user, classification: dic
             if tag_clean not in reject_data["other"]:
                 reject_data["other"].append(tag_clean)
             print(f"⚠️ No match found for: {tag_clean} → added to 'other'")
-
-        print(f"-------------------- reject_tags : {session.meta_data}")
         flag_modified(session, "meta_data")
         user.last_updated["reject_tags"] = str(datetime.utcnow())
 

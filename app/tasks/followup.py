@@ -38,7 +38,6 @@ async def send_feedback_followups():
 
 async def handle_followup_logic(db, session, user, user_input):
     feedback = await analyze_followup_feedback(user_input, session)
-    print(f"feedback : {feedback}")
     parsed = json.loads(feedback)
     intent = parsed.get("intent")
 

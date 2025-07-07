@@ -47,7 +47,6 @@ async def send_whatsapp_message(phone_number: str, message: str):
             if user:
                 request = await create_request(user.user_id)
                 await bot_reply(request=request, db=db, user=user, reply=message)
-                print(f"bot reply store..............")
         except Exception as e:
             print(f"⚠️ Failed to log bot reply: {e}")
 

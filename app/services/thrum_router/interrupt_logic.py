@@ -11,7 +11,6 @@ async def check_intent_override(db, user_input, user, session):
         if session.game_rejection_count >=2:
             session.phase = PhaseEnum.DISCOVERY
             session.game_rejection_count = 0
-            print("------------------------------------------------------------------------------------------------------------------------------- rejection 2 time out")
             return await handle_discovery(db=db, session=session, user=user)
         else:
             session.phase = PhaseEnum.DELIVERY

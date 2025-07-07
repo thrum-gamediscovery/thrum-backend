@@ -14,7 +14,8 @@ PHONE_REGION_MAP = {
     "+7": "RU",
     "+82": "KR",
     "+39": "IT",
-    "+86": "CN"
+    "+86": "CN",
+    "+3": "EU",
 }
 
 # Maps region codes to timezones
@@ -32,6 +33,7 @@ REGION_TIMEZONE_MAP = {
     "KR": "Asia/Seoul",
     "IT": "Europe/Rome",
     "CN": "Asia/Shanghai",
+    "EU": "Europe/Brussels",
 }
 
 async def clean_phone_number(raw: str) -> str:
