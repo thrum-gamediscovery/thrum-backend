@@ -44,13 +44,13 @@ async def format_game_output(session, game: dict, user_context: dict = None) -> 
     visual_style = game.get("visual_style", "")
     has_story = "has a story" if game.get("has_story") else "does not focus on story"
 
-    # ✅ Use platform from session only
+    # ✅ Platform for tone and emoji
     platform = session.platform_preference[-1] if session.platform_preference else None
-    emoji = PLATFORM_EMOJIS.get(platform, "")
+    emoji = PLATFORM_EMOJIS.get(platform, "🎮") if platform else "🎮"
 
     # 🧠 User context (optional)
     user_mood = user_context.get("mood") if user_context else None
-    user_genre = user_context.get("genre") if user_context else None
+    user_genre = user_context.get("genre")[-1] if user_context and user_context.get("genre") else None
 
     user_summary = ""
     if user_mood:
@@ -88,12 +88,12 @@ Game: {title}
 {trait_summary}
 
 Write exactly 3 lines:
-1. Game title (compulsory bold)
-2. A confident 10–12 word line explaining why it fits this user’s vibe.
+1. Game title (bold using Markdown asterisks)
+2. A confident, casual 10–12 word line explaining why it fits the user’s vibe.
 3. A direct platform-specific line like “Play it on your PlayStation 5 🎮”
 
 Avoid weak words like “maybe” or “you could”.
-Use 1–2 emojis max. No links. Just 3 clean lines.
+Use 1–2 emojis max. No links. No intro text. Just 3 clean lines.
 """
 
     try:
@@ -104,8 +104,7 @@ Use 1–2 emojis max. No links. Just 3 clean lines.
         )
         return response["choices"][0]["message"]["content"].strip()
     except Exception:
-        return f"**{title}**\nA good match for your vibe and preferences.\n{search_line}"
-
+        return f"**{title}**\nFeels like a great match for your current mood.\n{search_line}"
 
 
 async def deliver_game_immediately(db:Session,user, session) -> str:
