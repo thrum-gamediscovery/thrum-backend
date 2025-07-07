@@ -72,9 +72,20 @@ TONE_TRANSFORMS = {
     "dry": [flatten_sentence()],
 }
 
-def apply_tone_style(reply: str, tone: str) -> str:
+def apply_tone_style(reply: str, session) -> str:
+    """
+    Apply tone transforms based on recent tone history stored in session.
+    Falls back to the latest tone in session.meta_data['tone'].
+    """
+    history = session.meta_data.get("tone_history", [])
+    tone = history[-1] if history else session.meta_data.get("tone")
+
+    if not tone:
+        return reply  # No tone to apply
+
     for transform in TONE_TRANSFORMS.get(tone, []):
         reply = transform(reply)
+
     return reply
 
 # 🎯 Optional Gen-Z slang injection
@@ -124,7 +135,7 @@ Only respond with ONE WORD that best describes the tone. No punctuation.
     return tone
 
 # 🎛️ Final Tone Validator + Styling
-async def tone_match_validator(reply: str, user_id: str, user_input: str, db) -> str:
+async def tone_match_validator(reply: str, user_id: str, user_input: str, db, session) -> str:
     try:
         gpt_tone = await detect_tone_cluster(db, None, user_input)
         mapped_tone = TONE_STYLE_MAP.get(gpt_tone, "neutral")
@@ -134,7 +145,8 @@ async def tone_match_validator(reply: str, user_id: str, user_input: str, db) ->
         mapped_tone = "neutral"
 
     store_user_tone(user_id, mapped_tone)
-    styled_reply = apply_tone_style(reply, mapped_tone)
+    append_tone_to_history(session, mapped_tone)
+    styled_reply = apply_tone_style(reply, session)
     final_reply = await get_response_style(mapped_tone, styled_reply)
     return final_reply
 
@@ -157,3 +169,14 @@ def store_user_tone(user_id: str, tone: str):
         print(f"⚠️ Failed to store tone: {e}")
     finally:
         db.close()
+
+def append_tone_to_history(session, tone: str):
+    try:
+        session.meta_data = session.meta_data or {}
+        session.meta_data["tone_history"] = session.meta_data.get("tone_history", [])
+        session.meta_data["tone_history"].append({
+            "tone": tone,
+            "timestamp": datetime.utcnow().isoformat()
+        })
+    except Exception as e:
+        print(f"⚠️ Failed to append tone to history: {e}")

@@ -1,7 +1,7 @@
 from app.services.game_recommend import game_recommendation
 from app.db.models.enums import PhaseEnum
 from app.db.models.session import Session
-from app.services.tone_engine import get_last_user_tone_from_session
+from app.services.tone_engine import get_last_user_tone_from_session, tone_match_validator
 import json
 import openai
 import os
@@ -102,7 +102,17 @@ Use 1–2 emojis max. No links. No intro text. Just 3 clean lines.
             temperature=0.4,
             messages=[{"role": "user", "content": prompt.strip()}]
         )
-        return response["choices"][0]["message"]["content"].strip()
+        raw_reply = response["choices"][0]["message"]["content"].strip()
+
+        score = tone_match_validator(user_tone=last_user_tone, bot_text=raw_reply)
+        print(f"🎯 Tone match score: {score:.2f}")
+
+        if score < 0.3:
+            print("⚠️ Tone mismatch. Falling back to default style.")
+            return f"**{title}**\nFeels like a great match for your current mood.\n{search_line}"
+
+        return raw_reply
+
     except Exception:
         return f"**{title}**\nFeels like a great match for your current mood.\n{search_line}"
 
