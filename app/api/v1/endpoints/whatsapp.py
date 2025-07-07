@@ -77,5 +77,6 @@ async def whatsapp_webhook(request: Request, From: str = Form(...), Body: str = 
     # 📩 Return final reply to WhatsApp
     await send_whatsapp_message(
         phone_number=user.phone_number,
-        message=reply
+        message=reply,
+        sent_from_thrum=False
     )

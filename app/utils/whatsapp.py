@@ -12,7 +12,7 @@ async def create_request(user_id):
     }
     return Request(scope)
 
-async def send_whatsapp_message(phone_number: str, message: str):
+async def send_whatsapp_message(phone_number: str, message: str,sent_from_thrum=True):
     from app.api.v1.endpoints.whatsapp import bot_reply 
     account_sid = os.getenv('TWILIO_ACCOUNT_SID')
     auth_token = os.getenv('TWILIO_AUTH_TOKEN')
@@ -44,7 +44,7 @@ async def send_whatsapp_message(phone_number: str, message: str):
         try:
             db = SessionLocal()
             user = db.query(UserProfile).filter(UserProfile.phone_number == phone_number).first()
-            if user:
+            if user and sent_from_thrum:
                 request = await create_request(user.user_id)
                 await bot_reply(request=request, db=db, user=user, reply=message)
         except Exception as e:
