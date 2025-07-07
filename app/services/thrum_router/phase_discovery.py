@@ -5,7 +5,6 @@ from app.services.session_memory import (
 from app.services.session_memory import confirm_input_summary, deliver_game_immediately
 from app.db.models.enums import PhaseEnum, ResponseTypeEnum
 from app.utils.error_handler import safe_call
-from app.services.session_manager import already_asked
 
 
 @safe_call("Hmm, I had trouble figuring out what to ask next. Let's try something fun instead! 🎮")
@@ -21,6 +20,7 @@ async def handle_discovery(db, session, user):
         return await deliver_game_immediately(db, user, session)
 
     # ✅ Check if a similar question was already asked
+    from app.services.session_manager import already_asked
     if already_asked(session, ResponseTypeEnum.Callback):  # assuming all discovery Qs are tagged Callback
         session.phase = PhaseEnum.DELIVERY
         return await deliver_game_immediately(db, user, session)

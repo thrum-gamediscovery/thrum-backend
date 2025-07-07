@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session as DBSession
 from app.db.models.session import Session
 from app.db.models.enums import SessionTypeEnum, ResponseTypeEnum
 from app.services.nudge_checker import detect_user_is_cold  # ✅ import smart tone checker
+from app.db.models.enums import SenderEnum
 
 def is_session_idle(session, idle_minutes=10):
     if not session.interactions:
@@ -152,7 +153,7 @@ def is_session_idle_or_fading(session) -> bool:
 def detect_tone_shift(session) -> bool:
     tones = [
         i.tone_tag for i in session.interactions[-5:]
-        if i.tone_tag and i.sender.name == "User"
+        if i.tone_tag and i.sender == SenderEnum.User
     ]
     return len(set(tones)) > 1 if len(tones) >= 3 else False
 
@@ -160,5 +161,5 @@ def already_asked(session, response_type: ResponseTypeEnum) -> bool:
     return any(
         i.response_type == response_type
         for i in session.interactions
-        if i.sender.name == "Thrum"
+        if i.sender == SenderEnum.Thrum
     )
