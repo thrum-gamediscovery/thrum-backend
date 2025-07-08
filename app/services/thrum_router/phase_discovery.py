@@ -7,6 +7,11 @@ from app.utils.error_handler import safe_call
 
 @safe_call("Hmm, I had trouble figuring out what to ask next. Let's try something fun instead! 🎮")
 async def handle_discovery(db, session, user, classification, user_input):
+    if any(phrase in user_input.lower() for phrase in ["what do you do", "how does it work", "explain", "how this works", "Explain me this"]):
+        return (
+            "I help you find games that match your mood, genre, or vibe 🎮\n"
+            "You can say something like 'fast action', 'sad story', or even a title like 'GTA'."
+        )
     discovery_data = await extract_discovery_signals(session)
 
     if discovery_data.is_complete():
