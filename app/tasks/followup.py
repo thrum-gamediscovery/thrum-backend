@@ -10,6 +10,7 @@ from app.services.tone_classifier import classify_tone
 from app.services.input_classifier import analyze_followup_feedback  
 from app.services.thrum_router.phase_ending import handle_ending
 from app.services.thrum_router.phase_discovery import handle_discovery
+from app.services.share_intent import is_share_intent
 import random
 
 @shared_task
@@ -40,6 +41,10 @@ async def handle_followup_logic(db, session, user, user_input, classification):
     feedback = await analyze_followup_feedback(user_input, session)
     parsed = json.loads(feedback)
     intent = parsed.get("intent")
+
+    # 👥 Share intent detected
+    if await is_share_intent(user_input):
+        return "Send this to your friends: ‘I just got a perfect game drop from Thrum 🎮 — it's a vibe! Tap here to try it 👉 https://wa.me/12764000071?text=Hey%2C%20I%20heard%20Thrum%20can%20drop%20perfect%20games%20for%20my%20mood.%20Hit%20me%20with%20one!%20🔥’"
 
     if intent in ["want_another"]:
         session.game_rejection_count = (session.game_rejection_count or 0) + 1
