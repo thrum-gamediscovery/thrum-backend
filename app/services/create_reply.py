@@ -45,6 +45,7 @@ async def generate_thrum_reply(db: Session, user_input: str, session, user) -> s
 
     requested_genre = normalize_genre_input(user_input)
     print('requested_genre...................', requested_genre)
+    print('session.............', session)
     if requested_genre:
         session.memory["last_genre"] = requested_genre
         session.phase = PhaseEnum.DELIVERY
