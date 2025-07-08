@@ -71,21 +71,22 @@ async def handle_followup_logic(db, session, user, user_input, classification):
             reply = random.choice(playtime_prompts)
             print(f"handle_followup_logic : {reply}")
             return reply
-        else:
-            # session.phase = PhaseEnum.ENDING
-            # await handle_ending(session)
-            followup_prompts = [
-                "Cool — just wondering, do you lean more toward story-rich games or fast-action ones?",
-                "One last thing — do you usually enjoy emotional stories or chaos and action?",
-                "Quick vibe check: you prefer deep stories or quick, intense gameplay?",
-                "Just curious — story-driven vibes or pure arcade-style action?",
-                "Do you tend to dive into game stories, or go straight for the action?",
-                "Final thing — do stories hook you, or are you here for gameplay?"
-            ]
-            reply = random.choice(followup_prompts)
-            print(f"handle_followup_logic : {reply}")
-            session.awaiting_reply = True
-            return reply
+        
+    session.phase = PhaseEnum.ENDING
+    return await handle_ending(session)
+
+            # followup_prompts = [
+            #     "Cool — just wondering, do you lean more toward story-rich games or fast-action ones?",
+            #     "One last thing — do you usually enjoy emotional stories or chaos and action?",
+            #     "Quick vibe check: you prefer deep stories or quick, intense gameplay?",
+            #     "Just curious — story-driven vibes or pure arcade-style action?",
+            #     "Do you tend to dive into game stories, or go straight for the action?",
+            #     "Final thing — do stories hook you, or are you here for gameplay?"
+            # ]
+            # reply = random.choice(followup_prompts)
+            # print(f"handle_followup_logic : {reply}")
+            # session.awaiting_reply = True
+            # return reply
 
             
 async def get_post_recommendation_reply(user_input: str, last_game_name: str, session: Session, db) -> str | None:
