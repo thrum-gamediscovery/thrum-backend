@@ -1,5 +1,6 @@
 import re
 import openai
+from datetime import datetime
 from app.db.session import SessionLocal
 from app.db.models.session import Session as DBSession
 from app.db.models.enums import SenderEnum
@@ -145,7 +146,7 @@ async def tone_match_validator(reply: str, user_id: str, user_input: str, db, se
         mapped_tone = "neutral"
 
     store_user_tone(user_id, mapped_tone)
-    append_tone_to_history(session, mapped_tone)
+    update_tone_in_history(session, mapped_tone)
     styled_reply = apply_tone_style(reply, session)
     final_reply = await get_response_style(mapped_tone, styled_reply)
     return final_reply
@@ -170,13 +171,26 @@ def store_user_tone(user_id: str, tone: str):
     finally:
         db.close()
 
-def append_tone_to_history(session, tone: str):
+def update_tone_in_history(session, tone: str):
     try:
+        # Ensure that meta_data and tone_history exist
         session.meta_data = session.meta_data or {}
         session.meta_data["tone_history"] = session.meta_data.get("tone_history", [])
-        session.meta_data["tone_history"].append({
-            "tone": tone,
-            "timestamp": datetime.utcnow().isoformat()
-        })
+
+        # Update the last entry in tone_history with the new tone and timestamp
+        if session.meta_data["tone_history"]:
+            # Replace the last entry in the list
+            session.meta_data["tone_history"][-1] = {
+                "tone": tone,
+                "timestamp": datetime.utcnow().isoformat()
+            }
+        else:
+            # If tone_history is empty, initialize it with the first entry
+            session.meta_data["tone_history"].append({
+                "tone": tone,
+                "timestamp": datetime.utcnow().isoformat()
+            })
+
     except Exception as e:
-        print(f"⚠️ Failed to append tone to history: {e}")
+        # Handle errors gracefully
+        print(f"Error updating tone in history: {e}")

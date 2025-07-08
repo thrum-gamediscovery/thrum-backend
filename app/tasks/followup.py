@@ -36,7 +36,7 @@ async def send_feedback_followups():
     finally:
         db.close()
 
-async def handle_followup_logic(db, session, user, user_input):
+async def handle_followup_logic(db, session, user, user_input, classification):
     feedback = await analyze_followup_feedback(user_input, session)
     parsed = json.loads(feedback)
     intent = parsed.get("intent")
@@ -44,7 +44,7 @@ async def handle_followup_logic(db, session, user, user_input):
     if intent in ["want_another"]:
         session.game_rejection_count = (session.game_rejection_count or 0) + 1
         session.phase = PhaseEnum.DISCOVERY
-        return await handle_discovery(db=db, session=session, user=user)
+        return await handle_discovery(db=db, session=session, user=user, classification=classification, user_input=user_input)
 
     if intent in ["dont_want_another"]:
         if not user.name:
@@ -56,8 +56,9 @@ async def handle_followup_logic(db, session, user, user_input):
                 "Got a name I can remember you by? Always nice to keep things personal 🙌",
                 "What's your name, friend? I've got a good memory when it counts 💾"
             ]
-
-            return random.choice(name_prompts)
+            reply = random.choice(name_prompts)
+            print(f"handle_followup_logic : {reply}")
+            return reply
         elif not user.playtime:
             playtime_prompts = [
                 f"When do you usually play, {user.name}? Evenings, weekends, or those late-night sessions?",
@@ -67,8 +68,9 @@ async def handle_followup_logic(db, session, user, user_input):
                 f"{user.name}, do you sneak in your games at night, on lazy Sundays, or some other time?",
                 f"Evenings, weekends, or late nights — when’s your favorite time to play, {user.name}?"
             ]
-
-            return random.choice(playtime_prompts)
+            reply = random.choice(playtime_prompts)
+            print(f"handle_followup_logic : {reply}")
+            return reply
         else:
             session.phase = PhaseEnum.ENDING
             await handle_ending(session)

@@ -8,7 +8,6 @@ async def handle_ending(session):
     and returns a warm farewell message.
     """
     session.phase = PhaseEnum.ENDING
-    session.session_type = SessionTypeEnum.CLOSED  # Optional: update status if tracked
 
     farewell_lines = [
         "Alrighty! I’ll be here whenever you’re in the mood for a fresh game 🎮✨",

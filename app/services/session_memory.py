@@ -254,18 +254,15 @@ async def extract_discovery_signals(session) -> DiscoveryData:
     )
 
 async def ask_discovery_question(session) -> str:
-
-    last_user_tone = get_last_user_tone_from_session(session)
-
     """
     Dynamically generate a discovery question using gpt-4.1-mini.
     Now adds freedom-language to each question (e.g. 'or something totally different?')
     """
+    last_user_tone = get_last_user_tone_from_session(session)
     def get_last(arr):
         return arr[-1] if isinstance(arr, list) and arr else None
     
     if not session.genre:
-        missing_field = "genre"
         mood = session.exit_mood
         platform = get_last(session.platform_preference)
         system_prompt = f"""
@@ -295,7 +292,6 @@ ask question of 10-12 words only.
         user_input = "Ask about genre."
 
     elif not session.exit_mood:
-        missing_field = "mood"
         genre = get_last(session.genre)
         platform = get_last(session.platform_preference)
         system_prompt = f"""
@@ -325,7 +321,6 @@ ask question of 10-12 words only.
         user_input = "Ask about mood."
 
     elif not session.platform_preference:
-        missing_field = "platform"
         mood = session.exit_mood
         genre = get_last(session.genre)
         system_prompt = f"""
