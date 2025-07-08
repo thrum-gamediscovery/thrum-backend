@@ -104,7 +104,7 @@ async def get_response_style(tone: str, reply: str) -> str:
     return reply
 
 # 🧠 GPT-Based Tone Detection
-async def detect_tone_cluster(db, session, user_input: str) -> str:
+async def detect_tone_cluster(user_input: str) -> str:
     prompt = f"""
 You are a tone classifier.
 
@@ -137,7 +137,7 @@ Only respond with ONE WORD that best describes the tone. No punctuation.
 # 🎛️ Final Tone Validator + Styling
 async def tone_match_validator(reply: str, user_id: str, user_input: str, db, session) -> str:
     try:
-        gpt_tone = await detect_tone_cluster(db, None, user_input)
+        gpt_tone = await detect_tone_cluster(user_input)
         mapped_tone = TONE_STYLE_MAP.get(gpt_tone, "neutral")
         print(f"✅ Tone applied: {mapped_tone} (from GPT: {gpt_tone})")
     except Exception as e:
