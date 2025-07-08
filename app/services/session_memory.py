@@ -85,6 +85,11 @@ async def format_game_output(session, game: dict, user_context: dict = None) -> 
     else:
         search_line = f"Look it up online"
 
+    game_platforms = game.get("platforms", [])
+    if platform and platform not in game_platforms:
+        print(f"⚠️ Platform mismatch: {platform} not in {game_platforms}")
+        return f"Oops — that one's not available for your {platform}. Want something that is?"
+
     # 💬 GPT prompt
     prompt = f"""
 Speak entirely in the user's tone: {last_user_tone}.  
