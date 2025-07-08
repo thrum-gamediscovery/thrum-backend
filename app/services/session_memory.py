@@ -1,5 +1,5 @@
 from app.services.game_recommend import game_recommendation
-from app.db.models.enums import PhaseEnum
+from app.db.models.enums import PhaseEnum, SenderEnum
 from app.db.models.session import Session
 from app.services.tone_engine import get_last_user_tone_from_session, tone_match_validator
 import json
