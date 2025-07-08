@@ -53,6 +53,18 @@ async def game_recommendation(db: Session, user, session) -> Optional[Tuple[Dict
             for genre in reject_genres
         ]
         base_query = base_query.filter(~or_(*genre_filters))
+    
+    if genre:
+        base_query = base_query.filter(
+            Game.genre.any(func.lower(genre.strip().lower()))
+        )
+    
+    if platform:
+        platform_game_ids = db.query(GamePlatform.game_id).filter(
+            func.lower(GamePlatform.platform) == platform.lower()
+        ).all()
+        platform_game_ids = [g[0] for g in platform_game_ids]
+        base_query = base_query.filter(Game.game_id.in_(platform_game_ids))
 
     # Step 3: Filter games above user age if user_age is known
     user_age = None
