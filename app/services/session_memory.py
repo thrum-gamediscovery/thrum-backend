@@ -110,6 +110,7 @@ Write exactly 3 lines:
    - "If you're into [genre], this hits hard."
    - "This one totally fits your chill mood and vibe."
 3. A platform line that’s natural. Vary your phrases like:
+   - "Only mention this platform: {platform} — nothing else."
    - “Play it on your mobile 📱”
    - “Best with a controller on PS5 🎮”
    - “Tap in on iPhone when you’ve got a minute.”
