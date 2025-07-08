@@ -14,9 +14,9 @@ from app.db.models.enums import PhaseEnum
 from app.services.tone_engine import detect_tone_cluster, update_tone_in_history
 
 @safe_call()
-async def generate_thrum_reply(db: Session, user_input: str, session, user) -> str:
+async def generate_thrum_reply(db: Session, user_input: str, chat_session, user) -> str:
     # 🔥 Intent override (e.g., "just give me a game")
-    classification = await classify_user_input(session=session, user_input=user_input)
+    classification = await classify_user_input(session=chat_session, user_input=user_input)
     # ✅ Early genre detection from user_input (before soft messages)
     genre_keywords = [
         "action", "adventure", "driving", "fighting", "flying", "mmo", "music", "party",
@@ -45,45 +45,45 @@ async def generate_thrum_reply(db: Session, user_input: str, session, user) -> s
 
     requested_genre = normalize_genre_input(user_input)
     print('requested_genre...................', requested_genre)
-    print('session.............', session)
+    print('session.............', chat_session)
     if requested_genre:
-        session.memory["last_genre"] = requested_genre
-        session.phase = PhaseEnum.DELIVERY
+        chat_session.memory["last_genre"] = requested_genre
+        chat_session.phase = PhaseEnum.DELIVERY
 
-    await update_user_from_classification(db=db, user=user, classification=classification, session=session)
+    await update_user_from_classification(db=db, user=user, classification=classification, session=chat_session)
     
     tone = await detect_tone_cluster(user_input)
-    update_tone_in_history(session, tone)
-    session.meta_data["tone"] = tone
+    update_tone_in_history(chat_session, tone)
+    chat_session.meta_data["tone"] = tone
 
-    if detect_tone_shift(session):
-        session.tone_shift_detected = True
+    if detect_tone_shift(chat_session):
+        chat_session.tone_shift_detected = True
         db.commit()
 
-    override_reply = await check_intent_override(db=db, user_input=user_input, user=user, session=session, classification=classification)
+    override_reply = await check_intent_override(db=db, user_input=user_input, user=user, session=chat_session, classification=classification)
     if override_reply and override_reply is not None:
         return override_reply
 
 
-    phase = session.phase
+    phase = chat_session.phase
     print(f"Current phase:>>>>>>>>>>>>>>>>>>>>>>>>> {phase}")
 
     if phase == PhaseEnum.INTRO:
-        return await handle_intro(session, is_first_message=True, idle_reconnect=False, user_input=user_input, user=user)
+        return await handle_intro(chat_session, is_first_message=True, idle_reconnect=False, user_input=user_input, user=user)
 
     elif phase == PhaseEnum.DISCOVERY:
-        return await handle_discovery(db=db, session=session, user=user,classification=classification, user_input=user_input)
+        return await handle_discovery(db=db, session=chat_session, user=user,classification=classification, user_input=user_input)
 
     elif phase == PhaseEnum.CONFIRMATION:
-        return await handle_confirmation(session)
+        return await handle_confirmation(chat_session)
 
     elif phase == PhaseEnum.DELIVERY:
-        return await handle_delivery(db=db, session=session, user=user, classification=classification, user_input=user_input)
+        return await handle_delivery(db=db, session=chat_session, user=user, classification=classification, user_input=user_input)
 
     elif phase == PhaseEnum.FOLLOWUP:
-        return await handle_followup(db=db, session=session, user=user, user_input=user_input, classification=classification)
+        return await handle_followup(db=db, session=chat_session, user=user, user_input=user_input, classification=classification)
 
     elif phase == PhaseEnum.ENDING:
-        return await handle_ending(session)
+        return await handle_ending(chat_session)
 
     return "Hmm, something went wrong. Let's try again!"
