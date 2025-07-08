@@ -13,7 +13,7 @@ import numpy as np
 
 model = SentenceTransformer("all-MiniLM-L12-v2")
 
-async def game_recommendation(db: Session, user, session) -> Optional[Tuple[Dict, bool]]:
+async def game_recommendation(db: Session, user, session, genre: str = None, exclude_titles: list = None):
     today = datetime.utcnow().date().isoformat()
 
     # Step 1: Pull platform, genre, mood
@@ -162,7 +162,8 @@ async def game_recommendation(db: Session, user, session) -> Optional[Tuple[Dict
             break
 
     if not candidate_games:
-        return None, None
+        print("[⚠️] No match after soft filtering. Falling back to unfiltered base games.")
+        candidate_games = base_games
 
     # Step 6: Embedding-based scoring
     mood_vector = model.encode(mood) if mood else None

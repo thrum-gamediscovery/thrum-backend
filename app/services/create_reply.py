@@ -17,6 +17,37 @@ from app.services.tone_engine import detect_tone_cluster, update_tone_in_history
 async def generate_thrum_reply(db: Session, user_input: str, session, user) -> str:
     # 🔥 Intent override (e.g., "just give me a game")
     classification = await classify_user_input(session=session, user_input=user_input)
+    # ✅ Early genre detection from user_input (before soft messages)
+    genre_keywords = [
+        "action", "adventure", "driving", "fighting", "flying", "mmo", "music", "party",
+        "platform", "puzzle", "racing", "real-world", "role-playing", "shooter",
+        "simulation", "sports", "strategy", "trivia", "virtual life"
+    ]
+
+    genre_aliases = {
+        "rpg": "role-playing",
+        "life sim": "virtual life",
+        "real": "real-world",
+        "open world": "adventure",
+        "battle": "fighting",
+        "co-op": "party",
+    }
+
+    def normalize_genre_input(text: str) -> str:
+        text = text.lower()
+        for alias, genre in genre_aliases.items():
+            if alias in text:
+                return genre
+        for genre in genre_keywords:
+            if genre in text:
+                return genre
+        return None
+
+    requested_genre = normalize_genre_input(user_input)
+    if requested_genre:
+        session.memory["last_genre"] = requested_genre
+        session.phase = PhaseEnum.DELIVERY
+
     await update_user_from_classification(db=db, user=user, classification=classification, session=session)
     
     tone = await detect_tone_cluster(user_input)
