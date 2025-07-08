@@ -10,13 +10,25 @@ from app.utils.whatsapp import send_whatsapp_message
 import openai
 
 async def get_recommend(db, user, session):
-    game, _ = await game_recommendation(db=db, user=user, session=session)
+    genre = session.memory.get("last_genre")
+    exclude = [session.memory.get("last_game_title")]
+
+    game, _ = await game_recommendation(
+        db=db,
+        user=user,
+        session=session,
+        genre=genre,
+        exclude_titles=exclude
+    )
+
+    session.memory["last_game_title"] = game["title"]
+
     if game:
         session.last_recommended_game = game["title"]
         session.phase = PhaseEnum.FOLLOWUP
         session.followup_triggered = True
     else:
-        return "not game"
+        return "Hmm, I couldn’t find a perfect match — but here’s a solid one anyway! 💡"
     # Optional: build user_context from session
     user_context = {
         "mood": session.exit_mood,

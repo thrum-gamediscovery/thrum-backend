@@ -85,6 +85,11 @@ async def format_game_output(session, game: dict, user_context: dict = None) -> 
     else:
         search_line = f"Look it up online"
 
+    game_platforms = game.get("platforms", [])
+    if platform and platform not in game_platforms:
+        print(f"⚠️ Platform mismatch: {platform} not in {game_platforms}")
+        return f"Oops — that one's not available for your {platform}. Want something that is?"
+
     # 💬 GPT prompt
     prompt = f"""
 Speak entirely in the user's tone: {last_user_tone}.  
@@ -105,6 +110,7 @@ Write exactly 3 lines:
    - "If you're into [genre], this hits hard."
    - "This one totally fits your chill mood and vibe."
 3. A platform line that’s natural. Vary your phrases like:
+   - "Only mention this platform: {platform} — nothing else."
    - “Play it on your mobile 📱”
    - “Best with a controller on PS5 🎮”
    - “Tap in on iPhone when you’ve got a minute.”

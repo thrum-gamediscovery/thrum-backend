@@ -13,7 +13,7 @@ import numpy as np
 
 model = SentenceTransformer("all-MiniLM-L12-v2")
 
-async def game_recommendation(db: Session, user, session) -> Optional[Tuple[Dict, bool]]:
+async def game_recommendation(db: Session, user, session, genre: str = None, exclude_titles: list = None):
     today = datetime.utcnow().date().isoformat()
 
     # Step 1: Pull platform, genre, mood
@@ -53,6 +53,20 @@ async def game_recommendation(db: Session, user, session) -> Optional[Tuple[Dict
             for genre in reject_genres
         ]
         base_query = base_query.filter(~or_(*genre_filters))
+    
+    print("💡 Input check:.......................................................", genre, platform)
+
+    if genre:
+        base_query = base_query.filter(
+            Game.genre.any(func.lower(genre.strip().lower()))
+        )
+    
+    if platform:
+        platform_game_ids = db.query(GamePlatform.game_id).filter(
+            func.lower(GamePlatform.platform) == platform.lower()
+        ).all()
+        platform_game_ids = [g[0] for g in platform_game_ids]
+        base_query = base_query.filter(Game.game_id.in_(platform_game_ids))
 
     # Step 3: Filter games above user age if user_age is known
     user_age = None
@@ -148,7 +162,8 @@ async def game_recommendation(db: Session, user, session) -> Optional[Tuple[Dict
             break
 
     if not candidate_games:
-        return None, None
+        print("[⚠️] No match after soft filtering. Falling back to unfiltered base games.")
+        candidate_games = base_games
 
     # Step 6: Embedding-based scoring
     mood_vector = model.encode(mood) if mood else None
