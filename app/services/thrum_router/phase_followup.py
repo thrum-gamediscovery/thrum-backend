@@ -8,11 +8,15 @@ import openai
 import os
 from app.utils.whatsapp import send_whatsapp_message
 import random
+from app.services.thrum_router.interrupt_logic import check_intent_override
 
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
-async def handle_followup(db, session, user, user_input):
-    return await handle_followup_logic(db=db, session=session, user=user, user_input=user_input)
+async def handle_followup(db, session, user, user_input,classification):
+    override_reply = await check_intent_override(db=db, user_input=user_input, user=user, session=session, classification=classification)
+    if override_reply:
+        return override_reply
+    return await handle_followup_logic(db=db, session=session, user=user, classification=classification ,user_input=user_input)
 
 async def ask_followup_que(session) -> str:
     last_user_tone = get_last_user_tone_from_session(session)

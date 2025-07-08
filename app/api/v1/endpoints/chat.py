@@ -38,7 +38,7 @@ async def user_chat_with_thrum(
     if not session:
         raise HTTPException(status_code=404, detail="Session not found.")
     
-    tone = await detect_tone_cluster(db, session, payload.user_input)
+    tone = await detect_tone_cluster(payload.user_input)
 
     interaction = create_interaction(
         session = session,
@@ -77,7 +77,7 @@ async def bot_chat_with_thrum(
     if not session:
         raise HTTPException(status_code=404, detail="Session not found.")
     
-    tone = await detect_tone_cluster(db, session, bot_reply)
+    tone = await detect_tone_cluster(bot_reply)
 
     interaction = create_interaction(
         session=session,

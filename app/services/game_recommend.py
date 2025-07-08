@@ -70,7 +70,7 @@ async def game_recommendation(db: Session, user, session) -> Optional[Tuple[Dict
     base_games = base_query.all()
     if not base_games:
         return None, None
-    session.game_rejection_count += 1
+    # session.game_rejection_count += 1
         # Step 1.5: Cold start → recommend random safe game
     if not platform and not genre and not mood:
         print("[🧊] Cold start: returning a safe random game.")
@@ -175,6 +175,13 @@ async def game_recommendation(db: Session, user, session) -> Optional[Tuple[Dict
         return (mood_weight * mood_sim + genre_weight * genre_sim) if (mood_weight + genre_weight) > 0 else 0.01
 
     ranked = sorted([(g, compute_score(g)) for g in candidate_games], key=lambda x: x[1], reverse=True)
+
+    # ✅ NEW: Avoid repeating the last recommended game
+    if session.last_recommended_game:
+        ranked = [r for r in ranked if r[0].title != session.last_recommended_game]
+        if not ranked:
+            return None, None
+
     top_game = ranked[0][0]
     age_ask_required = False
 

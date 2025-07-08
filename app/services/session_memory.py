@@ -1,7 +1,7 @@
 from app.services.game_recommend import game_recommendation
 from app.db.models.enums import PhaseEnum
 from app.db.models.session import Session
-from app.services.tone_engine import get_last_user_tone_from_session
+from app.services.tone_engine import get_last_user_tone_from_session, tone_match_validator
 import json
 import openai
 import os
@@ -33,6 +33,16 @@ PLATFORM_EMOJIS = {
     "Web Browser": "🌐"
 }
 
+import random
+
+VARIATION_LINES = [
+    "Feels like a great match for your current vibe.",
+    "This one fits your energy perfectly.",
+    "Matches your style — give it a shot!",
+    "Vibe check passed ✅ This one’s for you.",
+    "Could be your next favorite — want to try it?"
+]
+
 async def format_game_output(session, game: dict, user_context: dict = None) -> str:
     last_user_tone = get_last_user_tone_from_session(session)
 
@@ -44,13 +54,13 @@ async def format_game_output(session, game: dict, user_context: dict = None) -> 
     visual_style = game.get("visual_style", "")
     has_story = "has a story" if game.get("has_story") else "does not focus on story"
 
-    # ✅ Use platform from session only
+    # ✅ Platform for tone and emoji
     platform = session.platform_preference[-1] if session.platform_preference else None
-    emoji = PLATFORM_EMOJIS.get(platform, "")
+    emoji = PLATFORM_EMOJIS.get(platform, "🎮") if platform else "🎮"
 
     # 🧠 User context (optional)
     user_mood = user_context.get("mood") if user_context else None
-    user_genre = user_context.get("genre") if user_context else None
+    user_genre = user_context.get("genre")[-1] if user_context and user_context.get("genre") else None
 
     user_summary = ""
     if user_mood:
@@ -88,12 +98,19 @@ Game: {title}
 {trait_summary}
 
 Write exactly 3 lines:
-1. Game title (compulsory bold)
-2. A confident 10–12 word line explaining why it fits this user’s vibe.
-3. A direct platform-specific line like “Play it on your PlayStation 5 🎮”
+1. Game title (bold using Markdown asterisks)
+2. A confident, casual 10–12 word sentence — rotate phrasing for variety.
+   For example, use patterns like:
+   - "Gives you fast-paced fun with..."
+   - "If you're into [genre], this hits hard."
+   - "This one totally fits your chill mood and vibe."
+3. A platform line that’s natural. Vary your phrases like:
+   - “Play it on your mobile 📱”
+   - “Best with a controller on PS5 🎮”
+   - “Tap in on iPhone when you’ve got a minute.”
 
 Avoid weak words like “maybe” or “you could”.
-Use 1–2 emojis max. No links. Just 3 clean lines.
+Use 1–2 emojis max. No links. No intro text. Just 3 clean lines.
 """
 
     try:
@@ -102,10 +119,21 @@ Use 1–2 emojis max. No links. Just 3 clean lines.
             temperature=0.4,
             messages=[{"role": "user", "content": prompt.strip()}]
         )
-        return response["choices"][0]["message"]["content"].strip()
-    except Exception:
-        return f"**{title}**\nA good match for your vibe and preferences.\n{search_line}"
+        raw_reply = response["choices"][0]["message"]["content"].strip()
 
+        score = tone_match_validator(user_tone=last_user_tone, bot_text=raw_reply)
+        print(f"🎯 Tone match score: {score:.2f}")
+
+        if score < 0.3:
+            print("⚠️ Tone mismatch. Falling back to default style.")
+            fallback = random.choice(VARIATION_LINES)
+            return f"**{title}**\n{fallback}\n{search_line}"
+
+        return raw_reply
+
+    except Exception:
+        fallback = random.choice(VARIATION_LINES)
+        return f"**{title}**\n{fallback}\n{search_line}"
 
 
 async def deliver_game_immediately(db:Session,user, session) -> str:
@@ -226,18 +254,15 @@ async def extract_discovery_signals(session) -> DiscoveryData:
     )
 
 async def ask_discovery_question(session) -> str:
-
-    last_user_tone = get_last_user_tone_from_session(session)
-
     """
     Dynamically generate a discovery question using gpt-4.1-mini.
     Now adds freedom-language to each question (e.g. 'or something totally different?')
     """
+    last_user_tone = get_last_user_tone_from_session(session)
     def get_last(arr):
         return arr[-1] if isinstance(arr, list) and arr else None
     
     if not session.genre:
-        missing_field = "genre"
         mood = session.exit_mood
         platform = get_last(session.platform_preference)
         system_prompt = f"""
@@ -267,7 +292,6 @@ ask question of 10-12 words only.
         user_input = "Ask about genre."
 
     elif not session.exit_mood:
-        missing_field = "mood"
         genre = get_last(session.genre)
         platform = get_last(session.platform_preference)
         system_prompt = f"""
@@ -297,7 +321,6 @@ ask question of 10-12 words only.
         user_input = "Ask about mood."
 
     elif not session.platform_preference:
-        missing_field = "platform"
         mood = session.exit_mood
         genre = get_last(session.genre)
         system_prompt = f"""

@@ -108,6 +108,8 @@ async def update_user_from_classification(db: Session, user, classification: dic
     if name and name != "None":
         user.name = name.strip().title()
         user.last_updated["name"] = str(datetime.utcnow())
+        session.meta_data["name"] = user.name  # Store in session for short-term memory
+        flag_modified(user, "name")
 
     # -- Mood
     if mood and mood != "None":
@@ -116,6 +118,8 @@ async def update_user_from_classification(db: Session, user, classification: dic
         if not session.entry_mood:
             session.entry_mood = mood_result
         session.exit_mood = mood_result
+        session.meta_data["mood"] = mood_result
+        flag_modified(user, "mood_tags")
         user.last_updated["mood_tags"] = str(datetime.utcnow())
         # update_or_create_session_mood(db, user, new_mood=mood_result)
 
@@ -214,11 +218,14 @@ async def update_user_from_classification(db: Session, user, classification: dic
     if story_pref is not None and story_pref != "None":
         user.story_pref = bool(story_pref)
         session.story_preference = bool(story_pref)
+        flag_modified(user, "story_pref")
+        flag_modified(session, "story_preference")
         user.last_updated["story_pref"] = str(datetime.utcnow())
 
     # -- Playtime
     if playtime and playtime != "None":
         user.playtime = playtime.strip().lower()
+        flag_modified(user, "playtime")
         user.last_updated["playtime"] = str(datetime.utcnow())
 
     # -- Reject Tags (Genre vs Platform)

@@ -46,7 +46,9 @@ Mode: {tone.upper()}
                 {"role": "user", "content": f"The user said: {user_input}"}
             ]
         )
-        return response["choices"][0]["message"]["content"].strip()
+        response = response["choices"][0]["message"]["content"].strip()
+        print(f" generate_intro : {response}")
+        return response
     except Exception as e:
         print("GPT intro fallback:", e)
         return "Hey there 👋 I help people find games that match their vibe. Tell me a mood or game you’re into!"

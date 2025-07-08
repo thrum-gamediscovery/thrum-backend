@@ -1,14 +1,12 @@
-from app.services.session_memory import (
-    extract_discovery_signals,
-    ask_discovery_question
-)
-from app.services.session_memory import confirm_input_summary, deliver_game_immediately
-from app.db.models.enums import PhaseEnum, ResponseTypeEnum
+from app.services.input_classifier import have_to_recommend
+from app.services.thrum_router.phase_delivery import explain_last_game_match
+from app.services.session_memory import confirm_input_summary, deliver_game_immediately, ask_discovery_question , extract_discovery_signals
+from app.db.models.enums import PhaseEnum
 from app.utils.error_handler import safe_call
 
 
 @safe_call("Hmm, I had trouble figuring out what to ask next. Let's try something fun instead! 🎮")
-async def handle_discovery(db, session, user):
+async def handle_discovery(db, session, user, classification, user_input):
     discovery_data = await extract_discovery_signals(session)
 
     if discovery_data.is_complete():
@@ -16,9 +14,16 @@ async def handle_discovery(db, session, user):
         return await confirm_input_summary(session)
 
     elif session.discovery_questions_asked >= 2:
-        session.phase = PhaseEnum.DELIVERY
-        session.discovery_questions_asked = 0
-        return await deliver_game_immediately(db, user, session)
+        should_recommend = await have_to_recommend(db=db, user=user, classification=classification, session=session)
+
+        if should_recommend:
+            session.phase = PhaseEnum.DELIVERY
+            session.discovery_questions_asked = 0
+            return await deliver_game_immediately(db, user, session)
+        else:
+            # If no new recommendation is needed, explain the last recommended game based on user feedback
+            explanation_response = await explain_last_game_match(session=session, user=user, user_input=user_input)
+            return explanation_response  # Return the explanation of the last game
     
     else:
         question = await ask_discovery_question(session)
