@@ -49,16 +49,16 @@ async def game_recommendation(db: Session, user, session) -> Optional[Tuple[Dict
 
     if reject_genres:
         genre_filters = [
-            Game.genre.ilike(f"%{genre.lower()}%")
-            for genre in reject_genres
+            Game.genre.contains([g.lower()])
+            for g in reject_genres
         ]
         base_query = base_query.filter(~or_(*genre_filters))
-    
+
     print("💡 Input check:.......................................................", genre, platform)
 
     if genre:
         base_query = base_query.filter(
-            Game.genre.ilike(f"%{genre.lower()}%")
+            Game.genre.contains([genre.lower()])
         )
     
     if platform:
