@@ -44,8 +44,22 @@ VARIATION_LINES = [
 ]
 
 async def format_game_output(session, game: dict, user_context: dict = None) -> str:
+    thrum_interactions = [i for i in session.interactions if i.sender == SenderEnum.Thrum]
+    last_thrum_reply = thrum_interactions[-1].content if thrum_interactions else ""
+    user_interactions = [i for i in session.interactions if i.sender == SenderEnum.User]
+    last_user_reply = user_interactions[-1].content if user_interactions else ""
+    # :speech_balloon: GPT prompt
+    system_prompt = (
+    "You are Thrum, a warm and playful game matchmaker. "
+    "Your tone is cozy, human, and emoji-friendly. Never robotic. Never generic. "
+    "Each reply should feel like part of a real conversation, suggesting a game only if it feels right, and asking a soft follow-up question. "
+    "Don’t overwhelm with too much info—keep it light, fun, and friendly. "
+    "Use emojis if it matches the vibe, but keep it natural. "
+    "Be concise, under 25 words. Never break character. "
+    "Respond based on the user's tone, using short forms if they do."
+)
     last_user_tone = get_last_user_tone_from_session(session)
-
+    print("-------------------", last_user_tone)
     title = game.get("title", "Unknown Game")
     description = game.get("description", "")
     genre = game.get("genre", "")
@@ -53,15 +67,18 @@ async def format_game_output(session, game: dict, user_context: dict = None) -> 
     mechanics = game.get("mechanics", "")
     visual_style = game.get("visual_style", "")
     has_story = "has a story" if game.get("has_story") else "does not focus on story"
-
-    # ✅ Platform for tone and emoji
-    platform = session.platform_preference[-1] if session.platform_preference else None
-    emoji = PLATFORM_EMOJIS.get(platform, "🎮") if platform else "🎮"
-
-    # 🧠 User context (optional)
+    platforms = game.get("platforms", [])
+    # :brain: User context
     user_mood = user_context.get("mood") if user_context else None
-    user_genre = user_context.get("genre")[-1] if user_context and user_context.get("genre") else None
-
+    user_genre = user_context.get("genre") if user_context else None
+    platform = user_context.get("platform") if user_context and user_context.get("platform") else (platforms[0] if platforms else None)
+    # :dart: Determine if user's platform is supported
+    not_prefered_platform = False
+    fallback_platform = None
+    if platform and platform not in platforms:
+        not_prefered_platform = True
+        fallback_platform = platforms[0] if platforms else "another platform"
+    # :memo: User summary
     user_summary = ""
     if user_mood:
         user_summary += f"Mood: {user_mood}\n"
@@ -69,78 +86,55 @@ async def format_game_output(session, game: dict, user_context: dict = None) -> 
         user_summary += f"Preferred Genre: {user_genre}\n"
     if platform:
         user_summary += f"Platform: {platform}\n"
-
-    trait_summary = (
-        f"Description: {description}\n"
-        f"Genre: {genre}\n"
-        f"Vibes: {vibes}\n"
-        f"Mechanics: {mechanics}\n"
-        f"Visual Style: {visual_style}\n"
-        f"Story: {has_story}"
-    )
-
-    # 🎯 Line 3: "Play it on your ___"
-    if platform:
-        search_line = f"Play it on your {platform} {emoji}".strip()
-    else:
-        search_line = f"Look it up online"
-
-    game_platforms = game.get("platforms", [])
-    if platform and platform not in game_platforms:
-        print(f"⚠️ Platform mismatch: {platform} not in {game_platforms}")
-        return f"Oops — that one's not available for your {platform}. Want something that is?"
-
-    # 💬 GPT prompt
+    # :jigsaw: Game trait summary
+    trait_summary = f"""
+Description: {description}
+Genre: {genre}
+Vibes: {vibes}
+Mechanics: {mechanics}
+Visual Style: {visual_style}
+Story: {has_story}
+""".strip()
+    # :brain: Prompt
     prompt = f"""
-Speak entirely in the user's tone: {last_user_tone}.  
-Use their style, energy, and attitude naturally. Do not describe or name the tone — just talk like that.
-
+The user’s tone is: {last_user_tone}
+Match your reply style to this tone.
+Don’t mention the tone itself — just speak like someone who naturally talks this way.
 You are Thrum — a fast, confident game assistant.
 The user is looking for a game with:
 {user_summary.strip()}
 You’re considering:
 Game: {title}
 {trait_summary}
-
+not_prefered_platform = {not_prefered_platform}
 Write exactly 3 lines:
 1. Game title (bold using Markdown asterisks)
-2. A confident, casual 10–12 word sentence — rotate phrasing for variety.
-   For example, use patterns like:
-   - "Gives you fast-paced fun with..."
-   - "If you're into [genre], this hits hard."
-   - "This one totally fits your chill mood and vibe."
-3. A platform line that’s natural. Vary your phrases like:
-   - "Only mention this platform: {platform} — nothing else."
-   - “Play it on your mobile 📱”
-   - “Best with a controller on PS5 🎮”
-   - “Tap in on iPhone when you’ve got a minute.”
-
-Avoid weak words like “maybe” or “you could”.
-Use 1–2 emojis max. No links. No intro text. Just 3 clean lines.
+2. A strong half-line (10–12 words) explaining why it fits **this user’s vibe** use confident language and should sound like it is perfect fit for this user.
+3. Platform line:
+   - Only if not_prefered_platform is True, say:
+     then make the message like "Not on {platform}, but available on {fallback_platform}" make the message proper
+   - Otherwise just say:
+    make the message like "you can find this game on {platform}" mentioned{platform} nothing else
+Use 1–2 emojis. No links. No soft language like “maybe” or “you could”.
+Just 3 bold, confident lines.
 """
-
     try:
         response = openai.ChatCompletion.create(
             model="gpt-4.1-mini",
             temperature=0.4,
             messages=[{"role": "user", "content": prompt.strip()}]
         )
-        raw_reply = response["choices"][0]["message"]["content"].strip()
-
-        score = tone_match_validator(user_tone=last_user_tone, bot_text=raw_reply)
-        print(f"🎯 Tone match score: {score:.2f}")
-
-        if score < 0.3:
-            print("⚠️ Tone mismatch. Falling back to default style.")
-            fallback = random.choice(VARIATION_LINES)
-            return f"**{title}**\n{fallback}\n{search_line}"
-
-        return raw_reply
-
+        reply = response["choices"][0]["message"]["content"].strip()
+        return reply
     except Exception:
-        fallback = random.choice(VARIATION_LINES)
-        return f"**{title}**\n{fallback}\n{search_line}"
-
+        if platform:
+            if not_prefered_platform:
+                platform_line = f"Not on your {platform}, but available on {fallback_platform} :video_game:"
+            else:
+                platform_line = f"Play it on your {platform} :video_game:"
+        else:
+            platform_line = "Search it online :video_game:"
+        return f"**{title}**\nA good match for your vibe and preferences.\n{platform_line}"
 
 async def deliver_game_immediately(db:Session,user, session) -> str:
     """
