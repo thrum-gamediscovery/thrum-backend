@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from app.db.models.mood_cluster import MoodCluster
 from app.db.models.game_platforms import GamePlatform
 from app.db.models.game_recommendations import GameRecommendation
+from app.db.models.enums import PhaseEnum
 from app.db.models.session import Session as UserSession
 from app.db.models.game import Game
 from sqlalchemy import func, cast, Integer, or_
@@ -13,7 +14,7 @@ import numpy as np
 
 model = SentenceTransformer("all-MiniLM-L12-v2")
 
-async def game_recommendation(db: Session, user, session, genre: str = None, exclude_titles: list = None):
+async def game_recommendation(db: Session, user, session):
     today = datetime.utcnow().date().isoformat()
 
     # Step 1: Pull platform, genre, mood
@@ -84,7 +85,6 @@ async def game_recommendation(db: Session, user, session, genre: str = None, exc
     base_games = base_query.all()
     if not base_games:
         return None, None
-    # session.game_rejection_count += 1
         # Step 1.5: Cold start → recommend random safe game
     if not platform and not genre and not mood:
         print("[🧊] Cold start: returning a safe random game.")
@@ -107,6 +107,9 @@ async def game_recommendation(db: Session, user, session, genre: str = None, exc
         )
         db.add(game_rec)
         db.commit()
+
+        session.phase = PhaseEnum.FOLLOWUP
+        session.followup_triggered = True
 
         return {
             "title": random_game.title,
@@ -225,7 +228,8 @@ async def game_recommendation(db: Session, user, session, genre: str = None, exc
     )
     db.add(game_rec)
     db.commit()
-
+    session.phase = PhaseEnum.FOLLOWUP
+    session.followup_triggered = True
     return {
         "title": top_game.title,
         "description": top_game.description[:200] if top_game.description else None,

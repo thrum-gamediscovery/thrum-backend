@@ -47,7 +47,6 @@ async def handle_followup_logic(db, session, user, user_input, classification):
         return "Send this to your friends: ‘I just got a perfect game drop from Thrum 🎮 — it's a vibe! Tap here to try it 👉 https://wa.me/12764000071?text=Hey%2C%20I%20heard%20Thrum%20can%20drop%20perfect%20games%20for%20my%20mood.%20Hit%20me%20with%20one!%20🔥’"
 
     if intent in ["want_another"]:
-        session.game_rejection_count = (session.game_rejection_count or 0) + 1
         session.phase = PhaseEnum.DISCOVERY
         return await handle_discovery(db=db, session=session, user=user, classification=classification, user_input=user_input)
 

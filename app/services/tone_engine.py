@@ -42,7 +42,7 @@ Return only the phrase. No emojis. Max 5 words.
 """
     try:
         response = openai.ChatCompletion.create(
-            model="gpt-4.1-mini",
+            model="gpt-4",
             messages=[{"role": "user", "content": prompt}],
             temperature=0.9,
             max_tokens=12,
@@ -124,7 +124,7 @@ Only respond with ONE WORD that best describes the tone. No punctuation.
 """
     try:
         response = openai.ChatCompletion.create(
-            model="gpt-4.1-mini",
+            model="gpt-4",
             messages=[{"role": "user", "content": prompt}],
             temperature=0,
         )

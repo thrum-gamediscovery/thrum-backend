@@ -16,17 +16,14 @@ async def get_recommend(db, user, session):
     game, _ = await game_recommendation(
         db=db,
         user=user,
-        session=session,
-        genre=genre,
-        exclude_titles=exclude
+        session=session
     )
 
     session.memory["last_game_title"] = game["title"]
 
     if game:
         session.last_recommended_game = game["title"]
-        session.phase = PhaseEnum.FOLLOWUP
-        session.followup_triggered = True
+
     else:
         return "Hmm, I couldn’t find a perfect match — but here’s a solid one anyway! 💡"
     # Optional: build user_context from session
@@ -37,40 +34,16 @@ async def get_recommend(db, user, session):
     }
     return await format_game_output(session, game, user_context)
 
-async def explain_last_game_match(session, user, user_input):
+async def explain_last_game_match(session):
     """
     This function generates a personalized response explaining how the last recommended game matches the user's preferences.
     """
-    # Fetch last Thrum reply and last recommended game
-    thrum_interactions = [i for i in session.interactions if i.sender == SenderEnum.Thrum]
-    last_thrum_reply = thrum_interactions[-1].content if thrum_interactions else None
     last_game = session.game_recommendations[-1].game if session.game_recommendations else None
-    
-    # Construct the profile context from the session and user
-    profile_context = {
-        "name": user.name,
-        "mood": session.exit_mood,
-        "genre_interest": session.genre[-1] if session.genre else None,
-        "platform": session.platform_preference[-1] if session.platform_preference else None
-    }
-
-    # Construct the system and user prompts for the model
-    system_prompt = (
-        "You are Thrum, a warm and playful game matchmaker. "
-        "Your tone is cozy, human, and emoji-friendly. Never robotic. Never generic. "
-        "Each reply should: (1) feel like part of a real conversation, (2) suggest a game *only if appropriate*, and (3) ask one soft follow-up. "
-        "Never ask multiple questions at once. Never list features. Never say 'as an AI'. Never break character. "
-        "Keep it under 25 words. Add 1–2 emojis that match the user's mood."
-        "Make reply based on user's tone. You can use short forms if user is using that."
-    )
     
     # Generate the user prompt with information about the user's feedback
     user_prompt = f"""
-    User just said: "{user_input}"
-    Your last message was: "{last_thrum_reply}"
+    
     Last suggested game: "{last_game.title if last_game else 'None'}"
-
-    User profile: {profile_context}
 
     Write Thrum’s reply:
     - Describe the last suggested game shortly based on user's last input.
@@ -79,18 +52,7 @@ async def explain_last_game_match(session, user, user_input):
     Keep it under 25 words. Add 2–3 emojis that match the tone.
     """
     
-    # Use OpenAI's GPT model to generate the explanation response
-    response = openai.ChatCompletion.create(
-        model='gpt-4.1-mini',
-        messages=[
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt}
-        ],
-        temperature=0.9
-    )
-
-    # Return the generated response content
-    return response["choices"][0]["message"]["content"]
+    return user_prompt
 
 async def handle_delivery(db: DBSession, session, user, classification, user_input):
     """
@@ -105,7 +67,7 @@ async def handle_delivery(db: DBSession, session, user, classification, user_inp
         return recommendation_response  # Return the new recommendation
     else:
         # If no new recommendation is needed, explain the last recommended game based on user feedback
-        explanation_response = await explain_last_game_match(session=session, user=user, user_input=user_input)
+        explanation_response = await explain_last_game_match(session=session)
         return explanation_response  # Return the explanation of the last game
 
     

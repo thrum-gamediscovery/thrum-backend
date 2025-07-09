@@ -103,6 +103,7 @@ async def update_user_from_classification(db: Session, user, classification: dic
     playtime = classification.get("playtime_pref")
     reject_tags = classification.get("regect_tag", [])
     game_feedback = classification.get("game_feedback", [])
+    find_game_title = classification.get("find_game")
 
     # -- Name
     if name and name != "None":
@@ -227,6 +228,21 @@ async def update_user_from_classification(db: Session, user, classification: dic
         user.playtime = playtime.strip().lower()
         flag_modified(user, "playtime")
         user.last_updated["playtime"] = str(datetime.utcnow())
+
+    # -- find game
+    if find_game_title and find_game_title.lower() != "none":
+            # Load all game titles and IDs
+            all_games = db.query(Game.game_id, Game.title).all()
+            title_lookup = {g.title: g.game_id for g in all_games}
+            match = process.extractOne(find_game_title.strip(), title_lookup.keys(), score_cutoff=75)
+            if match:
+                matched_title = match[0]
+                matched_game_id = str(title_lookup[matched_title])  # Store as string
+                session.meta_data["find_game"] = matched_game_id
+                flag_modified(session, "meta_data")
+                print(f"🎯 Stored matched find_game → '{matched_title}' (ID: {matched_game_id}) in session.meta_data")
+            else:
+                print(f"❌ No match found for 'find_game' title: {find_game_title}")
 
     # -- Reject Tags (Genre vs Platform)
     if isinstance(reject_tags, list):

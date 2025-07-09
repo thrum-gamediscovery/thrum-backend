@@ -10,53 +10,82 @@ from app.db.models.enums import SenderEnum
 # Set API Key
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
-async def classify_user_intent(user_input: str,session) -> dict:
-    """
-    Classifies user input into:
-    - intent_override: User wants to skip discovery and get a game immediately.
-    - not_in_the_mood: User does not want to engage right now or wants to leave.
-    Returns:
-        {
-            "intent_override": True/False,
-            "not_in_the_mood": True/False
-        }
-    """
+# Define updated intents
+intents = [
+    "Greet", 
+    "Request_Quick_Recommendation", 
+    "Reject_Recommendation", 
+    "Inquire_About_Game", 
+    "Give_Info", 
+    "Share_Game", 
+    "Opt_Out", 
+    "Other_Question", 
+    "Confirm_Game",
+    "Other"
+]
+
+async def classify_user_intent(user_input: str, session):
+    
     thrum_interactions = [i for i in session.interactions if i.sender == SenderEnum.Thrum]
     last_thrum_reply = thrum_interactions[-1].content if thrum_interactions else ""
+    
     prompt = f"""
 User message: "{user_input}"
 You are a classification engine for a conversational game assistant.
-last thrum reply :{last_thrum_reply} (for your reference that user input is reply of this thrum's message)
-You must detect whether the user is:
-1. intent_override = true:
-If the user wants to skip the assistant’s usual discovery questions (about mood, genre, platform), and prefers the assistant to choose a game immediately on their behalf.
-If user want to skip the questions and directly asking for the suggesting the game and input is like not want that game and want another game at that time tis should be True.
-This includes direct demands, urgency, or input that avoids or defers decision-making — even politely or vaguely.
-2. not_in_the_mood = true:
-If the user expresses disinterest, wants to stop interacting, postpone, or end the session.
-This includes emotional opt-outs, dismissals, or indirect rejection of further conversation.
-These flags are not mutually exclusive. Respond only with a compact JSON object:
-{{"intent_override": boolean, "not_in_the_mood": boolean}}
+last thrum reply: {last_thrum_reply} (for your reference, this is the reply from Thrum to the user input)
+You must classify the user message into one or more of the following intents:
+- Greet: User greets the bot.
+- Request Quick Recommendation: if User asks for a game recommendation quickly like suggest game, recommend game.
+- Reject Recommendation: User rejects a previously suggested game.
+- Inquire About Game: User asks for details about a specific game or give game_title and want that game to suggest.
+- Give Info: User provides information about their preferences like genre, platform, mood, username, playtime, vibe.
+- Share Game: User asks to share the game recommendation with someone.
+- Opt-Out: User opts out or indicates they don't want to continue interacting.
+- Other Question: Any other type of question not directly related to the game recommendation.
+- Confirm Game: User confirms their interest in a suggested game or like that game or user want to play or positive reply about that game.
+- Other: For any input that does not fit any of the above categories.
+
+only set one variable true which is most relevent.
+you must have to classify intent based on last thrum reply and what user replies to thrum.
+Respond with a JSON object where each intent is mapped to true/false based on the user input:
+{{
+    "Greet": true/false,
+    "Request_Quick_Recommendation": true/false,
+    "Reject_Recommendation": true/false,
+    "Inquire_About_Game": true/false,
+    "Give_Info": true/false,
+    "Share Game": true/false,
+    "Opt_Out": true/false,
+    "Other_Question": true/false,
+    "Confirm_Game": true/false,
+    "Other": true/false
+}}
+
 User message: "{user_input}"
 """
 
     try:
         response = await openai.ChatCompletion.acreate(
-            model="gpt-4.1-mini",
+            model="gpt-4",  # You can change the model version as per your requirement
             temperature=0,
             messages=[{"role": "user", "content": prompt}]
         )
         content = response['choices'][0]['message']['content'].strip()
 
-        result = json.loads(content.lower())
-        return {
-            "intent_override": bool(result.get("intent_override", False)),
-            "not_in_the_mood": bool(result.get("not_in_the_mood", False))
-        }
+        # Parse the response content into a dictionary
+        result = json.loads(content)  # Ensure we're parsing as a JSON object
+        
+        # Ensure all intents are included in the response, even if false
+        result = {intent: bool(result.get(intent, False)) for intent in intents}
+        print(f"---------------------------------------------------- intent : {result}")
+        return result
 
     except Exception as e:
         print("❌ GPT classification failed:", e)
-        return {"intent_override": False, "not_in_the_mood": False}
+        # Return a default response if there is an error
+        return {intent: False for intent in intents}
+
+
     
 # ✅ Use OpenAI to classify mood, vibe, genre, and platform from free text
 async def classify_user_input(session, user_input: str) -> dict | str:
@@ -154,6 +183,10 @@ You must infer from both keywords and tone — even if the user is casual, brief
      }
    ]
 
+12. find_game(title of the game)
+   →if user is specifying that find me game by giving the title of the game then put that game in find_game variable
+   →if user want specific game and give name or title for recommend (if user i saying something like"i don't like xyz game" then dont add that in this, only add when you find user want this specific game or want to know about this game)
+   →return just one title of that game which user specify for recommend not list
 ---
 
 🧠 RULES:
@@ -180,7 +213,8 @@ You must infer from both keywords and tone — even if the user is casual, brief
       "accepted": true/false/None,
       "reason": "..."
     }
-  ]
+  ],
+  "find_game":"..." 
 }
 
 🧠 HINTS:
@@ -205,7 +239,7 @@ Now classify into the format below.
 '''
     try:    
         response = openai.ChatCompletion.create(
-            model="gpt-4.1-mini",
+            model="gpt-4",
             messages=[
                 {"role": "system", "content": system_prompt.strip()},
                 {"role": "user", "content": user_prompt.strip()}
@@ -228,7 +262,8 @@ Now classify into the format below.
                 "story_pref": None,
                 "playtime_pref": "None",
                 "regect_tag": [],
-                "game_feedback": []
+                "game_feedback": [],
+                "find_game":"None"
             }
 
         print(f"[🧠 Classification Result-------------]: {result}")
@@ -269,7 +304,7 @@ Only return valid JSON. No explanation.
 """
 
     response = await openai.ChatCompletion.acreate(
-        model="gpt-4.1-mini",
+        model="gpt-4",
         temperature=0.3,
         messages=[{"role": "system", "content": prompt}]
     )

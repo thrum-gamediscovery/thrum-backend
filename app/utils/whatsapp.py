@@ -54,8 +54,9 @@ async def send_whatsapp_message(phone_number: str, message: str, sent_from_thrum
                     await bot_reply(request=request, db=db, user=user, reply=message)
             except Exception as e:
                 print(f"⚠️ Failed to log bot reply: {e}")
-
-    except requests.RequestException as e:
-        print(f"❌ Failed to send message to {phone_number}: {e}")
-        if 'response' in locals():
-            print(f"🔍 Twilio response: {response.status_code} → {response.text}")
+    except httpx.ConnectTimeout:
+        print("Connection timeout. Retrying...")
+    except httpx.HTTPStatusError as e:
+        print(f"HTTP error occurred: {e.response.status_code}")
+    except Exception as e:
+        print(f"An error occurred: {e}")

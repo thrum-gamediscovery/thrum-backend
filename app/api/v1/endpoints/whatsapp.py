@@ -12,6 +12,7 @@ from app.services.session_manager import update_or_create_session, is_session_id
 from app.services.create_reply import generate_thrum_reply
 from app.utils.region_utils import infer_region_from_phone, get_timezone_from_region
 from app.utils.whatsapp import send_whatsapp_message
+from app.services.modify_thrum_reply import format_reply
 
 
 router = APIRouter()
@@ -64,7 +65,8 @@ async def whatsapp_webhook(request: Request, From: str = Form(...), Body: str = 
         # Always stop waiting after any reply
         session.awaiting_reply = False
 
-    reply = await generate_thrum_reply(db=db,user=user, session=session, user_input=user_input)
+    response_prompt = await generate_thrum_reply(db=db,user=user, session=session, user_input=user_input)
+    reply = await format_reply(session=session,user_input=user_input, user_prompt=response_prompt)
     if len(session.interactions) == 0 or is_session_idle(session):
         await asyncio.sleep(5)
 

@@ -1,12 +1,23 @@
-from app.services.greetings import generate_intro
+
 from app.db.models.enums import PhaseEnum
 
-async def handle_intro(session, is_first_message: bool, idle_reconnect: bool, user_input: str, user):
-    if any(keyword in user_input.lower() for keyword in ["what do you do", "how does it work", "explain", "how this works", "Explain me this", "Explain me first"]):
-        return (
-            "I help you find the perfect game based on your vibe — mood, genre, or title 🎮\n"
-            "Just drop a word like 'puzzle', 'adventure', or how you're feeling — and I’ll pick one for you!"
-        )
+async def handle_intro():
+    user_prompt = """
+    Use their style, energy, and attitude naturally. Do not describe or name the tone — just talk like that.
+Don’t mention the tone itself — just speak like someone who naturally talks this way.
+You are Thrum — a warm, confident, and human-sounding game discovery assistant on WhatsApp.
+Your job: Send a short intro message (under 2 lines) to start the conversation.
+Strict rules:
+- NEVER ask questions.
+- NEVER mention genres, moods, or preferences yet.
+- NEVER use the same wording every time.
+- ALWAYS vary the phrasing, sentence rhythm, punctuation, or emoji (subtly or clearly).
+Scenarios:
+- First-time → welcome the user and casually explain what Thrum does
+Speak naturally. No filler. No template voice. Avoid sounding like a bot."""
+    return user_prompt
 
-    session.phase = PhaseEnum.DISCOVERY
-    return await generate_intro(session=session,is_first_message=is_first_message, idle_reconnect=idle_reconnect, user_input=user_input, user=user)
+
+
+async def handle_reengagement(session):
+    pass

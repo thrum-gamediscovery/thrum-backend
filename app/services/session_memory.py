@@ -120,7 +120,7 @@ Just 3 bold, confident lines.
 """
     try:
         response = openai.ChatCompletion.create(
-            model="gpt-4.1-mini",
+            model="gpt-4",
             temperature=0.4,
             messages=[{"role": "user", "content": prompt.strip()}]
         )
@@ -136,37 +136,58 @@ Just 3 bold, confident lines.
             platform_line = "Search it online :video_game:"
         return f"**{title}**\nA good match for your vibe and preferences.\n{platform_line}"
 
-async def deliver_game_immediately(db:Session,user, session) -> str:
+async def deliver_game_immediately(db: Session, user, session) -> str:
     """
     Instantly delivers a game recommendation, skipping discovery.
 
     Returns:
         str: GPT-formatted game message
     """
-    game,_ = await game_recommendation(db=db, user=user, session=session)
+    game, _ = await game_recommendation(db=db, user=user, session=session)
+
     if not game:
         return "Hmm, couldn't find a match right now. Try again soon!"
     else:
-
         session.last_recommended_game = game["title"]
 
-        session.phase = PhaseEnum.FOLLOWUP
-        session.followup_triggered = True
+        # Get user's preferred platform
+        preferred_platforms = session.platform_preference or []
+        user_platform = preferred_platforms[-1] if preferred_platforms else None
+        game_platforms = game.get("platforms", [])
 
-    # Optional: build user_context from session
-    user_context = {
-        "mood": session.exit_mood,
-        "genre": getattr(session, "genre", None),
-        "platform": session.platform_preference
-    }
+        # Build natural platform note
+        if user_platform and user_platform in game_platforms:
+            platform_note = f"It’s available on your preferred platform: {user_platform}."
+        elif user_platform:
+            available = ", ".join(game_platforms)
+            platform_note = (
+                f"It’s not on your usual platform ({user_platform}), "
+                f"but is available on: {available}."
+            )
+        else:
+            platform_note = f"Available on: {', '.join(game_platforms)}."
 
-    return await format_game_output(session,game, user_context=user_context)
+        # 🧠 Final Prompt
+        user_prompt = (
+            f"The user clearly asked for a game right away — no questions, no delay.\n"
+            f"Recommend: **{game['title']}**\n"
+            f"Write a complete message (max 25 words) with:\n"
+            f"– it must include The game title in bold using Markdown: **{game['title']}**\n"
+            f"– A confident, punchy reason why this fits (based on genre, mechanics, story, or vibe)\n"
+            f"– A natural mention of platform: {platform_note}\n"
+            f"Use user_context if helpful, but don’t ask anything or recap.\n"
+            f"Sound smooth, human, and excited — this is a 'just drop it' moment."
+            f"must suggest game with reason that why it fits to user"
+        )
+
+        return user_prompt
+
 
 async def confirm_input_summary(session) -> str:
     last_user_tone = get_last_user_tone_from_session(session)
 
     """
-    Uses GPT-4.1-mini to generate a short, human-sounding confirmation line from mood, genre, and platform.
+    Uses gpt-4 to generate a short, human-sounding confirmation line from mood, genre, and platform.
     No game names or suggestions — just a fun, natural acknowledgment.
     """
     mood = session.exit_mood or None
@@ -177,59 +198,33 @@ async def confirm_input_summary(session) -> str:
     if not any([mood, genre, platform]):
         return "Got it — let me find something for you."
     # Human tone prompt
-    system_prompt = f"""
-Speak entirely in the user's tone: {last_user_tone}.  
-Use their style, energy, and attitude naturally. Do not describe or name the tone — just talk like that.
+    user_prompt = (
+    f"Here’s what the user just shared:\n"
+    f"– Mood: {mood or 'Not given'}\n"
+    f"– Genre: {genre or 'Not given'}\n"
+    f"– Platform: {platform or 'Not given'}\n\n"
+    f"Write a short and charming confirmation message (max 12 words).\n"
+    f"Use the values above to reflect their vibe and make them feel heard.\n"
+    f"Don't suggest a game — this is just a friendly check-in to say: 'I see you.'\n"
+    f"Tone should feel natural, emotionally aware, and warmly human — like a friend who gets them."
+    )
 
-Don’t mention the tone itself — just speak like someone who naturally talks this way.
-You're Thrum, a friendly game assistant.
-The user gave you:
-- Mood: {mood or "unknown"}
-- Genre: {genre or "unknown"}
-- Platform: {platform or "unknown"}
-Your job: Write a short, confident, natural-sounding **one-liner** to confirm their vibe using mood, genre, and platform(if not unknown)— like a real person would.
- Make it feel warm, casual, and expressive — like you're chatting with a friend.
- Use at most ONE emoji (optional).
- Do NOT recommend or name any games.
- Do NOT say “let me find” or “I’ll suggest”.
- Avoid robotic keyword lists or bullet-style phrasing.
- Merge mood, genre, and platform naturally into one smooth sentence.
-Only return the final sentence. No intro, no tags.
-""".strip()
-    try:
-        response = await openai.ChatCompletion.acreate(
-            model="gpt-4.1-mini",
-            temperature=0.5,
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": "Give me the confirmation sentence only."}
-            ]
-        )
-        session.phase = PhaseEnum.DELIVERY
-        session.intent_override_triggered = True
-        return response["choices"][0]["message"]["content"].strip()
-    except Exception as e:
-        print("GPT summary fallback:", e)
-        parts = [mood, genre, platform]
-        summary = ", ".join([p for p in parts if p])
-        session.phase = PhaseEnum.DELIVERY
-        session.intent_override_triggered = True
-
-        return f"Cool — something {summary} coming up!" if summary else "Finding something you'll like..."
+    return user_prompt
     
 
 
 class DiscoveryData:
-    def __init__(self, mood=None, genre=None, platform=None):
+    def __init__(self, mood=None, genre=None, platform=None, story_pref=None):
         self.mood = mood
         self.genre = genre
         self.platform = platform
+        self.story_pref = story_pref
 
     def is_complete(self):
-        return all([self.mood, self.genre, self.platform])
+        return all([self.mood, self.genre, self.platform, self.story_pref])
 
     def to_dict(self):
-        return {"mood": self.mood, "genre": self.genre, "platform": self.platform}
+        return {"mood": self.mood, "genre": self.genre, "platform": self.platform, "story_pref" : self.story_pref}
 
 
 
@@ -245,17 +240,19 @@ async def extract_discovery_signals(session) -> DiscoveryData:
     mood = session.exit_mood or session.entry_mood
     genre = session.genre[-1] if session.genre else None
     platform = session.platform_preference[-1] if session.platform_preference else None
+    story_pref = session.story_preference
 
-    print(f"🔍 Extracted from session — Mood: {mood}, Genre: {genre}, Platform: {platform}")
+    print(f"🔍 Extracted from session — Mood: {mood}, Genre: {genre}, Platform: {platform}, story_preference : {story_pref}")
     return DiscoveryData(
         mood=mood,
         genre=genre,
-        platform=platform
+        platform=platform,
+        story_pref=story_pref,
     )
 
 async def ask_discovery_question(session) -> str:
     """
-    Dynamically generate a discovery question using gpt-4.1-mini.
+    Dynamically generate a discovery question using gpt-4.
     Now adds freedom-language to each question (e.g. 'or something totally different?')
     """
     last_user_tone = get_last_user_tone_from_session(session)
@@ -265,7 +262,7 @@ async def ask_discovery_question(session) -> str:
     if not session.genre:
         mood = session.exit_mood
         platform = get_last(session.platform_preference)
-        system_prompt = f"""
+        user_promt = f"""
 Speak entirely in the user's tone: {last_user_tone}.  
 Use their style, energy, and attitude naturally. Do not describe or name the tone — just talk like that.
 
@@ -289,12 +286,11 @@ ask question of 10-12 words only.
 - Puzzlers? Action? Party chaos? Or something totally offbeat?
 - Looking for strategy, sports, role-playing… or just whatever breaks the rules?
 """.strip()
-        user_input = "Ask about genre."
 
     elif not session.exit_mood:
         genre = get_last(session.genre)
         platform = get_last(session.platform_preference)
-        system_prompt = f"""
+        user_promt = f"""
 Speak entirely in the user's tone: {last_user_tone}.  
 Use their style, energy, and attitude naturally. Do not describe or name the tone — just talk like that.
 
@@ -318,12 +314,11 @@ ask question of 10-12 words only.
 - Feeling chill, chaotic, or in a story-rich kinda headspace… or something else entirely?
 - What’s the vibe today — sneaky, calm, cozy? Or are we breaking all the molds?
 """.strip()
-        user_input = "Ask about mood."
-
+        
     elif not session.platform_preference:
         mood = session.exit_mood
         genre = get_last(session.genre)
-        system_prompt = f"""
+        user_promt = f"""
 Speak entirely in the user's tone: {last_user_tone}.  
 Use their style, energy, and attitude naturally. Do not describe or name the tone — just talk like that.
 
@@ -347,17 +342,5 @@ ask question of 10-12 words only.
 - Is it Xbox, VR, mobile taps… or some off-the-map setup?
 - PS5 or Switch? Or do you roll with browser games and retro consoles?
 """.strip()
-        user_input = "Ask about platform."
-
-    else:
-        return "Tell me anything else you'd like in the game."
-    
-    response = await openai.ChatCompletion.acreate(
-        model="gpt-4.1-mini",
-        temperature=0.65,
-        messages=[
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_input}
-        ]
-    )
-    return response.choices[0].message["content"].strip()
+        
+    return user_promt
