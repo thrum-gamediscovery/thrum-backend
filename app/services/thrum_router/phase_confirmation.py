@@ -19,12 +19,11 @@ async def handle_confirmed_game(db, user, session):
         "Make it warm, upbeat, or playful — never robotic or generic.\n"
         "Do not suggest another game yet. Just acknowledge the moment with joy or connection."
     )
-    
-    if session.meta_data is None:
-            session.meta_data = {}
-    # Check if 'dont_give_name' is not in session.metadata, and if so, add it
-    if "dont_give_name" not in session.metadata:
-        session.metadata["dont_give_name"] = False
+    # if session.meta_data is None:
+    #         session.meta_data = {}
+    # # Check if 'dont_give_name' is not in session.metadata, and if so, add it
+    # if "dont_give_name" not in session.metadata:
+    #     session.metadata["dont_give_name"] = False
     
     db.commit()
     return user_prompt
