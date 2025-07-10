@@ -51,6 +51,7 @@ async def check_intent_override(db, user_input, user, session, classification):
                 f"Then naturally include this note about platforms: {platform_note}\n"
                 f"Tone should be confident, warm, and very human. Never say 'maybe' or 'you might like'."
                 f"must suggest game with reason that why it fits to user with mirror effect"
+                f"if user is asking abliablity but that was not available just at that time only that time ask for annother recommend on that which is not available in game"
             )
 
             return user_prompt

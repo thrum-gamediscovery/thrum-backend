@@ -40,7 +40,7 @@ Don’t say the game name again. Just ask a single fun, friendly question.
 Return only the question.
 """
     response = await openai.ChatCompletion.acreate(
-        model="gpt-4.1-mini",
+        model="gpt-4",
         temperature=0.5,
         messages=[
             {"role": "user", "content": prompt.strip()}
@@ -88,7 +88,7 @@ async def handle_game_inquiry(db: Session, user, session, user_input: str) -> st
 
     # Check if already recommended
     recommended_ids = set(
-        r[0] for r in db.query(GameRecommendation.game_id).filter(
+        str(r[0]) for r in db.query(GameRecommendation.game_id).filter(
             GameRecommendation.session_id == session.session_id
         )
     )

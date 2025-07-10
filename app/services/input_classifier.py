@@ -32,36 +32,51 @@ async def classify_user_intent(user_input: str, session):
     prompt = f"""
 User message: "{user_input}"
 You are a classification engine for a conversational game assistant.
-last thrum reply: {last_thrum_reply} (for your reference, this is the reply from Thrum to the user input)
-You must classify the user message into one or more of the following intents:
-- Greet: User greets the bot.
-- Request Quick Recommendation: if User asks for a game recommendation quickly like suggest game, recommend game.
-- Reject Recommendation: User rejects a previously suggested game.
-- Inquire About Game: User asks for details about a specific game or give game_title and want that game to suggest.
-- Give Info: User provides information about their preferences like genre, platform, mood, username, playtime, vibe.
-- Share Game: User asks to share the game recommendation with someone.
-- Opt-Out: User opts out or indicates they don't want to continue interacting.
-- Other Question: Any other type of question not directly related to the game recommendation.
-- Confirm Game: User confirms their interest in a suggested game or like that game or user want to play or positive reply about that game.
-- Other: For any input that does not fit any of the above categories.
+last thrum reply: {last_thrum_reply} (This is the reply that Thrum gave to the user's last message)
 
-only set one variable true which is most relevent.
-you must have to classify intent based on last thrum reply and what user replies to thrum.
+Your task is to classify the user message into one or more of the following intents based on:
+
+1. **Thrum's last reply** and
+2. **The user's response** to that last reply.
+
+Carefully consider the context of the conversation and the specific tone or direction of the user's input in relation to Thrum’s previous reply. Each intent corresponds to specific patterns and expected actions based on the flow of conversation. Only set one variable to `true` which is most relevant based on the user input and context.
+
+Here are the intents to classify:
+
+- **Greet**: User greets the bot.
+- **Request_Quick_Recommendation**: User asks for a quick game recommendation or an immediate suggestion. This intent is also triggered if **Thrum’s last reply** was asking the user if they wanted something else (like a new game or suggestion), and the user responds positively (e.g., "Yes", "Sure", or any affirmative reply). This intent **should not be triggered** if the user is confirming interest in the last suggested game.
+- **Reject_Recommendation**: User rejects a previously suggested game.
+- **Inquire_About_Game**: User asks for more details about a specific game or requests more information or check availbility about a game that was previously mentioned.
+- **Give_Info**: User provides details about their preferences or updates their profile.
+- **Share_Game**: User asks if they can share a game recommendation with others or expresses an intent to share.
+- **Opt_Out**: User opts out or indicates they don’t want to continue the conversation.
+- **Other_Question**: Any other type of question not directly related to the game recommendation or profile.
+- **Confirm_Game**: User confirms their interest in a previously recommended game. This intent is triggered **only** if the user is explicitly confirming their interest in the game suggested in **Thrum’s last reply**. For example, if Thrum suggested *Last Man Standing*, and the user says, "Yes, I want to play that", it would be a **Confirm_Game** intent.
+- **Other**: For any input that does not fit any of the above categories.
+
+### Steps for classification:
+1. **Identify the intent** by looking at the **user's response** to **last_thrum_reply**:
+   - If **Thrum** asked if the user wanted something else and the user replies positively (e.g., "Yes", "Sure"), classify it as **Request_Quick_Recommendation**.
+   - If **Thrum** recommended a game and the user says, "Yes, I want to play it" or something that confirms the game interest directly, classify it as **Confirm_Game**.
+   
+2. **Ensure that the response** maps strictly to the correct intent based on the **context** of Thrum's last message.
+
+3. **Do not confuse** a user confirming their interest in a game with a user asking for another recommendation. If the user is confirming a game recommendation from **last_thrum_reply**, it is **Confirm_Game**. If they are asking for a new suggestion, it's **Request_Quick_Recommendation**.
+
 Respond with a JSON object where each intent is mapped to true/false based on the user input:
+
 {{
     "Greet": true/false,
     "Request_Quick_Recommendation": true/false,
     "Reject_Recommendation": true/false,
     "Inquire_About_Game": true/false,
     "Give_Info": true/false,
-    "Share Game": true/false,
+    "Share_Game": true/false,
     "Opt_Out": true/false,
     "Other_Question": true/false,
     "Confirm_Game": true/false,
     "Other": true/false
 }}
-
-User message: "{user_input}"
 """
 
     try:
@@ -92,7 +107,20 @@ async def classify_user_input(session, user_input: str) -> dict | str:
     # Get the last message from Thrum to include as context
     thrum_interactions = [i for i in session.interactions if i.sender == SenderEnum.Thrum]
     last_thrum_reply = thrum_interactions[-1].content if thrum_interactions else ""
-    last_game = session.game_recommendations[-1].game if session.game_recommendations else None
+    last_game_obj = session.game_recommendations[-1].game if session.game_recommendations else None
+    if last_game_obj is not None:
+        last_game = {
+            "title": last_game_obj.title,
+            "description": last_game_obj.description[:200] if last_game_obj.description else None,
+            "genre": last_game_obj.genre,
+            "game_vibes": last_game_obj.game_vibes,
+            "mechanics": last_game_obj.mechanics,
+            "visual_style": last_game_obj.visual_style,
+            "has_story": last_game_obj.has_story,
+            "available_in_platforms":[platform.platform for platform in last_game_obj.platforms]
+        }
+    else:
+        last_game = None
 
     system_prompt = '''
 You are a classification engine inside a mood-based game recommendation bot.
@@ -186,6 +214,7 @@ You must infer from both keywords and tone — even if the user is casual, brief
 12. find_game(title of the game)
    →if user is specifying that find me game by giving the title of the game then put that game in find_game variable
    →if user want specific game and give name or title for recommend (if user i saying something like"i don't like xyz game" then dont add that in this, only add when you find user want this specific game or want to know about this game)
+   →if user do not specify game title but looking like user is inquiry about ame or check avilability of any then return last recommend game's title.
    →return just one title of that game which user specify for recommend not list
 ---
 

@@ -38,7 +38,20 @@ async def explain_last_game_match(session):
     """
     This function generates a personalized response explaining how the last recommended game matches the user's preferences.
     """
-    last_game = session.game_recommendations[-1].game if session.game_recommendations else None
+    last_game_obj = session.game_recommendations[-1].game if session.game_recommendations else None
+    if last_game_obj is not None:
+        last_game = {
+            "title": last_game_obj.title,
+            "description": last_game_obj.description[:200] if last_game_obj.description else None,
+            "genre": last_game_obj.genre,
+            "game_vibes": last_game_obj.game_vibes,
+            "mechanics": last_game_obj.mechanics,
+            "visual_style": last_game_obj.visual_style,
+            "has_story": last_game_obj.has_story,
+            "available_in_platforms":[platform.platform for platform in last_game_obj.platforms]
+        }
+    else:
+        last_game = None
     
     # Generate the user prompt with information about the user's feedback
     user_prompt = f"""
