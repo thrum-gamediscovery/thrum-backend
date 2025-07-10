@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from app.db.models.mood_cluster import MoodCluster
 from app.db.models.game_platforms import GamePlatform
 from app.db.models.game_recommendations import GameRecommendation
-from app.db.models.enums import PhaseEnum
+from app.db.models.enums import PhaseEnum, SenderEnum
 from app.db.models.session import Session as UserSession
 from app.db.models.game import Game
 from sqlalchemy import func, cast, Integer, or_
@@ -81,7 +81,7 @@ async def game_recommendation(db: Session, user, session):
         base_query = base_query.filter(
             cast(Game.age_rating, Integer) <= user_age
         )
-
+    session.game_rejection_count += 1
     base_games = base_query.all()
     if not base_games:
         return None, None
@@ -169,8 +169,12 @@ async def game_recommendation(db: Session, user, session):
         candidate_games = base_games
 
     # Step 6: Embedding-based scoring
-    mood_vector = model.encode(mood) if mood else None
-    genre_vector = model.encode(genre) if genre else None
+    user_interactions = [i for i in session.interactions if i.sender == SenderEnum.User]
+    user_input = user_interactions[-1].content if user_interactions else ""
+    mood_input = f"{genre} | {user_input}" if genre else None
+    mood_vector = model.encode(mood_input) if mood_input else None
+    genre_input = f"{genre} | {user_input}" if genre else None
+    genre_vector = model.encode(genre_input) if genre_input else None
 
     def to_vector(v):
         if v is None:

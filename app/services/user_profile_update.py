@@ -270,7 +270,8 @@ async def update_user_from_classification(db: Session, user, classification: dic
             matched_platform = await get_best_platform_match(user_input=tag_clean, db=db)
             if not matched_platform:
                 matched_platform = get_default_platform(platform=tag_clean)
-            if matched_platform:
+            print(f" --------------------------- matched_platform : {matched_platform}")
+            if matched_platform or matched_platform is not None:
                 if matched_platform not in user.reject_tags["platform"]:
                     user.reject_tags["platform"].append(matched_platform)
                 if matched_platform not in reject_data["platform"]:

@@ -1,5 +1,6 @@
-from app.services.input_classifier import classify_user_intent
+from app.services.input_classifier import classify_user_intent, have_to_recommend
 from app.services.game_recommend import game_recommendation
+from app.services.thrum_router.phase_delivery import explain_last_game_match
 from app.services.session_memory import deliver_game_immediately
 from app.db.models.enums import PhaseEnum
 from app.services.thrum_router.phase_intro import handle_intro
@@ -22,42 +23,46 @@ async def check_intent_override(db, user_input, user, session, classification):
             session.game_rejection_count = 0
             return await handle_discovery(db=db, session=session, user=user, classification=classification, user_input=user_input)
         else:
-            session.game_rejection_count += 1
-            session.phase = PhaseEnum.DELIVERY
-            game,_ =  await game_recommendation(db=db, user=user, session=session)
-            # Extract platform info
-            preferred_platforms = session.platform_preference or []
-            user_platform = preferred_platforms[-1] if preferred_platforms else None
-            game_platforms = game.get("platforms", [])
+            should_recommend = await have_to_recommend(db=db, user=user, classification=classification, session=session)
 
-            # Dynamic platform mention line (natural, not template)
-            if user_platform and user_platform in game_platforms:
-                platform_note = f"It’s playable on your preferred platform: {user_platform}."
-            elif user_platform:
-                available = ", ".join(game_platforms)
-                platform_note = (
-                    f"It’s not on your usual platform ({user_platform}), "
-                    f"but works on: {available}."
+            if should_recommend:
+                session.phase = PhaseEnum.DELIVERY
+                game,_ =  await game_recommendation(db=db, user=user, session=session)
+                # Extract platform info
+                preferred_platforms = session.platform_preference or []
+                user_platform = preferred_platforms[-1] if preferred_platforms else None
+                game_platforms = game.get("platforms", [])
+
+                # Dynamic platform mention line (natural, not template)
+                if user_platform and user_platform in game_platforms:
+                    platform_note = f"It’s playable on your preferred platform: {user_platform}."
+                elif user_platform:
+                    available = ", ".join(game_platforms)
+                    platform_note = (
+                        f"It’s not on your usual platform ({user_platform}), "
+                        f"but works on: {available}."
+                    )
+                else:
+                    platform_note = f"Available on: {', '.join(game_platforms)}."
+
+                # Final user prompt for GPT
+                user_prompt = (
+                    f"Suggest a second game after the user rejected the previous one.The whole msg should no more than 25-30 words.\n"
+                    f"The game must be **{game['title']}** (use bold Markdown: **{game['title']}**).\n"
+                    f"In one short line (10–12 words), explain why this new game fits them —\n"
+                    f"based on its genre, vibe, story, or mechanics — and vary from the first suggestion if possible.\n"
+                    f"Mirror the user's reason for rejection in a warm, human way before suggesting the new game.\n"
+                    f"Use user context from the system prompt (like genre, story_preference, platform_preference) to personalize.\n"
+                    f"Then naturally include this platform note (rephrase it to sound friendly, do not paste as-is): {platform_note}\n"
+                    f"Tone must be confident, warm, emotionally intelligent — never robotic.\n"
+                    f"Never say 'maybe' or 'you might like'. Be sure the game feels tailored.\n"
+                    f"If the user was only asking about availability and the game was unavailable, THEN and only then, offer a different suggestion that is available.\n"
                 )
-            else:
-                platform_note = f"Available on: {', '.join(game_platforms)}."
 
-            # Final user prompt for GPT
-            user_prompt = (
-                f"Suggest a second game after the user rejected the previous one.The whole msg should no more than 25-30 words.\n"
-                f"The game must be **{game['title']}** (use bold Markdown: **{game['title']}**).\n"
-                f"In one short line (10–12 words), explain why this new game fits them —\n"
-                f"based on its genre, vibe, story, or mechanics — and vary from the first suggestion if possible.\n"
-                f"Mirror the user's reason for rejection in a warm, human way before suggesting the new game.\n"
-                f"Use user context from the system prompt (like genre, story_preference, platform_preference) to personalize.\n"
-                f"Then naturally include this platform note (rephrase it to sound friendly, do not paste as-is): {platform_note}\n"
-                f"Tone must be confident, warm, emotionally intelligent — never robotic.\n"
-                f"Never say 'maybe' or 'you might like'. Be sure the game feels tailored.\n"
-                f"If the user was only asking about availability and the game was unavailable, THEN and only then, offer a different suggestion that is available.\n"
-            )
-
-            return user_prompt
-            
+                return user_prompt
+            else: 
+                explanation_response = await explain_last_game_match(session=session)
+                return explanation_response
 
     # Handle request for quick game recommendation
     elif classification_intent.get("Request_Quick_Recommendation"):
@@ -72,7 +77,7 @@ async def check_intent_override(db, user_input, user, session, classification):
     # Handle information provided by the user
     elif classification_intent.get("Give_Info"):
         session.phase = PhaseEnum.DISCOVERY
-        return await handle_user_info(db=db, user=user, session=session, classification=classification, user_input=user_input)
+        return await handle_discovery(db=db, session=session, classification=classification, user=user, user_input=user_input)
 
     # Handle user opting out
     elif classification_intent.get("Opt_Out"):

@@ -9,11 +9,11 @@ from app.services.input_classifier import classify_user_input
 
 @safe_call("Hmm, I had trouble figuring out what to ask next. Let's try something fun instead! 🎮")
 async def handle_discovery(db, session, user, classification, user_input):
-    if any(phrase in user_input.lower() for phrase in ["what do you do", "how does it work", "explain", "how this works", "Explain me this", "Explain me first"]):
-        return (
-            "I help you find games that match your mood, genre, or vibe 🎮\n"
-            "You can say something like 'fast action', 'sad story', or even a title like 'GTA'."
-        )
+    # if any(phrase in user_input.lower() for phrase in ["what do you do", "how does it work", "explain", "how this works", "Explain me this", "Explain me first"]):
+    #     return (
+    #         "I help you find games that match your mood, genre, or vibe 🎮\n"
+    #         "You can say something like 'fast action', 'sad story', or even a title like 'GTA'."
+    #     )
     
     # mood_tag = await classify_tone(user_input)
     # intent = await classify_user_input(session=session, user_input=user_input)
@@ -22,7 +22,7 @@ async def handle_discovery(db, session, user, classification, user_input):
     #     session.meta_data["entry_mood"] = mood_tag
     # if intent and intent.intent_type:
     #     session.meta_data["intent_type"] = intent.intent_type
-
+    session.phase = PhaseEnum.DISCOVERY
     discovery_data = await extract_discovery_signals(session)
 
     if discovery_data.is_complete():

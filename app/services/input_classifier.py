@@ -36,38 +36,50 @@ You are a classification engine for a conversational game assistant.
 last thrum reply: {last_thrum_reply} (This is the reply that Thrum gave to the user's last message) """
     system_prompt = """
 
-Your task is to classify the user message into one or more of the following intents based on:
+Your task is to classify the user's message into one or more of the following intents based on:
 
 1. **Thrum's last reply** and
 2. **The user's response** to that last reply.
 
 Carefully consider the context of the conversation and the specific tone or direction of the user's input in relation to Thrum’s previous reply. Each intent corresponds to specific patterns and expected actions based on the flow of conversation. Only set one variable to `true` which is most relevant based on the user input and context.
 
-Here are the intents to classify:
+### General Guidelines for Classification:
+- Focus on the **current state** of the conversation, including what was last said by Thrum and how the user is responding.
+- Avoid misclassifying if the user response is part of the natural flow (e.g., a greeting in response to a prior greeting).
+- Ensure that you distinguish between **intent requests** (like game suggestions or profile updates) and **actions** (like opting out or confirming a suggestion).
 
-- **Greet**: User greets the bot.
-- **Request_Quick_Recommendation**: User asks for a quick game recommendation or an immediate suggestion. This intent is also triggered if **Thrum’s last reply** was asking the user if they wanted something else (like a new game or suggestion), and the user responds positively (e.g., "Yes", "Sure", or any affirmative reply). This intent **should not be triggered** if the user is confirming interest in the last suggested game.
-- **Reject_Recommendation**: User rejects a previously suggested game.
-- **Inquire_About_Game**: User asks for more details about a specific game or requests more information or check availbility about a game that was previously mentioned.
-- If the user replies with a single word that matches a genre, mood, or game style (e.g., "driving", "horror", "chill"), classify it as **Give_Info**.
-- **Give_Info**: User provides details about their preferences or updates their profile.
-- **Share_Game**: User asks if they can share a game recommendation with others or expresses an intent to share.
-- **Opt_Out**: User opts out or indicates they don’t want to continue the conversation.
-- **Other_Question**: Any other type of question not directly related to the game recommendation or profile.
-- **Confirm_Game**: User confirms their interest in a previously recommended game. This intent is triggered **only** if the user is explicitly confirming their interest in the game suggested in **Thrum’s last reply**. For example, if Thrum suggested *Last Man Standing*, and the user says, "Yes, I want to play that", it would be a **Confirm_Game** intent.
-- **Other**: For any input that does not fit any of the above categories.
+### Here are the intents to classify:
+
+- **Greet**: Triggered when the user greets the bot (e.g., "hi", "hello"). This intent is **not triggered** if Thrum’s last message was already a greeting. The bot should acknowledge the greeting warmly and proceed accordingly.
+  
+- **Request_Quick_Recommendation**: Triggered when the user explicitly asks for a game suggestion at that time, without mentioning the previous game recommendation. This intent is activated when the user requests a new game recommendation directly, such as saying "give me a game" or similar phrases.
+
+- **Reject_Recommendation**: Triggered when the user directly rejects the game suggested in the previous response. This can be a clear refusal such as "Not that one," "I don’t like this," or other similar phrases that reject the previously suggested game.
+
+- **Inquire_About_Game**: Triggered when the user asks for more information about a previously mentioned game. This could be details like availability, further description, or any other clarifying question related to the game that Thrum has suggested earlier.
+
+- **Give_Info**: Triggered when the user provides information about their preferences, such as genre, mood, or game style. This includes providing keywords or short phrases like "action", "chill", or "strategy". The response should classify when the user provides any kind of self-description related to their preferences.
+
+- **Share_Game**: Triggered when the user shows interest in sharing a game suggestion with others. This could include asking questions like "Can I share this with my friends?" or stating their intention to recommend a game to someone else.
+
+- **Opt_Out**: Triggered when the user opts out or indicates they no longer wish to continue the conversation. This intent is activated when phrases like "I'm done," "Stop," "Not interested," or "Leave me alone" are used to end or discontinue the conversation.
+
+- **Other_Question**: Triggered when the user asks any question that is not directly related to game recommendations, profile updates, or anything related to the ongoing game discovery process. This could include general inquiries, or off-topic questions not tied to Thrum’s previous responses.
+
+- **Confirm_Game**: Triggered when the user confirms their interest in a game that was previously recommended. The confirmation could be something like "Yes, I want that one," or "I like that game." This is explicitly confirming the previous game suggestion, meaning that the user is showing interest in the exact game Thrum recommended.
+
+- **Other**: Triggered for any input that doesn’t match the above categories. This could include irrelevant or non-conversational responses, random input, or statements that do not fall within the intent framework.
 
 ### Steps for classification:
-1. **Identify the intent** by looking at the **user's response** to **last_thrum_reply**:
-   - If **Thrum** asked if the user wanted something else and the user replies positively (e.g., "Yes", "Sure"), classify it as **Request_Quick_Recommendation**.
-   - If **Thrum** recommended a game and the user says, "Yes, I want to play it" or something that confirms the game interest directly, classify it as **Confirm_Game**.
-   
-2. **Ensure that the response** maps strictly to the correct intent based on the **context** of Thrum's last message.
+1. **Look at Thrum’s last response** and consider the context — did Thrum greet the user, recommend a game, or ask for more information?
+2. **Identify the user’s intent** based on their response, matching it with the most relevant intent category.
+3. **Check for continuity** — If Thrum’s last message was a greeting, do not classify the user’s greeting as a "Greet". If Thrum gave a recommendation, check if the user confirms or rejects it.
+4. **Ensure exclusivity** — Set only one intent to true based on the user's response in the given context. The user may express multiple intents, but the classification should strictly match the most relevant one.
 
-3. **Do not confuse** a user confirming their interest in a game with a user asking for another recommendation. If the user is confirming a game recommendation from **last_thrum_reply**, it is **Confirm_Game**. If they are asking for a new suggestion, it's **Request_Quick_Recommendation**.
-
+### Output Format:
 Your reply must be a valid JSON object with only the key-value structure shown above — with **no preamble**, **no labels**, **no explanation**, and **no extra text**. Do not add any “content:” or any description around it. The response must be the raw JSON block only.
-OUTPUT FORMAT (Strict JSON) :
+
+OUTPUT FORMAT (Strict JSON) strictly deny to add another text:
 {
     "Greet": true/false,
     "Request_Quick_Recommendation": true/false,
@@ -82,10 +94,7 @@ OUTPUT FORMAT (Strict JSON) :
 }
 """
 
-    # Log the prompt to see its structure
-
     if user_prompt:
-        print('classify_user_intent...................2')
         response = openai.ChatCompletion.create(
             model=model,
             messages=[
@@ -95,21 +104,15 @@ OUTPUT FORMAT (Strict JSON) :
             temperature=0
         )
 
-        # Retrieve the content of the response
-        content = response['choices'][0]['message']['content'].strip()
-        print(f" content : {content}")
-        # Parse the response content into a dictionary
-        print('classify_user_intent...................3')
-        result = json.loads(content)  # Ensure we're parsing as a JSON object
-        print('classify_user_intent...................4')
-        # Ensure all intents are included in the response, even if false
-        result = {intent: bool(result.get(intent, False)) for intent in intents}
-        print(f"---------------------------------------------------- intent : {result}")
-        return result
-    # except Exception as e:
-    #     print(":x: GPT classification failed:", e)
-    #     # Return a default response if there is an error
-    #     return {intent: False for intent in intents}
+        # Try parsing the LLM output into JSON
+        try:
+            result = json.loads(response.choices[0].message.content)
+            print(f"---------------------------------------------------- intent : {result}")
+            return result
+        except Exception as e:
+            print(":x: GPT classification failed:", e)
+            # Return a default response if there is an error
+            return {intent: False for intent in intents}
 
 
 
@@ -202,6 +205,7 @@ You must infer from both keywords and tone — even if the user is casual, brief
    → What they dislike. Genres, moods, mechanics, or platforms.  
    → e.g., ["horror", "mobile", "realistic"]  
    → Hints: “I don't like shooters”, “not into mobile games”, “too realistic”.
+   → add anthing in regected_tag when user say i dont like this never when user talk like this is not in game.
    → only add anything in regected_tag if it is sure otherwise not
 
 11. game_feedback (list of dicts)  (** strict rule**)
