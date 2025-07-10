@@ -22,9 +22,9 @@ async def handle_confirmed_game(db, user, session):
     
     if session.meta_data is None:
             session.meta_data = {}
-    # Check if 'dont_give_name' is not in session.metadata, and if so, add it
-    if "dont_give_name" not in session.metadata:
-        session.metadata["dont_give_name"] = False
+    # Check if 'dont_give_name' is not in session.meta_data, and if so, add it
+    if "dont_give_name" not in session.meta_data:
+        session.meta_data["dont_give_name"] = False
     
     db.commit()
     return user_prompt
@@ -37,7 +37,7 @@ async def ask_for_name_if_needed(session):
         Session.last_thrum_timestamp.isnot(None),
         Session.user.hasattr("name"),
         Session.user.name == None,
-        Session.metadata["dont_give_name"].astext.cast(Boolean) == False
+        Session.meta_data["dont_give_name"].astext.cast(Boolean) == False
     ).all()
 
     for s in sessions:
