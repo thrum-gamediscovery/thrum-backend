@@ -2,7 +2,7 @@ from app.services.input_classifier import classify_user_intent
 from app.services.game_recommend import game_recommendation
 from app.services.session_memory import deliver_game_immediately
 from app.db.models.enums import PhaseEnum
-from app.services.thrum_router.phase_intro import handle_reengagement, handle_intro
+from app.services.thrum_router.phase_intro import handle_intro
 from app.services.thrum_router.phase_ending import handle_ending
 
 from app.services.thrum_router.phase_confirmation import handle_confirmed_game
