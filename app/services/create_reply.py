@@ -36,7 +36,7 @@ async def generate_thrum_reply(db: Session, user_input: str, session, user) -> s
     print(f"Current phase:>>>>>>>>>>>>>>>>>>>>>>>>> {phase}")
 
     if phase == PhaseEnum.INTRO:
-        return await handle_intro()
+        return await handle_intro(handle_intro)
 
     elif phase == PhaseEnum.DISCOVERY:
         return await handle_discovery(db=db, session=session, user=user,classification=classification, user_input=user_input)
