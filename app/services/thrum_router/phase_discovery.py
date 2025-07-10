@@ -15,13 +15,13 @@ async def handle_discovery(db, session, user, classification, user_input):
             "You can say something like 'fast action', 'sad story', or even a title like 'GTA'."
         )
     
-    mood_tag = await classify_tone(user_input)
-    intent = await classify_user_input(session=session, user_input=user_input)
+    # mood_tag = await classify_tone(user_input)
+    # intent = await classify_user_input(session=session, user_input=user_input)
 
-    if mood_tag:
-        session.meta_data["entry_mood"] = mood_tag
-    if intent and intent.intent_type:
-        session.meta_data["intent_type"] = intent.intent_type
+    # if mood_tag:
+    #     session.meta_data["entry_mood"] = mood_tag
+    # if intent and intent.intent_type:
+    #     session.meta_data["intent_type"] = intent.intent_type
 
     discovery_data = await extract_discovery_signals(session)
 
