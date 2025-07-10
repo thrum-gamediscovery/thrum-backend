@@ -344,3 +344,47 @@ ask question of 10-12 words only.
 """.strip()
         
     return user_promt
+
+async def create_session_memory_bond(session, db: Session) -> str:
+    """
+    Creates a memory bond from the session interactions and preferences.
+    Called during session closure to summarize key insights.
+    """
+    # Extract key session data
+    interactions = session.interactions
+    user_messages = [i for i in interactions if i.sender == SenderEnum.User]
+    thrum_messages = [i for i in interactions if i.sender == SenderEnum.Thrum]
+    
+    # Build memory context
+    memory_data = {
+        "mood_progression": {
+            "entry": session.entry_mood,
+            "exit": session.exit_mood
+        },
+        "genre_preferences": session.genre,
+        "platform_preferences": session.platform_preference,
+        "story_preference": session.story_preference,
+        "engagement_level": session.engagement_level,
+        "recommended_games": [i.game_id for i in interactions if i.game_id],
+        "interaction_count": len(interactions)
+    }
+    
+    # Generate memory summary prompt
+    memory_prompt = (
+        f"Session Summary:\n"
+        f"- Mood Journey: {memory_data['mood_progression']['entry']} → {memory_data['mood_progression']['exit']}\n"
+        f"- Preferred Genres: {', '.join(memory_data['genre_preferences']) if memory_data['genre_preferences'] else 'Not specified'}\n"
+        f"- Platforms: {', '.join(memory_data['platform_preferences']) if memory_data['platform_preferences'] else 'Not specified'}\n"
+        f"- Story Preference: {'Yes' if memory_data['story_preference'] else 'No' if memory_data['story_preference'] is not None else 'Not specified'}\n"
+        f"- Engagement: {memory_data['engagement_level'] or 'Not measured'}\n"
+        f"- Total Interactions: {memory_data['interaction_count']}"
+    )
+    
+    # Store in session metadata
+    if not session.meta_data:
+        session.meta_data = {}
+    session.meta_data["memory_bond"] = memory_data
+    session.meta_data["memory_summary"] = memory_prompt
+    
+    db.commit()
+    return memory_prompt

@@ -27,6 +27,14 @@ async def generate_thrum_reply(db: Session, user_input: str, session, user) -> s
         session.tone_shift_detected = True
         db.commit()
 
+    # --- Long chat auto-ending logic ---
+    interaction_count = len(session.interactions)
+    if interaction_count > 10 and session.phase not in [PhaseEnum.ENDING]:
+        session.phase = PhaseEnum.ENDING
+        db.commit()
+        return await handle_ending(session, db)
+    # --- End long chat logic ---
+
     override_reply = await check_intent_override(db=db, user_input=user_input, user=user, session=session, classification=classification)
     if override_reply and override_reply is not None:
         return override_reply
