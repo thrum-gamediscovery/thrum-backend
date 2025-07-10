@@ -5,6 +5,13 @@ from app.db.models.enums import SessionTypeEnum, ResponseTypeEnum
 from app.services.nudge_checker import detect_user_is_cold  # ✅ import smart tone checker
 from app.db.models.enums import SenderEnum
 
+def update_returning_user_flag(session):
+    if session.meta_data.get("returning_user") is None:
+        if session.meta_data.get("last_interaction"):
+            session.meta_data["returning_user"] = True
+        else:
+            session.meta_data["returning_user"] = False
+
 def is_session_idle(session, idle_minutes=10):
     if not session.interactions:
         return False
@@ -73,12 +80,19 @@ async def update_or_create_session(db: DBSession, user):
             start_time=now,
             end_time=now,
             state=SessionTypeEnum.ONBOARDING,
-            meta_data={"is_user_cold": is_cold}
+            meta_data={
+                "is_user_cold": is_cold,
+                "last_interaction": datetime.utcnow().isoformat(),
+                "returning_user": False
+            }
         )
         db.add(new_session)
         db.commit()
         db.refresh(new_session)
         return new_session
+
+    last_session.meta_data["last_interaction"] = datetime.utcnow().isoformat()
+    update_returning_user_flag(last_session)
 
     return last_session
 
