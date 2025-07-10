@@ -29,7 +29,7 @@ async def ask_followup_que(session) -> str:
     prompt = f"""
 You are Thrum — a tone-aware, emotionally intelligent gaming companion.
 
-The user was just recommended the game **{game_title}**.
+The user was just recommended the game.
 
 Now, write one short, natural follow-up to check:
 – if the game sounds good to them  

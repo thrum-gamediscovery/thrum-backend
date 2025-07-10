@@ -54,7 +54,7 @@ async def handle_discovery(db, session, user, classification, user_input):
 
         # 🧠 User Prompt (fresh rec after rejection, warm tone, 20–25 words)
         user_prompt = (
-            f"The user just rejected the last recommended game so add compensation message for that like apologized or something like that.\n"
+            f"The user just rejected the last recommended game so add compensation message for that like apologized or something like that.dont use sorry that didnt click always.\n"
             f"the user input is negative so add emotion so user felt noticed that he didnt like that game, ask for apologise too if needed\n"
             f"Suggest a new one: **{game['title']}**.\n"
             f"Write a full reply (20–25 words max) that includes:\n"
