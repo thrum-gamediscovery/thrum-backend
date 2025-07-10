@@ -26,7 +26,7 @@ def get_session_state(last_active: datetime) -> SessionTypeEnum:
     elapsed = now - last_active
     if elapsed > timedelta(hours=48):
         return SessionTypeEnum.COLD
-    elif elapsed > timedelta(hours=11):
+    elif elapsed > timedelta(minutes=30): #elif elapsed > timedelta(hours=11):
         return SessionTypeEnum.PASSIVE
     else:
         return SessionTypeEnum.ACTIVE
@@ -47,7 +47,11 @@ async def update_or_create_session(db: DBSession, user):
             start_time=now,
             end_time=now,
             state=SessionTypeEnum.ONBOARDING,
-            meta_data={"is_user_cold": False}
+            meta_data={
+                "is_user_cold": False,
+                "last_interaction": datetime.utcnow().isoformat(),
+                "returning_user": False
+            }
         )
         db.add(new_session)
         db.commit()
@@ -65,7 +69,7 @@ async def update_or_create_session(db: DBSession, user):
     # 📝 Update session state
     if elapsed > timedelta(hours=48):
         last_session.state = SessionTypeEnum.COLD
-    elif elapsed > timedelta(hours=11):
+    elif elapsed > timedelta(minutes=30):
         last_session.state = SessionTypeEnum.PASSIVE
     else:
         last_session.state = SessionTypeEnum.ACTIVE
@@ -90,6 +94,17 @@ async def update_or_create_session(db: DBSession, user):
         db.commit()
         db.refresh(new_session)
         return new_session
+
+    # 💡 NEW: Time-based returning_user check (30+ min idle = reengagement)
+    last_interaction_time_str = last_session.meta_data.get("last_interaction")
+    if last_interaction_time_str:
+        try:
+            last_interaction_time = datetime.fromisoformat(last_interaction_time_str)
+            idle_seconds = (now - last_interaction_time).total_seconds()
+            if idle_seconds > 1800:  # 30 minutes
+                last_session.meta_data["returning_user"] = True
+        except Exception:
+            pass  # Fallback in case of invalid format
 
     last_session.meta_data["last_interaction"] = datetime.utcnow().isoformat()
     update_returning_user_flag(last_session)
