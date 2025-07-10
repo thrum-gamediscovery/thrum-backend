@@ -2,7 +2,7 @@
 from app.db.models.enums import PhaseEnum
 
 async def handle_intro(session):
-    if session.meta.get("returning_user"):
+    if session.meta_data.get("returning_user"):
         return build_reengagement_intro(session)
     return build_first_time_intro()
 
