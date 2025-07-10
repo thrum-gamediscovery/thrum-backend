@@ -9,6 +9,7 @@ from app.services.thrum_router.phase_confirmation import handle_confirmed_game
 from app.services.thrum_router.phase_discovery import handle_discovery, handle_user_info, handle_other_input
 
 async def check_intent_override(db, user_input, user, session, classification):
+    print('check_intent_override.........................')
     # Classify the user's intent based on their input
     from app.services.thrum_router.phase_followup import handle_game_inquiry, handle_followup
     classification_intent = await classify_user_intent(user_input=user_input, session=session)

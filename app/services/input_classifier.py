@@ -26,7 +26,7 @@ intents = [
 ]
 
 async def classify_user_intent(user_input: str, session):
-    
+    print('classify_user_intent...................1')
     thrum_interactions = [i for i in session.interactions if i.sender == SenderEnum.Thrum]
     last_thrum_reply = thrum_interactions[-1].content if thrum_interactions else ""
     
@@ -83,7 +83,8 @@ OUTPUT FORMAT (Strict JSON) :
 
     # Log the prompt to see its structure
 
-    if user_prompt: 
+    if user_prompt:
+        print('classify_user_intent...................2')
         response = openai.ChatCompletion.create(
             model=model,
             messages=[
@@ -97,7 +98,9 @@ OUTPUT FORMAT (Strict JSON) :
         content = response['choices'][0]['message']['content'].strip()
         print(f" content : {content}")
         # Parse the response content into a dictionary
+        print('classify_user_intent...................3')
         result = json.loads(content)  # Ensure we're parsing as a JSON object
+        print('classify_user_intent...................4')
         # Ensure all intents are included in the response, even if false
         result = {intent: bool(result.get(intent, False)) for intent in intents}
         print(f"---------------------------------------------------- intent : {result}")
