@@ -40,7 +40,7 @@ Don’t say the game name again. Just ask a single fun, friendly question.
 Return only the question.
 """
     response = await openai.ChatCompletion.acreate(
-        model="gpt-4",
+        model="gpt-4o",
         temperature=0.5,
         messages=[
             {"role": "user", "content": prompt.strip()}

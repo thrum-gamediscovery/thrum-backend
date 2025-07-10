@@ -81,7 +81,7 @@ Respond with a JSON object where each intent is mapped to true/false based on th
 
     try:
         response = await openai.ChatCompletion.acreate(
-            model="gpt-4",  # You can change the model version as per your requirement
+            model="gpt-4o",  # You can change the model version as per your requirement
             temperature=0,
             messages=[{"role": "user", "content": prompt}]
         )
@@ -268,7 +268,7 @@ Now classify into the format below.
 '''
     try:    
         response = openai.ChatCompletion.create(
-            model="gpt-4",
+            model="gpt-4o",
             messages=[
                 {"role": "system", "content": system_prompt.strip()},
                 {"role": "user", "content": user_prompt.strip()}
@@ -333,7 +333,7 @@ Only return valid JSON. No explanation.
 """
 
     response = await openai.ChatCompletion.acreate(
-        model="gpt-4",
+        model="gpt-4o",
         temperature=0.3,
         messages=[{"role": "system", "content": prompt}]
     )

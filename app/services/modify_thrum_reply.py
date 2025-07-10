@@ -84,7 +84,7 @@ You strictly never allow to make reply more then 20-25 words.
         print("Type of system_prompt:", type(system_prompt))
         print("Type of user_context:", type(user_context))
         response = await openai.ChatCompletion.acreate(
-            model="gpt-4",
+            model="gpt-4o",
             temperature=0.5,
             messages=[
                 {"role": "system", "content": system_prompt.strip()},

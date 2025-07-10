@@ -22,7 +22,7 @@ Return only `true` or `false`. No explanation.
     """
 
     response = await openai.ChatCompletion.acreate(
-        model="gpt-4",  # or "gpt-4" if you're using that
+        model="gpt-4o",  # or "gpt-4o" if you're using that
         temperature=0,
         max_tokens=5,
         messages=[

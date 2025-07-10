@@ -29,7 +29,7 @@ Respond with one word only.
 """
         try:
             res = openai.ChatCompletion.create(
-                model="gpt-4",
+                model="gpt-4o",
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0
             )

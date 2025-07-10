@@ -120,7 +120,7 @@ Just 3 bold, confident lines.
 """
     try:
         response = openai.ChatCompletion.create(
-            model="gpt-4",
+            model="gpt-4o",
             temperature=0.4,
             messages=[{"role": "user", "content": prompt.strip()}]
         )
@@ -252,7 +252,7 @@ async def extract_discovery_signals(session) -> DiscoveryData:
 
 async def ask_discovery_question(session) -> str:
     """
-    Dynamically generate a discovery question using gpt-4.
+    Dynamically generate a discovery question using gpt-4o.
     Now adds freedom-language to each question (e.g. 'or something totally different?')
     """
     last_user_tone = get_last_user_tone_from_session(session)
