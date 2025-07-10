@@ -70,11 +70,6 @@ async def whatsapp_webhook(request: Request, From: str = Form(...), Body: str = 
     if len(session.interactions) == 0 or is_session_idle(session):
         await asyncio.sleep(5)
 
-    # 📤 Send response and maintain session state
-    await bot_reply(request=request, db=db, user=user, reply=reply)
-    session.awaiting_reply = True
-    session.last_thrum_timestamp = datetime.utcnow()
-    db.commit()
     
     # 📩 Return final reply to WhatsApp
     await send_whatsapp_message(
@@ -82,3 +77,8 @@ async def whatsapp_webhook(request: Request, From: str = Form(...), Body: str = 
         message=reply,
         sent_from_thrum=False
     )
+    # 📤 Send response and maintain session state
+    await bot_reply(request=request, db=db, user=user, reply=reply)
+    session.awaiting_reply = True
+    session.last_thrum_timestamp = datetime.utcnow()
+    db.commit()

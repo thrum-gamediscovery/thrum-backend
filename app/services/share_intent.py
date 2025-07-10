@@ -2,6 +2,7 @@ import openai
 import os
 
 openai.api_key = os.getenv("OPENAI_API_KEY")
+model= os.getenv("GPT_MODEL")
 
 async def is_share_intent(user_input: str) -> bool:
     prompt = f"""
@@ -22,7 +23,7 @@ Return only `true` or `false`. No explanation.
     """
 
     response = await openai.ChatCompletion.acreate(
-        model="gpt-4o",  # or "gpt-4o" if you're using that
+        model=model,  # or model if you're using that
         temperature=0,
         max_tokens=5,
         messages=[

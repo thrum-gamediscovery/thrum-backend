@@ -60,7 +60,7 @@ async def handle_discovery(db, session, user, classification, user_input):
             f"Write a full reply (20–25 words max) that includes:\n"
             f"– it must include The game title in bold using Markdown: **{game['title']}**\n"
             f"– A confident reason why this one might resonate better (based on genre, vibe, mechanics, or story)\n"
-            f"– A natural platform mention at the end: {platform_note}\n"
+            f"– A natural platform mention at the end(dont ever just paste this as it is do modification and make this note interesting): {platform_note}\n"
             f"Match the user's known preferences (from user_context), but avoid repeating previous tone or style.\n"
             f"Don’t mention the last game or say 'maybe'. Use warm, fresh energy."
             f"must suggest game with reason that why it fits to user with mirror effect."
@@ -107,7 +107,7 @@ async def handle_user_info(db, user, classification, session, user_input):
             f"– it must include The game title in bold using Markdown: **{game['title']}**\n"
             f"based on its genre, vibe, story, or mechanics.\n"
             f"Use user context from the system prompt (e.g., story_preference, genre, platform_preference).\n"
-            f"Then naturally include this note about platforms: {platform_note}\n"
+            f"– A natural platform mention at the end(dont ever just paste this as it is do modification and make this note interesting): {platform_note}\n"
             f"Tone should be confident, warm, and very human. Never say 'maybe' or 'you might like'."
             f"must suggest game with reason that why it fits to user"
         )

@@ -27,20 +27,34 @@ async def ask_followup_que(session) -> str:
     
     game_title = session.last_recommended_game or "that game"
     prompt = f"""
-        Speak entirely in the user's tone: {last_user_tone}.  
-Use their style, energy, and attitude naturally. Do not describe or name the tone — just talk like that.
-You're Thrum — a fast, friendly, emotionally smart game recommender.
-The user just got a game suggestion: "{game_title}"
-Now, ask them *one* natural, human-sounding question that combines:
-- Asking if they liked the game
-- OR if they want a different one
-Use a warm, casual tone. Emojis are not allowed.
-Avoid robotic or generic phrasing.
-Don’t say the game name again. Just ask a single fun, friendly question.
-Return only the question.
+You are Thrum — a tone-aware, emotionally intelligent gaming companion.
+
+The user was just recommended the game **{game_title}**.
+
+Now, write one short, natural follow-up to check:
+– if the game sounds good to them  
+– OR if they’d like another recommendation
+
+Your reply must:
+- Reflect the user’s tone: {last_user_tone} (e.g., casual, genz, excited, frustrated, etc.)
+- Vary phrasing — do NOT use robotic lines like “Did that one hit the mark?”
+- Be warm, playful, or chill depending on tone
+- Use no more than **15–20 words**
+- Avoid direct reuse of any past follow-up lines
+
+Suggestions (for variety):
+- “Sound like your vibe, or should I dig again?”
+- “Think this could work? Or want something totally different?”
+- “Lmk if it’s a yes — or nah, let’s find a new one 👀”
+- “Got your interest? If not, I’ve got more up my sleeve.”
+
+Important:
+Do NOT mention platform, context, or recap the game again.  
+Just one emotionally smart follow-up — no sales pitch, no summary.
 """
+
     response = await openai.ChatCompletion.acreate(
-        model="gpt-4o",
+        model="gpt-4",
         temperature=0.5,
         messages=[
             {"role": "user", "content": prompt.strip()}
@@ -49,6 +63,7 @@ Return only the question.
     return response.choices[0].message.content.strip()
 
 async def get_followup():
+    print("------------------------------------------------------------------get 1")
     db = SessionLocal()
     now = datetime.utcnow()
 
@@ -62,8 +77,9 @@ async def get_followup():
             continue
 
         delay = timedelta(seconds=5)
-
+        print("------------------------------------------------------------------get 2")
         if now - s.last_thrum_timestamp > delay:
+            print("------------------------------------------------------------------get 3")
             reply = await ask_followup_que(s)
             await send_whatsapp_message(user.phone_number, reply)
             s.last_thrum_timestamp = now

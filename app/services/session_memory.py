@@ -7,6 +7,7 @@ import openai
 import os
 
 openai.api_key = os.getenv("OPENAI_API_KEY")
+model= os.getenv("GPT_MODEL")
 
 # 🎮 Optional: Emojis for visual flavor (keep platform names raw)
 PLATFORM_EMOJIS = {
@@ -120,7 +121,7 @@ Just 3 bold, confident lines.
 """
     try:
         response = openai.ChatCompletion.create(
-            model="gpt-4o",
+            model=model,
             temperature=0.4,
             messages=[{"role": "user", "content": prompt.strip()}]
         )
@@ -174,7 +175,7 @@ async def deliver_game_immediately(db: Session, user, session) -> str:
             f"Write a complete message (max 25 words) with:\n"
             f"– it must include The game title in bold using Markdown: **{game['title']}**\n"
             f"– A confident, punchy reason why this fits (based on genre, mechanics, story, or vibe)\n"
-            f"– A natural mention of platform: {platform_note}\n"
+            f"– A natural mention of platform(dont ever just paste this as it is do modification and make this note interesting): {platform_note}\n"
             f"Use user_context if helpful, but don’t ask anything or recap.\n"
             f"Sound smooth, human, and excited — this is a 'just drop it' moment."
             f"must suggest game with reason that why it fits to user"
@@ -187,7 +188,7 @@ async def confirm_input_summary(session) -> str:
     last_user_tone = get_last_user_tone_from_session(session)
 
     """
-    Uses gpt-4 to generate a short, human-sounding confirmation line from mood, genre, and platform.
+    Uses gpt-4o to generate a short, human-sounding confirmation line from mood, genre, and platform.
     No game names or suggestions — just a fun, natural acknowledgment.
     """
     mood = session.exit_mood or None

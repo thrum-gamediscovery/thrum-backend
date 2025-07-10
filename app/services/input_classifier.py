@@ -9,6 +9,7 @@ from app.db.models.enums import SenderEnum
 
 # Set API Key
 openai.api_key = os.getenv("OPENAI_API_KEY")
+model= os.getenv("GPT_MODEL")
 
 # Define updated intents
 intents = [
@@ -29,10 +30,11 @@ async def classify_user_intent(user_input: str, session):
     thrum_interactions = [i for i in session.interactions if i.sender == SenderEnum.Thrum]
     last_thrum_reply = thrum_interactions[-1].content if thrum_interactions else ""
     
-    prompt = f"""
+    user_prompt = f"""
 User message: "{user_input}"
 You are a classification engine for a conversational game assistant.
-last thrum reply: {last_thrum_reply} (This is the reply that Thrum gave to the user's last message)
+last thrum reply: {last_thrum_reply} (This is the reply that Thrum gave to the user's last message) """
+    system_prompt = """
 
 Your task is to classify the user message into one or more of the following intents based on:
 
@@ -63,9 +65,9 @@ Here are the intents to classify:
 
 3. **Do not confuse** a user confirming their interest in a game with a user asking for another recommendation. If the user is confirming a game recommendation from **last_thrum_reply**, it is **Confirm_Game**. If they are asking for a new suggestion, it's **Request_Quick_Recommendation**.
 
-Respond with a JSON object where each intent is mapped to true/false based on the user input:
-
-{{
+Your reply must be a valid JSON object with only the key-value structure shown above — with **no preamble**, **no labels**, **no explanation**, and **no extra text**. Do not add any “content:” or any description around it. The response must be the raw JSON block only.
+OUTPUT FORMAT (Strict JSON) :
+{
     "Greet": true/false,
     "Request_Quick_Recommendation": true/false,
     "Reject_Recommendation": true/false,
@@ -76,29 +78,35 @@ Respond with a JSON object where each intent is mapped to true/false based on th
     "Other_Question": true/false,
     "Confirm_Game": true/false,
     "Other": true/false
-}}
+}
 """
 
-    try:
-        response = await openai.ChatCompletion.acreate(
-            model="gpt-4o",  # You can change the model version as per your requirement
-            temperature=0,
-            messages=[{"role": "user", "content": prompt}]
-        )
-        content = response['choices'][0]['message']['content'].strip()
+    # Log the prompt to see its structure
 
+    if user_prompt: 
+        response = openai.ChatCompletion.create(
+            model=model,
+            messages=[
+                {"role": "system", "content": system_prompt.strip()},
+                {"role": "user", "content": user_prompt.strip()}
+            ],
+            temperature=0
+        )
+
+        # Retrieve the content of the response
+        content = response['choices'][0]['message']['content'].strip()
+        print(f" content : {content}")
         # Parse the response content into a dictionary
         result = json.loads(content)  # Ensure we're parsing as a JSON object
-        
         # Ensure all intents are included in the response, even if false
         result = {intent: bool(result.get(intent, False)) for intent in intents}
         print(f"---------------------------------------------------- intent : {result}")
         return result
+    # except Exception as e:
+    #     print(":x: GPT classification failed:", e)
+    #     # Return a default response if there is an error
+    #     return {intent: False for intent in intents}
 
-    except Exception as e:
-        print("❌ GPT classification failed:", e)
-        # Return a default response if there is an error
-        return {intent: False for intent in intents}
 
 
     
@@ -268,7 +276,7 @@ Now classify into the format below.
 '''
     try:    
         response = openai.ChatCompletion.create(
-            model="gpt-4o",
+            model=model,
             messages=[
                 {"role": "system", "content": system_prompt.strip()},
                 {"role": "user", "content": user_prompt.strip()}
@@ -333,7 +341,7 @@ Only return valid JSON. No explanation.
 """
 
     response = await openai.ChatCompletion.acreate(
-        model="gpt-4o",
+        model=model,
         temperature=0.3,
         messages=[{"role": "system", "content": prompt}]
     )

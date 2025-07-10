@@ -29,30 +29,34 @@ async def handle_confirmed_game(db, user, session):
     db.commit()
     return user_prompt
 
-async def ask_for_name_if_needed(session):
+async def ask_for_name_if_needed():
     db = SessionLocal()
     now = datetime.utcnow()
 
-    sessions = db.query(Session).filter(
+    sessions = db.query(Session).join(Session.user).filter(
         Session.last_thrum_timestamp.isnot(None),
-        Session.user.hasattr("name"),
-        Session.user.name == None,
         Session.meta_data["dont_give_name"].astext.cast(Boolean) == False
     ).all()
 
     for s in sessions:
         user = s.user
         if user.name is None:
-            delay = timedelta(seconds=5)
+            delay = timedelta(seconds=10)
 
             if now - s.last_thrum_timestamp > delay:
                 user_interactions = [i for i in s.interactions if i.sender == SenderEnum.User]
                 last_user_reply = user_interactions[-1].content if user_interactions else ""
                 print(f"User's name is missing. Asking for the user's name.")
-                response_prompt = f"""
-                ask name
-                """
-                reply = await format_reply(session=session,user_input=last_user_reply, user_prompt=response_prompt)
+                response_prompt  = (
+                        "Generate a polite, natural message (max 10–12 words) asking the user for their name.\n"
+                        "The tone should be friendly and casual, without being too formal or overly casual.\n"
+                        "Ensure it doesn’t feel forced, just a simple request to know their name.\n"
+                        "Output only the question, no extra explanations or examples."
+                        "do not use emoji. and use only one question to ask name."
+                    )
+                s.meta_data["dont_give_name"] = True
+                db.commit()
+                reply = await format_reply(session=s, user_input=last_user_reply, user_prompt=response_prompt)
                 await send_whatsapp_message(user.phone_number, reply)
 
-   
+    db.close()  # Close the DB session

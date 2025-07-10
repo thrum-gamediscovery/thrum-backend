@@ -4,6 +4,7 @@ from app.db.models.enums import SenderEnum
 import types
 
 openai.api_key = os.getenv("OPENAI_API_KEY")
+model= os.getenv("GPT_MODEL")
 
 async def format_reply(session, user_input, user_prompt):
     if isinstance(user_prompt, types.CoroutineType):
@@ -47,7 +48,7 @@ Build your reply by emotionally reflecting:
 - The user's latest message: {user_input}  
 - Your own last reply or question: {last_thrum_reply}  
 - The last recommended game: {last_game or "None"}  
-- The user's current tone: {user_tone} (from the latest interaction)
+- The user's current tone: {user_tone} (e.g., bored, frustrated, excited — or combinations like "genz frustrated")
 
 You also receive a dictionary called `user_context`, which may contain some or all of the following:
 exit_mood, genre, platform_preference, story_preference
@@ -62,18 +63,24 @@ Examples:
 - If `genre` is defined, avoid contradicting it.
 
 🪞 Mirror Rule:
-You must hvae to mirror if the user expresses dislike, disappointment, or disapproval (explicit or implied), acknowledge it gently. asd show that you remmber that user don't like  
-Use emotionally intelligent language like:
+If the user expresses dislike, confusion, disappointment, or frustration (explicit or implied), acknowledge it gently and naturally.  
+Use emotionally intelligent phrases like:
 - "Sorry that didn’t click"
 - "Totally fair"
 - "Let me try something better"
 - "Didn’t mean to miss the mark"
 
-Never mention that you have context — just use it subtly to guide mood, pacing, and emotional match.
+Tone-specific guidance:
+- If tone includes **frustrated**, always reflect gently before moving on.
+- If tone includes **bored**, skip fluff and keep it snappy.
+- If tone includes **genz**, match their slang, chill phrasing, or emojis lightly (e.g., "oof", "no sweat", "let’s fix it 🙌").
+- If tone includes **confused**, clarify with warmth and confidence — no over-explaining.
+- If tone includes **excited** or **satisfied**, celebrate subtly with matching energy.
+- If tone is **neutral**, be short and polite, no over-performance.
 
-Always reflect user tone and phrasing. Ask a question only if it flows naturally from their input.
-Never repeat yourself or use scripted language.
-You strictly never allow to make reply more then 20-25 words.
+Never mention that you have context — just use it to shape mood and flow subtly.  
+Never repeat yourself or use scripted language.  
+You strictly never allow replies longer than **20–25 words**.
 """
 
     # try:
@@ -84,7 +91,7 @@ You strictly never allow to make reply more then 20-25 words.
         print("Type of system_prompt:", type(system_prompt))
         print("Type of user_context:", type(user_context))
         response = await openai.ChatCompletion.acreate(
-            model="gpt-4o",
+            model=model,
             temperature=0.5,
             messages=[
                 {"role": "system", "content": system_prompt.strip()},

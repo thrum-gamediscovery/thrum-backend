@@ -43,15 +43,16 @@ async def check_intent_override(db, user_input, user, session, classification):
 
             # Final user prompt for GPT
             user_prompt = (
-                f"Suggest the game **{game['title']}** to the user.\n"
-                f"– it must include The game title in bold using Markdown: **{game['title']}**\n"
-                f"In one short line (10–12 words), explain why this game fits them —\n"
-                f"based on its genre, vibe, story, or mechanics.\n"
-                f"Use user context from the system prompt (e.g., story_preference, genre, platform_preference).\n"
-                f"Then naturally include this note about platforms: {platform_note}\n"
-                f"Tone should be confident, warm, and very human. Never say 'maybe' or 'you might like'."
-                f"must suggest game with reason that why it fits to user with mirror effect"
-                f"if user is asking abliablity but that was not available just at that time only that time ask for annother recommend on that which is not available in game"
+                f"Suggest a second game after the user rejected the previous one.The whole msg should no more than 25-30 words.\n"
+                f"The game must be **{game['title']}** (use bold Markdown: **{game['title']}**).\n"
+                f"In one short line (10–12 words), explain why this new game fits them —\n"
+                f"based on its genre, vibe, story, or mechanics — and vary from the first suggestion if possible.\n"
+                f"Mirror the user's reason for rejection in a warm, human way before suggesting the new game.\n"
+                f"Use user context from the system prompt (like genre, story_preference, platform_preference) to personalize.\n"
+                f"Then naturally include this platform note (rephrase it to sound friendly, do not paste as-is): {platform_note}\n"
+                f"Tone must be confident, warm, emotionally intelligent — never robotic.\n"
+                f"Never say 'maybe' or 'you might like'. Be sure the game feels tailored.\n"
+                f"If the user was only asking about availability and the game was unavailable, THEN and only then, offer a different suggestion that is available.\n"
             )
 
             return user_prompt

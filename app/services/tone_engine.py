@@ -1,9 +1,12 @@
 import re
+import os
 import openai
 from datetime import datetime
 from app.db.session import SessionLocal
 from app.db.models.session import Session as DBSession
 from app.db.models.enums import SenderEnum
+
+model= os.getenv("GPT_MODEL")
 
 # 🧠 Extract latest user tone from session.interactions
 def get_last_user_tone_from_session(session) -> str:
@@ -42,7 +45,7 @@ Return only the phrase. No emojis. Max 5 words.
 """
     try:
         response = openai.ChatCompletion.create(
-            model="gpt-4o",
+            model=model,
             messages=[{"role": "user", "content": prompt}],
             temperature=0.9,
             max_tokens=12,
@@ -107,24 +110,26 @@ async def get_response_style(tone: str, reply: str) -> str:
 # 🧠 GPT-Based Tone Detection
 async def detect_tone_cluster(user_input: str) -> str:
     prompt = f"""
-You are a tone classifier.
+Classify the tone of this user message based on both emotion and style.
 
-Classify the tone of this message into one of:
-[genz, chaotic, sincere, ironic, casual, neutral, warm, open, closed, funny, defiant, excited]
+Choose ONE or a COMBINATION (max 2) from:
+[genz, chaotic, sincere, ironic, casual, neutral, warm, open, closed, funny, defiant, excited, frustrated, bored, angry, satisfied, confused, sad]
 
-Consider:
-- Language style (slang, punctuation, emojis, length)
-- Emotional energy (lowkey, honest, hyped, distant, bold)
-- Vibe (friendly, dry, loud, short, quirky, chill)
-- if there is genz word then pass the tone genz.
-- analyse given all tone and return most relevant.
+Rules:
+- If slang, emojis, or hype → tag genz
+- If tone is frustrated *and* genz → return "genz frustrated"
+- If tone is unsure or irritated → tag confused or frustrated
+- If short, dry replies like "ok", "fine", or "hello?" → bored or frustrated
+- If joyful or thankful → satisfied or excited
+- If style is unclear → return neutral
+
 Message: "{user_input}"
 
-Only respond with ONE WORD that best describes the tone. No punctuation.
+Only return ONE or TWO words (space-separated). No punctuation.
 """
     try:
         response = openai.ChatCompletion.create(
-            model="gpt-4o",
+            model=model,
             messages=[{"role": "user", "content": prompt}],
             temperature=0,
         )
