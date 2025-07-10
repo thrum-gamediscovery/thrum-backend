@@ -4,7 +4,8 @@ from app.services.session_memory import confirm_input_summary, deliver_game_imme
 from app.db.models.enums import PhaseEnum
 from app.utils.error_handler import safe_call
 from app.services.game_recommend import game_recommendation
-
+from app.services.tone_classifier import classify_tone
+from app.services.input_classifier import classify_user_input
 
 @safe_call("Hmm, I had trouble figuring out what to ask next. Let's try something fun instead! 🎮")
 async def handle_discovery(db, session, user, classification, user_input):
@@ -13,6 +14,15 @@ async def handle_discovery(db, session, user, classification, user_input):
             "I help you find games that match your mood, genre, or vibe 🎮\n"
             "You can say something like 'fast action', 'sad story', or even a title like 'GTA'."
         )
+    
+    mood_tag = await classify_tone(user_input)
+    intent = await classify_user_input(session=session, user_input=user_input)
+
+    if mood_tag:
+        session.meta["entry_mood"] = mood_tag
+    if intent and intent.intent_type:
+        session.meta["intent_type"] = intent.intent_type
+
     discovery_data = await extract_discovery_signals(session)
 
     if discovery_data.is_complete():
