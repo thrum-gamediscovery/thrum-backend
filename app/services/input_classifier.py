@@ -49,6 +49,7 @@ Here are the intents to classify:
 - **Request_Quick_Recommendation**: User asks for a quick game recommendation or an immediate suggestion. This intent is also triggered if **Thrum’s last reply** was asking the user if they wanted something else (like a new game or suggestion), and the user responds positively (e.g., "Yes", "Sure", or any affirmative reply). This intent **should not be triggered** if the user is confirming interest in the last suggested game.
 - **Reject_Recommendation**: User rejects a previously suggested game.
 - **Inquire_About_Game**: User asks for more details about a specific game or requests more information or check availbility about a game that was previously mentioned.
+- If the user replies with a single word that matches a genre, mood, or game style (e.g., "driving", "horror", "chill"), classify it as **Give_Info**.
 - **Give_Info**: User provides details about their preferences or updates their profile.
 - **Share_Game**: User asks if they can share a game recommendation with others or expresses an intent to share.
 - **Opt_Out**: User opts out or indicates they don’t want to continue the conversation.
