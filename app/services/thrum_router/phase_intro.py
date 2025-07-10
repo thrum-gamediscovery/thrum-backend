@@ -26,8 +26,8 @@ def build_first_time_intro():
     return user_prompt
 
 def build_reengagement_intro(session):
-    user_name = session.meta.get("user_name", "")
-    last_game = session.meta.get("last_game", "")
+    user_name = session.meta_data.get("user_name", "")
+    last_game = session.meta_data.get("last_game", "")
 
     options = [
         f"Back already? I was humming game ideas after that *{last_game}* drop. 🔁",

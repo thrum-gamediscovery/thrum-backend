@@ -19,9 +19,9 @@ async def handle_discovery(db, session, user, classification, user_input):
     intent = await classify_user_input(session=session, user_input=user_input)
 
     if mood_tag:
-        session.meta["entry_mood"] = mood_tag
+        session.meta_data["entry_mood"] = mood_tag
     if intent and intent.intent_type:
-        session.meta["intent_type"] = intent.intent_type
+        session.meta_data["intent_type"] = intent.intent_type
 
     discovery_data = await extract_discovery_signals(session)
 
