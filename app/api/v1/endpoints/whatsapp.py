@@ -65,7 +65,13 @@ async def whatsapp_webhook(request: Request, From: str = Form(...), Body: str = 
                 message=boot_result["reply"],
                 sent_from_thrum=True
             )
-            return PlainTextResponse("OK")
+            
+            # 👋 Step 2: Ask user for their mood with dynamic
+            await send_whatsapp_message(
+                phone_number=user.phone_number,
+                message="How are you feeling today? (e.g., sad, happy, etc.)",
+                sent_from_thrum=True
+            )
     
     session = await user_chat(request=request, db=db, user=user, Body=user_input)
     

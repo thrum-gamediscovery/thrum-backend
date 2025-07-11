@@ -21,8 +21,10 @@ def classify_tone(text: str) -> str:
     Classify the tone of user input as positive, vague, or cold using MiniLM similarity.
     """
     input_embedding = model.encode(text, convert_to_tensor=True)
-    scores = {
-        tone: util.max_cos_sim(input_embedding, emb).item()
-        for tone, emb in tone_embeddings.items()
-    }
+    scores = {}
+    
+    for tone, emb in tone_embeddings.items():
+        similarities = util.cos_sim(input_embedding, emb)
+        scores[tone] = similarities.max().item()
+    
     return max(scores, key=scores.get)

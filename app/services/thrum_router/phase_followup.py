@@ -58,3 +58,54 @@ async def get_followup():
             s.followup_triggered = False    
         db.commit()
     db.close()
+
+async def handle_game_inquiry(db, user, session, user_input: str) -> str:
+    """Handle game inquiries dynamically"""
+    game_id = session.meta_data.get("find_game")
+    if not game_id:
+        context = {
+            'phase': 'no_game_found',
+            'user_input': user_input
+        }
+        return await generate_dynamic_response(context)
+
+    from app.db.models.game import Game
+    from app.db.models.game_platforms import GamePlatform
+    from app.db.models.game_recommendations import GameRecommendation
+    
+    game = db.query(Game).filter_by(game_id=game_id).first()
+    if not game:
+        context = {
+            'phase': 'game_not_found',
+            'user_input': user_input,
+            'game_id': game_id
+        }
+        return await generate_dynamic_response(context)
+
+    platform_rows = db.query(GamePlatform.platform).filter_by(game_id=game_id).all()
+    platforms = ", ".join([p[0] for p in platform_rows]) if platform_rows else "multiple platforms"
+
+    # Save recommendation
+    game_rec = GameRecommendation(
+        session_id=session.session_id,
+        user_id=user.user_id,
+        game_id=game.game_id,
+        platform=None,
+        mood_tag=None,
+        accepted=None
+    )
+    db.add(game_rec)
+    db.commit()
+    
+    session.last_recommended_game = game.title
+    
+    context = {
+        'phase': 'game_inquiry',
+        'user_input': user_input,
+        'game_title': game.title,
+        'game_description': game.description,
+        'platforms': platforms,
+        'genre': game.genre
+    }
+    
+    return await generate_dynamic_response(context)
