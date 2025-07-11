@@ -12,15 +12,17 @@ def safe_get(d, keys, default=""):
 
 def extract_genres(game_taxonomy):
     genres = set()
+    subgenres = set()
     for taxonomy in game_taxonomy:
-        if taxonomy.get("name", "").lower() in ("genre", "genres", "genre elements", "sub-genre", "subgenre"):
+        if taxonomy.get("name", "") == "Genre":
             for dp in taxonomy.get("datapoints", []):
                 if dp.get("name"):
                     genres.add(dp.get("name"))
                 for sub_dp in dp.get("sub_datapoints", []):
                     if sub_dp.get("name"):
                         genres.add(sub_dp.get("name"))
-    return ", ".join(sorted(g for g in genres if g))
+    genre = ", ".join(sorted(g for g in genres if g))
+    return genre
 
 def extract_mechanics(game_taxonomy):
     mechanics = set()
@@ -104,6 +106,12 @@ def is_story_game(taxonomy):
 
     return False
 
+def extract_official_website(game):
+    # Iterate through the links to find the official website
+    for link in game.get("links", []):
+        if link.get("type") == "Official Website":
+            return link.get("url", "")
+    return ""
     
 def flatten_game_for_csv(game):
     taxonomy = game.get("game_taxonomy", [])
@@ -121,6 +129,7 @@ def flatten_game_for_csv(game):
         "age_rating": extract_age_rating(taxonomy),
         "region": extract_region(game),  
         "story_pref": is_story_game(taxonomy),
+        "link": extract_official_website(game),
     }
 
 def jsons_to_csv(folder, csv_path):

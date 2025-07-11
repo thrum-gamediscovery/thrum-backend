@@ -33,7 +33,20 @@ def clean_genres(genre_str):
 def merge_group(group):
     merged = group.iloc[0].copy()
     merged['platform'] = group['platform'].dropna().unique().tolist()
-    
+    platform_dict = {}
+    for _, row in group.iterrows():
+        game_id = row['game_id']
+        platform_name = row['platform'] 
+        platform_link = row['link'] if pd.notna(row['link']) else None
+        print(f"platform_link ------------- {game_id} -> {platform_name} -> {platform_link}")
+        # Store the platform with its corresponding link or None
+        if pd.notna(platform_name):
+            if platform_name not in platform_dict or (platform_name is platform_dict and platform_link is not None):
+                platform_dict[platform_name] = platform_link
+                print(f"platform_link +++++++++++++ {game_id} -> {platform_name} -> {platform_link}")
+                # Store the platform-link dictionary in the merged row
+    merged['platform_link'] = platform_dict
+    print(merged['platform_link'])
     for field in ['description', 'mechanics', 'visual_style','region']:
         values = group[field].dropna().unique().tolist()
         if values:
@@ -56,5 +69,3 @@ final_df = df.groupby('game_id').apply(merge_group).reset_index(drop=True)
 # Save to a new CSV
 final_df.to_csv("./games_data/merged_games_custom.csv", index=False)
 
-# Optional: print sample rows
-# print(final_df.head())

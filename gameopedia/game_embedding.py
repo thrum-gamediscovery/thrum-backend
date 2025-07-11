@@ -25,6 +25,7 @@ for _, row in df.iterrows():
         game_embedding = ast.literal_eval(row['game_embedding']) if isinstance(row['game_embedding'], str) else []
         mood_embedding = ast.literal_eval(row['mood_embedding']) if isinstance(row['mood_embedding'], str) else []
         platforms = ast.literal_eval(row['platform']) if isinstance(row['platform'], str) else []
+        platform_link = ast.literal_eval(row['platform_link']) if isinstance(row['platform_link'], str) else []
 
         # Create Game object
         game = Game(
@@ -48,7 +49,8 @@ for _, row in df.iterrows():
 
         # Add platforms
         for plat in platforms:
-            gp = GamePlatform(game_id=game.game_id, platform=plat)
+            link = platform_link[plat] if platform_link[plat] else None
+            gp = GamePlatform(game_id=game.game_id, platform=plat, link=link)
             session.add(gp)
             print(f"{game.title}  : {plat}")
 

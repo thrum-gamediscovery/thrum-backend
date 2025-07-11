@@ -15,3 +15,4 @@ class GamePlatform(Base):
     platform = Column(String, nullable=False)
 
     game = relationship("Game", back_populates="platforms")
+    link = Column(String, nullable=True)
