@@ -44,7 +44,7 @@ async def clean_phone_number(raw: str) -> str:
         return ""
     return raw.split(":")[-1]
 
-async def infer_region_from_phone(phone: str) -> str | None:
+async def infer_region_from_phone(phone: str):
     """
     Returns region code (e.g., 'US', 'UK') from phone prefix.
     """
@@ -56,7 +56,7 @@ async def infer_region_from_phone(phone: str) -> str | None:
             return region
     return None
 
-async def get_timezone_from_region(region: str) -> str | None:
+async def get_timezone_from_region(region: str):
     """
     Returns timezone string (e.g., "Asia/Kolkata") for a region code like "IN".
     """

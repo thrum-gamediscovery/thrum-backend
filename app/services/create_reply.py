@@ -62,25 +62,11 @@ async def generate_thrum_reply(db, user, session, user_input: str) -> str:
 
     return "Hmm, something went wrong. Let's try again!"
 
-# Enhanced recommendation flow using interactive conversation
+# Enhanced recommendation flow with proper intent handling
 async def generate_enhanced_recommendation(db, user, session, user_input: str) -> str:
-    from app.services.interactive_conversation_engine import create_interactive_engine
-    from app.services.learning_engine import UserLearningProfile
-    
-    # Extract preferences from current input
-    await _extract_preferences_from_input(user, session, user_input)
-    
-    # Create interactive conversation engine
-    interactive_engine = await create_interactive_engine(user, session)
-    
-    # Generate interactive response that continues gathering info
-    response = await interactive_engine.generate_interactive_response(user_input)
-    
-    # Update learning profile
-    profile = UserLearningProfile(user, session)
-    profile.log_feedback(mood=session.exit_mood or session.entry_mood)
-    db.commit()
-    
+    from app.services.dynamic_response_engine import generate_dynamic_response
+    # Use the new dynamic response system with existing db session
+    response = await generate_dynamic_response(user, session, user_input, db=db)
     return response
 
 async def _extract_preferences_from_input(user, session, user_input: str):

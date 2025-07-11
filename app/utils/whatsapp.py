@@ -1,10 +1,6 @@
 import os
-import requests
-from requests.auth import HTTPBasicAuth
-from starlette.requests import Request 
-from app.db.session import SessionLocal
-from app.db.models.user_profile import UserProfile
-import httpx  # If you want to use async HTTP requests
+import httpx
+from starlette.requests import Request
 
 async def create_request(user_id):
     scope = {
@@ -14,7 +10,10 @@ async def create_request(user_id):
     return Request(scope)
 
 async def send_whatsapp_message(phone_number: str, message: str, sent_from_thrum=True):
-    from app.api.v1.endpoints.whatsapp import bot_reply
+    # Development mode - skip actual sending if rate limited
+    if os.getenv('DEV_MODE') == 'true':
+        print(f"🔧 DEV MODE: Would send to {phone_number}: {message}")
+        return
 
     account_sid = os.getenv('TWILIO_ACCOUNT_SID')
     auth_token = os.getenv('TWILIO_AUTH_TOKEN')
@@ -36,27 +35,15 @@ async def send_whatsapp_message(phone_number: str, message: str, sent_from_thrum
     url = f"https://api.twilio.com/2010-04-01/Accounts/{account_sid}/Messages.json"
 
     try:
-        async with httpx.AsyncClient() as client:  # Async request
+        async with httpx.AsyncClient() as client:
             response = await client.post(url, data=payload, auth=(account_sid, auth_token))
-            print(f"🔄 Raw response: {response.status_code}")
-            print(f"🔍 Twilio response text: {response.text}")
-
-            response.raise_for_status()  # will throw error for 400, 401, etc.
-            print(f"✅ Sent WhatsApp message to {phone_number}")
-
-            # Log bot reply if sent from Thrum
-            try:
-                # Use synchronous session handling here
-                db = SessionLocal()  # Use synchronous session (no async with here)
-                user = db.query(UserProfile).filter(UserProfile.phone_number == phone_number).first()
-                if user and sent_from_thrum:
-                    request = await create_request(user.user_id)
-                    await bot_reply(request=request, db=db, user=user, reply=message)
-            except Exception as e:
-                print(f"⚠️ Failed to log bot reply: {e}")
-    except httpx.ConnectTimeout:
-        print("Connection timeout. Retrying...")
-    except httpx.HTTPStatusError as e:
-        print(f"HTTP error occurred: {e.response.status_code}")
+            
+            if response.status_code == 201:
+                print(f"✅ Sent WhatsApp message to {phone_number}")
+            elif response.status_code == 429:
+                print(f"⚠️ Rate limit exceeded - Twilio daily message limit reached")
+            else:
+                print(f"❌ Failed to send message: {response.status_code}")
+                
     except Exception as e:
-        print(f"An error occurred: {e}")
+        print(f"❌ WhatsApp send error: {e}")

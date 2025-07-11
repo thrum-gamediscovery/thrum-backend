@@ -1,50 +1,46 @@
-# 📄 File: app/api/v1/endpoints/whatsapp.py (updated to ask mood first, then continue based on mood)
+# Fast WhatsApp webhook with minimal overhead
 import asyncio
 from fastapi import APIRouter, Form, Depends, Request
 from fastapi.responses import PlainTextResponse
 from sqlalchemy.orm import Session
-from datetime import datetime, timedelta
+from datetime import datetime
 from app.db.models.user_profile import UserProfile
 from app.db.deps import get_db
 from app.db.models.enums import PlatformEnum
-from app.api.v1.endpoints.chat import user_chat_with_thrum, bot_chat_with_thrum, ChatRequest
-from app.services.session_manager import update_or_create_session, is_session_idle, boot_entry
-from app.services.create_reply import generate_thrum_reply
 from app.utils.region_utils import infer_region_from_phone, get_timezone_from_region
 from app.utils.whatsapp import send_whatsapp_message
-from app.services.modify_thrum_reply import format_reply
-from app.services.mood_engine import classify_entry
-
+from app.services.session_manager import update_or_create_session
+from app.services.dynamic_response_engine import generate_dynamic_response
 
 router = APIRouter()
 
-# 🔁 Handles session update and sends the bot reply to chat processor
-async def user_chat(request, db, user, Body):
-    session = await update_or_create_session(db, user)
-    request.scope["headers"] = list(request.scope["headers"]) + [
-        (b"x-user-id", str(user.user_id).encode())
-    ]
-    request.state.session_id = session.session_id
-    payload = ChatRequest(user_input=Body)
-    session = await user_chat_with_thrum(request=request, payload=payload, db=db)
-    return session
+def generate_static_response(user_input: str) -> str:
+    """Generate static responses based on user input"""
+    user_input_lower = user_input.lower().strip()
+    
+    if "hello" in user_input_lower or "hi" in user_input_lower:
+        return "Hey there! 😊 What kind of game are you in the mood for today?"
+    elif "game" in user_input_lower:
+        return "I'd recommend trying Stardew Valley for a chill vibe or Hades for some action! 🎮"
+    elif "mood" in user_input_lower:
+        return "Tell me more about how you're feeling - relaxed, excited, or maybe something else? 🌈"
+    elif "thanks" in user_input_lower or "thank" in user_input_lower:
+        return "You're welcome! Happy gaming! 🎆"
+    else:
+        return "I'm Thrum, your game buddy! Tell me your mood and I'll suggest the perfect game for you! 🎲"
 
-async def bot_reply(request, db, user, reply):
-    session = await update_or_create_session(db, user)
-    request.scope["headers"] = list(request.scope["headers"]) + [
-        (b"x-user-id", str(user.user_id).encode())
-    ]
-    request.state.session_id = session.session_id
-    session = await bot_chat_with_thrum(request=request, bot_reply=reply, db=db)
 
-# 📲 Main WhatsApp webhook endpoint to process user messages
 @router.post("/webhook", response_class=PlainTextResponse)
 async def whatsapp_webhook(request: Request, From: str = Form(...), Body: str = Form(...), db: Session = Depends(get_db)):
-    user = db.query(UserProfile).filter(UserProfile.phone_number == From).first()
+    # [START-POINT] User input received from WhatsApp
     user_input = Body
+    print(f"📥 [START-POINT] User input received: {user_input} from {From}")
     
-    # ✅ Step 1: Create new user if not found in DB or handle boot phase
+    # Fast user lookup/creation
+    user = db.query(UserProfile).filter(UserProfile.phone_number == From).first()
+    
     if not user:
+        # Fast new user creation
         region = await infer_region_from_phone(From)
         timezone_str = await get_timezone_from_region(region)
         user = UserProfile(
@@ -56,52 +52,26 @@ async def whatsapp_webhook(request: Request, From: str = Form(...), Body: str = 
         db.add(user)
         db.commit()
         db.refresh(user)
-        
-        # Boot phase for new user
-        boot_result = await boot_entry(user_id=str(user.user_id), platform="WhatsApp")
-        if boot_result.get("reply"):
-            await send_whatsapp_message(
-                phone_number=user.phone_number,
-                message=boot_result["reply"],
-                sent_from_thrum=True
-            )
-            
-            # 👋 Step 2: Ask user for their mood with dynamic
-            await send_whatsapp_message(
-                phone_number=user.phone_number,
-                message="How are you feeling today? (e.g., sad, happy, etc.)",
-                sent_from_thrum=True
-            )
     
-    session = await user_chat(request=request, db=db, user=user, Body=user_input)
+    # Fast session update
+    session = await update_or_create_session(db, user)
     
-    # Entry classification for first message in session
-    if len(session.interactions) <= 1:
-        entry_result = await classify_entry(db, user, session, user_input)
-        print(f"Entry classification: {entry_result}")
+    # Generate dynamic response using existing db session
+    reply = await generate_dynamic_response(user=user, session=session, user_input=user_input, db=db)
     
-    if session.awaiting_reply:
-        now = datetime.utcnow()
-        if session.last_thrum_timestamp and now - session.last_thrum_timestamp < timedelta(seconds=60):
-            if session.user.silence_count <= 3: #  User replied promptly
-                session.user.silence_count = 0
-        # Always stop waiting after any reply
-        session.awaiting_reply = False
-
-    response_prompt = await generate_thrum_reply(db=db,user=user, session=session, user_input=user_input)
-    reply = await format_reply(session=session,user_input=user_input, user_prompt=response_prompt)
-    if len(session.interactions) == 0 or is_session_idle(session):
-        await asyncio.sleep(5)
-
+    # Update session state quickly
+    session.awaiting_reply = False
+    session.last_thrum_timestamp = datetime.utcnow()
+    db.commit()
     
-    # 📩 Return final reply to WhatsApp
+    # [END-POINT] Sending response back to WhatsApp
+    print(f"📤 [END-POINT] Sending response: {reply}")
+    print(f"📞 To phone: {user.phone_number}")
+    
     await send_whatsapp_message(
         phone_number=user.phone_number,
         message=reply,
         sent_from_thrum=False
     )
-    # 📤 Send response and maintain session state
-    await bot_reply(request=request, db=db, user=user, reply=reply)
-    session.awaiting_reply = True
-    session.last_thrum_timestamp = datetime.utcnow()
-    db.commit()
+    
+    return "OK"

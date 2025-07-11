@@ -93,7 +93,7 @@ async def handle_followup_logic(db, session, user, user_input, classification):
             # return reply
 
             
-async def get_post_recommendation_reply(user_input: str, last_game_name: str, session: Session, db) -> str | None:
+async def get_post_recommendation_reply(user_input: str, last_game_name: str, session: Session, db):
     """
     Detect if the user is reacting to a game we just recommended.
     Log reaction and return soft follow-up.

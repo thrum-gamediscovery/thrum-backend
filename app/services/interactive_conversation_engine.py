@@ -9,183 +9,133 @@ class InteractiveConversationEngine:
     def __init__(self, user, session):
         self.user = user
         self.session = session
-        self.missing_info = self._get_missing_info()
+        self.conversation_stage = self._get_conversation_stage()
     
-    def _get_missing_info(self) -> List[str]:
-        """Determine what information we still need to gather"""
-        missing = []
-        
-        # Check mood
-        if not self.session.exit_mood and not self.session.entry_mood:
-            missing.append("mood")
-        
-        # Check genre preferences
-        if not self.user.genre_prefs or not any(self.user.genre_prefs.values()):
-            missing.append("genre")
-        
-        # Check platform
-        if not self.user.platform_prefs and not self.session.platform_preference:
-            missing.append("platform")
-        
-        # Check tone/energy level
-        if not self.session.meta_data or not self.session.meta_data.get("user_energy"):
-            missing.append("energy")
-        
-        # Check story preference
-        if self.user.story_pref is None:
-            missing.append("story_preference")
-        
-        return missing
-    
-    async def generate_interactive_response(self, user_input: str) -> str:
-        """Generate interactive response that naturally gathers missing info"""
-        
-        # Determine conversation strategy
+    def _get_conversation_stage(self) -> str:
+        """Determine what stage of conversation we're in"""
         interaction_count = len(self.session.interactions)
-        strategy = self._determine_strategy(user_input, interaction_count)
-        
-        if strategy == "greeting_with_mood_check":
-            return await self._generate_greeting_with_mood()
-        elif strategy == "genre_discovery":
-            return await self._generate_genre_question(user_input)
-        elif strategy == "energy_check":
-            return await self._generate_energy_question(user_input)
-        elif strategy == "platform_discovery":
-            return await self._generate_platform_question(user_input)
-        elif strategy == "story_preference":
-            return await self._generate_story_question(user_input)
-        elif strategy == "recommendation_with_followup":
-            return await self._generate_recommendation_with_questions(user_input)
-        else:
-            return await self._generate_natural_followup(user_input)
-    
-    def _determine_strategy(self, user_input: str, interaction_count: int) -> str:
-        """Determine conversation strategy based on context"""
         
         if interaction_count <= 1:
-            return "greeting_with_mood_check"
-        
-        # Check what we're missing and prioritize
-        if "mood" in self.missing_info and interaction_count <= 3:
-            return "genre_discovery"  # Ask about genre to infer mood
-        
-        if "energy" in self.missing_info and interaction_count <= 4:
-            return "energy_check"
-        
-        if "platform" in self.missing_info and interaction_count <= 5:
+            return "greeting"
+        elif "how does it work" in self.session.interactions[-1].content.lower() if self.session.interactions else False:
+            return "explanation"
+        elif not self.session.exit_mood and not self.session.entry_mood:
+            return "mood_discovery"
+        elif not self.user.genre_prefs or not any(self.user.genre_prefs.values()):
+            return "genre_discovery"
+        elif not self.session.meta_data or not self.session.meta_data.get("user_energy"):
+            return "energy_discovery"
+        elif not self.user.platform_prefs and not self.session.platform_preference:
             return "platform_discovery"
-        
-        if "story_preference" in self.missing_info and interaction_count <= 6:
-            return "story_preference"
-        
-        # If we have enough info, make recommendation but ask follow-up
-        if len(self.missing_info) <= 2 or interaction_count >= 4:
-            return "recommendation_with_followup"
-        
-        return "natural_followup"
+        elif not self.session.last_recommended_game:
+            return "recommendation"
+        elif not self.user.name:
+            return "name_collection"
+        else:
+            return "conclusion"
     
-    async def _generate_greeting_with_mood(self) -> str:
-        """Generate greeting that naturally asks about mood/vibe"""
+    async def generate_interactive_response(self, user_input: str) -> str:
+        """Generate response based on conversation stage"""
+        
+        stage = self.conversation_stage
+        
+        if stage == "greeting":
+            return await self._generate_greeting(user_input)
+        elif stage == "explanation":
+            return await self._generate_explanation(user_input)
+        elif stage == "mood_discovery":
+            return await self._generate_mood_question(user_input)
+        elif stage == "genre_discovery":
+            return await self._generate_genre_question(user_input)
+        elif stage == "energy_discovery":
+            return await self._generate_energy_question(user_input)
+        elif stage == "platform_discovery":
+            return await self._generate_platform_question(user_input)
+        elif stage == "recommendation":
+            return await self._generate_recommendation(user_input)
+        elif stage == "name_collection":
+            return await self._generate_name_question(user_input)
+        else:
+            return await self._generate_conclusion(user_input)
+    
+    async def _generate_greeting(self, user_input: str) -> str:
+        """Generate friendly greeting"""
         
         greetings = [
-            "Hey! 👋 I'm Thrum - I find games that match your exact vibe. What's your gaming mood today? Chill, hyped, or something else?",
-            "Hi there! 🎮 I'm your game discovery buddy. Are you feeling like something relaxing, action-packed, or maybe creative today?",
-            "Hey! I help people find their perfect game match. What kind of energy are you bringing today - zen mode or ready for chaos? 😄",
-            "Hi! 👋 I'm Thrum, your gaming matchmaker. Are you in the mood for something cozy, intense, or totally different today?"
+            f"{user_input} hey 👋\nYou looking for something to play or just vibin'?\nI'm Thrum btw. I help you find games that actually match your mood.",
+            f"{user_input}! 👋\nWhat's good? Need a game rec or just chillin'?\nI'm Thrum - I match games to your actual vibe.",
+            f"{user_input} 👋\nHere for games or just saying what's up?\nI'm Thrum. I help find games that actually fit your mood.",
+            f"{user_input}! 👋\nLooking for something fun or just browsing?\nI'm Thrum - I find games based on how you're feeling, not just popular stuff."
         ]
         
         return random.choice(greetings)
     
+    async def _generate_mood_question(self, user_input: str) -> str:
+        """Ask about current mood/vibe"""
+        
+        mood_questions = [
+            "Okay sick 😎\nSo what's the vibe today — chill, hyped, bored, emotional?",
+            "Nice! Let's do it 😄\nWhat's your energy right now — relaxed, pumped, or something else?",
+            "Sweet 🔥\nHow you feeling today — zen mode or ready for some action?",
+            "Perfect! 👌\nWhat's the mood — peaceful, excited, or totally different?"
+        ]
+        
+        return random.choice(mood_questions)
+    
+    async def _generate_explanation(self, user_input: str) -> str:
+        """Explain how Thrum works"""
+        
+        explanations = [
+            "Pretty simple.\nYou drop your mood. Then a genre or game type you're into.\nAnd I dig up something that fits — vibe first, not ads or whatever.\nWanna try it?",
+            "Easy process.\nTell me how you're feeling today. Then what kind of games you like.\nI find something that matches your energy, not just trending stuff.\nReady to give it a shot?",
+            "Super straightforward.\nShare your current vibe. Then your game preferences.\nI match based on your actual mood, not just popular games.\nWant to test it out?",
+            "Nothing complicated.\nYou tell me your mood and game style.\nI find something that actually fits how you're feeling right now.\nDown to try?"
+        ]
+        
+        return random.choice(explanations)
+    
     async def _generate_genre_question(self, user_input: str) -> str:
-        """Generate natural genre discovery question"""
+        """Ask about game preferences based on mood"""
         
-        prompt = f"""User said: "{user_input}"
-
-Generate a natural, enthusiastic response that:
-- Acknowledges their mood/vibe
-- Asks about their favorite game genres in a fun way
-- Gives 3-4 genre options as examples
-- Sounds like an excited gaming friend
-- Uses emojis and casual language
-- Keep it under 200 words
-
-Examples of genres to mention: action, puzzle, RPG, indie, horror, cozy, strategy, adventure"""
+        mood = self.session.exit_mood or "good"
         
-        response = await openai.ChatCompletion.acreate(
-            model="gpt-4",
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.9,
-            max_tokens=80
-        )
+        genre_questions = [
+            f"{mood.title()} and chill — love that mix 😌\nWhat kinda games do you like? Puzzle, cozy, action, story stuff?",
+            f"{mood.title()} vibes, nice! ✨\nWhat type of games usually grab you?",
+            f"Love that {mood} energy! 🙌\nWhat's your go-to game style?",
+            f"{mood.title()} mood is perfect 👍\nWhat kind of games hit different for you?"
+        ]
         
-        return response.choices[0].message.content.strip()
+        return random.choice(genre_questions)
     
     async def _generate_energy_question(self, user_input: str) -> str:
-        """Generate question about user's energy/tone"""
+        """Ask about game pace/energy preference"""
         
-        prompt = f"""User said: "{user_input}"
-
-Generate a natural response that asks about their current energy level/gaming tone:
-- Are they feeling high-energy or low-key?
-- Want something intense or chill?
-- Fast-paced or slow and thoughtful?
-- Make it sound like a friend asking
-- Use emojis and keep it conversational
-- Under 35 words"""
+        genre = "puzzle" if self.user.genre_prefs else "games"
         
-        response = await openai.ChatCompletion.acreate(
-            model="gpt-4",
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.9,
-            max_tokens=70
-        )
+        energy_questions = [
+            f"{genre.title()} gang! 🧩 Respect.\nFast-paced ones or more of the slow, thinky ones?",
+            f"Nice choice with {genre}! 🎮\nYou like the quick ones or more take-your-time style?",
+            f"{genre.title()} player, love it! ⭐\nHigh-energy or more of the calm approach?",
+            f"Good taste in {genre}! 👌\nQuick and snappy or slow and thoughtful?"
+        ]
         
-        return response.choices[0].message.content.strip()
+        return random.choice(energy_questions)
     
     async def _generate_platform_question(self, user_input: str) -> str:
-        """Generate natural platform discovery question"""
+        """Ask about gaming platform"""
         
-        prompt = f"""User said: "{user_input}"
-
-Generate a casual question about what they play games on:
-- PC, mobile, console, etc.
-- Make it sound natural and friendly
-- Maybe reference how different platforms have different vibes
-- Use emojis
-- Under 30 words"""
+        platform_questions = [
+            "Got it. You're a calm puzzle enjoyer.\nWhere do you usually play?",
+            "Nice, slow and thoughtful is the way 🧠\nWhat's your usual setup?",
+            "Perfect vibe! 😌\nWhere do you game mostly?",
+            "Love that approach! 🎯\nWhat do you play on usually?"
+        ]
         
-        response = await openai.ChatCompletion.acreate(
-            model="gpt-4",
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.9,
-            max_tokens=60
-        )
-        
-        return response.choices[0].message.content.strip()
+        return random.choice(platform_questions)
     
-    async def _generate_story_question(self, user_input: str) -> str:
-        """Generate question about story preference"""
-        
-        prompt = f"""User said: "{user_input}"
-
-Ask if they prefer games with deep stories or more gameplay-focused games:
-- Make it sound natural and conversational
-- Give examples of both types
-- Sound enthusiastic about both options
-- Use emojis
-- Under 35 words"""
-        
-        response = await openai.ChatCompletion.acreate(
-            model="gpt-4",
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.9,
-            max_tokens=70
-        )
-        
-        return response.choices[0].message.content.strip()
-    
-    async def _generate_recommendation_with_questions(self, user_input: str) -> str:
-        """Generate game recommendation but continue asking questions"""
+    async def _generate_recommendation(self, user_input: str) -> str:
+        """Generate game recommendation"""
         
         from app.services.game_recommend import game_recommendation
         from app.db.session import SessionLocal
@@ -197,52 +147,45 @@ Ask if they prefer games with deep stories or more gameplay-focused games:
             if game:
                 self.session.last_recommended_game = game["title"]
                 
-                # Still ask follow-up questions to keep conversation interactive
-                followup_questions = [
-                    f"Ever played anything like **{game['title']}** before? What did you think?",
-                    f"**{game['title']}** has that perfect vibe! Do you usually play solo or with friends?",
-                    f"**{game['title']}** should hit the spot! Are you more of a weekend gamer or daily player?",
-                    f"**{game['title']}** is calling your name! What's your usual gaming setup like?"
+                recommendations = [
+                    f"Chill puzzles on mobile. Say less 🔍\nBased on all that — I've got one for you already. It's called **{game['title']}**. It's super relaxing, has this trippy architecture vibe, and tells a quiet story as you go.\nYou ever played it?",
+                    f"Mobile gaming, nice choice! 📱\nAlright, perfect match for you — **{game['title']}**. It's got that calm puzzle vibe with beautiful visuals and a gentle story.\nHeard of it before?",
+                    f"Mobile puzzles hit different 🎮\nGot the perfect one — **{game['title']}**. Relaxing, gorgeous, and has this dreamy storytelling thing going on.\nRing any bells?",
+                    f"Phone gaming, respect! 👌\nI know exactly what you need — **{game['title']}**. Chill puzzles with stunning art and a quiet narrative thread.\nEver come across it?"
                 ]
                 
-                recommendation = f"Perfect match: **{game['title']}**! {random.choice(followup_questions)}"
-                return recommendation
+                return random.choice(recommendations)
             
         finally:
             db.close()
         
-        return await self._generate_natural_followup(user_input)
+        return "Let me find something perfect for your vibe..."
     
-    async def _generate_natural_followup(self, user_input: str) -> str:
-        """Generate natural conversation continuation"""
+    async def _generate_name_question(self, user_input: str) -> str:
+        """Ask for user's name"""
         
-        context = f"""
-        User: {self.user.name or 'User'}
-        Mood: {self.session.exit_mood or 'unknown'}
-        Platform: {self.session.platform_preference or 'unknown'}
-        Interactions: {len(self.session.interactions)}
-        Missing info: {', '.join(self.missing_info)}
-        """
+        name_questions = [
+            "Anytime 🙂\nOh btw — what's your name?",
+            "No problem! 😊\nWhat should I call you?",
+            "You got it! 👍\nWhat's your name btw?",
+            "Happy to help! ✨\nWhat's your name?"
+        ]
         
-        prompt = f"""Context: {context}
-User said: "{user_input}"
-
-Generate a natural, engaging response that:
-- Keeps the conversation flowing
-- Shows genuine interest in their gaming preferences
-- Asks about something we don't know yet
-- Sounds like an enthusiastic gaming friend
-- Uses emojis and casual language
-- Under 40 words"""
+        return random.choice(name_questions)
+    
+    async def _generate_conclusion(self, user_input: str) -> str:
+        """Generate conversation conclusion"""
         
-        response = await openai.ChatCompletion.acreate(
-            model="gpt-4",
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.9,
-            max_tokens=80
-        )
+        name = self.user.name or "friend"
         
-        return response.choices[0].message.content.strip()
+        conclusions = [
+            f"Noted. See you next time, {name}.\nAnd hey — if you liked this, feel free to drop it in your group chat or whatever.\nWant me to send you a quick message you can forward?",
+            f"Cool, {name}! 👋\nIf this was helpful, you can share it with friends who need game recs too.\nWant a shareable message?",
+            f"Got it, {name}! ✌️\nFeel free to tell your gaming friends about this if it worked for you.\nNeed a message to share?",
+            f"Perfect, {name}! 🎮\nIf you want to spread the word to other gamers, I can give you something to share.\nInterested?"
+        ]
+        
+        return random.choice(conclusions)
 
 async def create_interactive_engine(user, session):
     """Factory function to create interactive conversation engine"""

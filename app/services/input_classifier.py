@@ -118,7 +118,7 @@ OUTPUT FORMAT (Strict JSON) strictly deny to add another text:
 
     
 # ✅ Use OpenAI to classify mood, vibe, genre, and platform from free text
-async def classify_user_input(session, user_input: str) -> dict | str:
+async def classify_user_input(session, user_input: str):
     # Get the last message from Thrum to include as context
     thrum_interactions = [i for i in session.interactions if i.sender == SenderEnum.Thrum]
     last_thrum_reply = thrum_interactions[-1].content if thrum_interactions else ""
