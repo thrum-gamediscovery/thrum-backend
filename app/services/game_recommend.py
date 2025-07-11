@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from app.db.models.mood_cluster import MoodCluster
 from app.db.models.game_platforms import GamePlatform
 from app.db.models.game_recommendations import GameRecommendation
+from app.db.models.enums import PhaseEnum, SenderEnum
 from app.db.models.session import Session as UserSession
 from app.db.models.game import Game
 from sqlalchemy import func, cast, Integer, or_
@@ -13,7 +14,7 @@ import numpy as np
 
 model = SentenceTransformer("all-MiniLM-L12-v2")
 
-async def game_recommendation(db: Session, user, session) -> Optional[Tuple[Dict, bool]]:
+async def game_recommendation(db: Session, user, session):
     today = datetime.utcnow().date().isoformat()
 
     # Step 1: Pull platform, genre, mood
@@ -53,6 +54,20 @@ async def game_recommendation(db: Session, user, session) -> Optional[Tuple[Dict
             for genre in reject_genres
         ]
         base_query = base_query.filter(~or_(*genre_filters))
+    
+    print("💡 Input check:.......................................................", genre, platform)
+
+    if genre:
+        base_query = base_query.filter(
+            Game.genre.any(func.lower(genre.strip().lower()))
+        )
+    
+    if platform:
+        platform_game_ids = db.query(GamePlatform.game_id).filter(
+            func.lower(GamePlatform.platform) == platform.lower()
+        ).all()
+        platform_game_ids = [g[0] for g in platform_game_ids]
+        base_query = base_query.filter(Game.game_id.in_(platform_game_ids))
 
     # Step 3: Filter games above user age if user_age is known
     user_age = None
@@ -66,11 +81,10 @@ async def game_recommendation(db: Session, user, session) -> Optional[Tuple[Dict
         base_query = base_query.filter(
             cast(Game.age_rating, Integer) <= user_age
         )
-
+    session.game_rejection_count += 1
     base_games = base_query.all()
     if not base_games:
         return None, None
-    session.game_rejection_count += 1
         # Step 1.5: Cold start → recommend random safe game
     if not platform and not genre and not mood:
         print("[🧊] Cold start: returning a safe random game.")
@@ -93,6 +107,9 @@ async def game_recommendation(db: Session, user, session) -> Optional[Tuple[Dict
         )
         db.add(game_rec)
         db.commit()
+
+        session.phase = PhaseEnum.FOLLOWUP
+        session.followup_triggered = True
 
         return {
             "title": random_game.title,
@@ -148,11 +165,16 @@ async def game_recommendation(db: Session, user, session) -> Optional[Tuple[Dict
             break
 
     if not candidate_games:
-        return None, None
+        print("[⚠️] No match after soft filtering. Falling back to unfiltered base games.")
+        candidate_games = base_games
 
     # Step 6: Embedding-based scoring
-    mood_vector = model.encode(mood) if mood else None
-    genre_vector = model.encode(genre) if genre else None
+    user_interactions = [i for i in session.interactions if i.sender == SenderEnum.User]
+    user_input = user_interactions[-1].content if user_interactions else ""
+    mood_input = f"{genre} | {user_input}" if genre else None
+    mood_vector = model.encode(mood_input) if mood_input else None
+    genre_input = f"{genre} | {user_input}" if genre else None
+    genre_vector = model.encode(genre_input) if genre_input else None
 
     def to_vector(v):
         if v is None:
@@ -175,6 +197,13 @@ async def game_recommendation(db: Session, user, session) -> Optional[Tuple[Dict
         return (mood_weight * mood_sim + genre_weight * genre_sim) if (mood_weight + genre_weight) > 0 else 0.01
 
     ranked = sorted([(g, compute_score(g)) for g in candidate_games], key=lambda x: x[1], reverse=True)
+
+    # ✅ NEW: Avoid repeating the last recommended game
+    if session.last_recommended_game:
+        ranked = [r for r in ranked if r[0].title != session.last_recommended_game]
+        if not ranked:
+            return None, None
+
     top_game = ranked[0][0]
     age_ask_required = False
 
@@ -203,7 +232,8 @@ async def game_recommendation(db: Session, user, session) -> Optional[Tuple[Dict
     )
     db.add(game_rec)
     db.commit()
-
+    session.phase = PhaseEnum.FOLLOWUP
+    session.followup_triggered = True
     return {
         "title": top_game.title,
         "description": top_game.description[:200] if top_game.description else None,

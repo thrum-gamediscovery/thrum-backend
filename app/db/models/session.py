@@ -72,6 +72,8 @@ class Session(Base):
     # Flexible metadata field (for debug logs, GPT traces, etc.)
     meta_data = Column(MutableDict.as_mutable(JSON), nullable=True)
 
+    memory = Column(MutableDict.as_mutable(JSON), default=dict)
+
     # Relationships
     user = relationship("UserProfile", back_populates="sessions")
     interactions = relationship("Interaction", back_populates="session", cascade="all, delete-orphan")

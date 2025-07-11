@@ -1,16 +1,69 @@
 from app.services.game_recommend import game_recommendation
-from app.db.models.enums import PhaseEnum
+from app.db.models.enums import PhaseEnum, SenderEnum
 from app.db.models.session import Session
 from app.services.conversation_learning import ThrumMemory, ConversationFlow, get_personalized_game_recommendation
 from app.services.session_utils import get_asked_questions, mark_question_asked, has_asked_question
+from app.services.tone_engine import get_last_user_tone_from_session, tone_match_validator
 import json
 import openai
 import os
 import random
 
 openai.api_key = os.getenv("OPENAI_API_KEY")
+model= os.getenv("GPT_MODEL")
 
-async def format_game_output(game: dict, user_context: dict = None, session=None) -> str:
+# 🎮 Optional: Emojis for visual flavor (keep platform names raw)
+PLATFORM_EMOJIS = {
+    "PlayStation 5": "🎮",
+    "PlayStation 4": "🎮",
+    "PlayStation 3": "🎮",
+    "PlayStation Vita": "🎮",
+    "Xbox Series X|S": "🕹️",
+    "Xbox One": "🕹️",
+    "Xbox 360": "🕹️",
+    "Nintendo Switch": "🎮",
+    "Nintendo Switch 2": "🎮",
+    "Nintendo Wii U": "🎮",
+    "Nintendo 3DS": "🎮",
+    "New Nintendo 3DS": "🎮",
+    "Meta Quest 2": "🕶️",
+    "Oculus Quest": "🕶️",
+    "Android": "📱",
+    "iPhone / iPod Touch": "📱",
+    "iPad": "📱",
+    "Macintosh": "💻",
+    "Windows": "💻",
+    "Linux": "🐧",
+    "Web Browser": "🌐"
+}
+
+import random
+
+VARIATION_LINES = [
+    "Feels like a great match for your current vibe.",
+    "This one fits your energy perfectly.",
+    "Matches your style — give it a shot!",
+    "Vibe check passed ✅ This one’s for you.",
+    "Could be your next favorite — want to try it?"
+]
+
+async def format_game_output(session, game: dict, user_context: dict = None, session=None) -> str:
+    thrum_interactions = [i for i in session.interactions if i.sender == SenderEnum.Thrum]
+    last_thrum_reply = thrum_interactions[-1].content if thrum_interactions else ""
+    user_interactions = [i for i in session.interactions if i.sender == SenderEnum.User]
+    last_user_reply = user_interactions[-1].content if user_interactions else ""
+    # :speech_balloon: GPT prompt
+    system_prompt = (
+    "You are Thrum, a warm and playful game matchmaker. "
+    "Your tone is cozy, human, and emoji-friendly. Never robotic. Never generic. "
+    "Each reply should feel like part of a real conversation, suggesting a game only if it feels right, and asking a soft follow-up question. "
+    "Don’t overwhelm with too much info—keep it light, fun, and friendly. "
+    "Use emojis if it matches the vibe, but keep it natural. "
+    "Be concise, under 25 words. Never break character. "
+    "Respond based on the user's tone, using short forms if they do."
+)
+    last_user_tone = get_last_user_tone_from_session(session)
+    print("-------------------", last_user_tone)
     title = game.get("title", "Unknown Game")
     description = game.get("description", "")
     platforms = game.get("platforms", [])
@@ -53,11 +106,12 @@ async def format_game_output(game: dict, user_context: dict = None, session=None
     
     return f"{base_rec}\n\n{followup}"
 
-async def deliver_game_immediately(db:Session,user, session) -> str:
+async def deliver_game_immediately(db: Session, user, session) -> str:
     """
     Instantly delivers a personalized game recommendation using memory layer.
     """
-    game,_ = await game_recommendation(db=db, user=user, session=session)
+    game, _ = await game_recommendation(db=db, user=user, session=session)
+
     if not game:
         return "Hmm, couldn't find a match right now. Try again soon!"
     else:
@@ -69,6 +123,8 @@ async def deliver_game_immediately(db:Session,user, session) -> str:
     return get_personalized_game_recommendation(db, user, session, game)
 
 async def confirm_input_summary(session) -> str:
+    last_user_tone = get_last_user_tone_from_session(session)
+
     """
     Memory-aware confirmation responses
     """
@@ -112,13 +168,14 @@ async def confirm_input_summary(session) -> str:
     return random.choice(confirmations)
 
 class DiscoveryData:
-    def __init__(self, mood=None, genre=None, platform=None):
+    def __init__(self, mood=None, genre=None, platform=None, story_pref=None):
         self.mood = mood
         self.genre = genre
         self.platform = platform
+        self.story_pref = story_pref
 
     def is_complete(self):
-        return all([self.mood, self.genre, self.platform])
+        return all([self.mood, self.genre, self.platform, self.story_pref])
 
     def to_dict(self):
         return {"mood": self.mood, "genre": self.genre, "platform": self.platform}
@@ -134,12 +191,14 @@ async def extract_discovery_signals(session) -> DiscoveryData:
     mood = session.exit_mood or session.entry_mood
     genre = session.genre[-1] if session.genre else None
     platform = session.platform_preference[-1] if session.platform_preference else None
+    story_pref = session.story_preference
 
-    print(f"🔍 Extracted from session — Mood: {mood}, Genre: {genre}, Platform: {platform}")
+    print(f"🔍 Extracted from session — Mood: {mood}, Genre: {genre}, Platform: {platform}, story_preference : {story_pref}")
     return DiscoveryData(
         mood=mood,
         genre=genre,
-        platform=platform
+        platform=platform,
+        story_pref=story_pref,
     )
 
 async def ask_discovery_question(session) -> str:

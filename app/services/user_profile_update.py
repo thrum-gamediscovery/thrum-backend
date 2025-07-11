@@ -12,7 +12,7 @@ from sqlalchemy.orm.attributes import flag_modified
 from app.services.mood_engine import detect_mood_from_text
 from app.services.session_manager import update_or_create_session_mood
 from app.utils.genre import get_best_genre_match 
-from app.utils.platform_utils import get_best_platform_match
+from app.utils.platform_utils import get_best_platform_match, get_default_platform
 
 
 # ✅ Update user profile with parsed classification fields
@@ -91,14 +91,11 @@ async def update_game_feedback_from_json(db, user_id: UUID, session,feedback_dat
 
 # ✅ Update user profile with parsed classification fields
 async def update_user_from_classification(db: Session, user, classification: dict,session):
-
-    print(f"update classification : {classification}")
     today = date.today().isoformat()
 
     name = classification.get("name")
     mood = classification.get("mood")
     genre = classification.get("genre")
-    print(f"update genre :; {genre}")
     platform = classification.get("platform_pref")
     region = classification.get("region")
     age = classification.get("age")
@@ -106,11 +103,14 @@ async def update_user_from_classification(db: Session, user, classification: dic
     playtime = classification.get("playtime_pref")
     reject_tags = classification.get("regect_tag", [])
     game_feedback = classification.get("game_feedback", [])
+    find_game_title = classification.get("find_game")
 
     # -- Name
     if name and name != "None":
         user.name = name.strip().title()
         user.last_updated["name"] = str(datetime.utcnow())
+        session.meta_data["name"] = user.name  # Store in session for short-term memory
+        flag_modified(user, "name")
 
     # -- Mood
     if mood and mood != "None":
@@ -119,6 +119,8 @@ async def update_user_from_classification(db: Session, user, classification: dic
         if not session.entry_mood:
             session.entry_mood = mood_result
         session.exit_mood = mood_result
+        session.meta_data["mood"] = mood_result
+        flag_modified(user, "mood_tags")
         user.last_updated["mood_tags"] = str(datetime.utcnow())
         # update_or_create_session_mood(db, user, new_mood=mood_result)
 
@@ -165,6 +167,8 @@ async def update_user_from_classification(db: Session, user, classification: dic
     # -- Platform Preferences
     if platform and platform != "None":
         matched_platform = await get_best_platform_match(db=db, user_input=platform)
+        if not matched_platform:
+            matched_platform = get_default_platform(matched_platform or platform)
         if matched_platform:
             user.platform_prefs.setdefault(today, [])
             if matched_platform not in user.platform_prefs[today]:
@@ -215,12 +219,30 @@ async def update_user_from_classification(db: Session, user, classification: dic
     if story_pref is not None and story_pref != "None":
         user.story_pref = bool(story_pref)
         session.story_preference = bool(story_pref)
+        flag_modified(user, "story_pref")
+        flag_modified(session, "story_preference")
         user.last_updated["story_pref"] = str(datetime.utcnow())
 
     # -- Playtime
     if playtime and playtime != "None":
         user.playtime = playtime.strip().lower()
+        flag_modified(user, "playtime")
         user.last_updated["playtime"] = str(datetime.utcnow())
+
+    # -- find game
+    if find_game_title and find_game_title.lower() != "none":
+            # Load all game titles and IDs
+            all_games = db.query(Game.game_id, Game.title).all()
+            title_lookup = {g.title: g.game_id for g in all_games}
+            match = process.extractOne(find_game_title.strip(), title_lookup.keys(), score_cutoff=75)
+            if match:
+                matched_title = match[0]
+                matched_game_id = str(title_lookup[matched_title])  # Store as string
+                session.meta_data["find_game"] = matched_game_id
+                flag_modified(session, "meta_data")
+                print(f"🎯 Stored matched find_game → '{matched_title}' (ID: {matched_game_id}) in session.meta_data")
+            else:
+                print(f"❌ No match found for 'find_game' title: {find_game_title}")
 
     # -- Reject Tags (Genre vs Platform)
     if isinstance(reject_tags, list):
@@ -233,14 +255,10 @@ async def update_user_from_classification(db: Session, user, classification: dic
         # Ensure the session meta_data exists
         if session.meta_data is None:
             session.meta_data = {}
-        print(f"reject_tags : {session.meta_data}")
         # Initialize the reject_tags structure if not already initialized
         if "reject_tags" not in session.meta_data:
-            session.meta_data["reject_tags"] = {"genre": [], "platform": [], "other": []}
-        print(f"reject_tags : {session.meta_data}")
+            session.meta_data["reject_tags"] = {"genre": [], "platform": [], "other": []}    
         reject_data = session.meta_data["reject_tags"]
-        print(f"reject_data : {reject_data}")
-
         user.reject_tags.setdefault("genre", [])
         user.reject_tags.setdefault("platform", [])
         user.reject_tags.setdefault("other", [])
@@ -250,7 +268,10 @@ async def update_user_from_classification(db: Session, user, classification: dic
 
             # ✅ Try platform match
             matched_platform = await get_best_platform_match(user_input=tag_clean, db=db)
-            if matched_platform:
+            if not matched_platform:
+                matched_platform = get_default_platform(platform=tag_clean)
+            print(f" --------------------------- matched_platform : {matched_platform}")
+            if matched_platform or matched_platform is not None:
                 if matched_platform not in user.reject_tags["platform"]:
                     user.reject_tags["platform"].append(matched_platform)
                 if matched_platform not in reject_data["platform"]:
@@ -300,8 +321,6 @@ async def update_user_from_classification(db: Session, user, classification: dic
             if tag_clean not in reject_data["other"]:
                 reject_data["other"].append(tag_clean)
             print(f"⚠️ No match found for: {tag_clean} → added to 'other'")
-
-        print(f"-------------------- reject_tags : {session.meta_data}")
         flag_modified(session, "meta_data")
         user.last_updated["reject_tags"] = str(datetime.utcnow())
 

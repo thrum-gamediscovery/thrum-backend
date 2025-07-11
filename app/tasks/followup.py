@@ -10,6 +10,7 @@ from app.services.tone_classifier import classify_tone
 from app.services.input_classifier import analyze_followup_feedback  
 from app.services.thrum_router.phase_ending import handle_ending
 from app.services.thrum_router.phase_discovery import handle_discovery
+from app.services.share_intent import is_share_intent
 import random
 
 @shared_task
@@ -36,15 +37,18 @@ async def send_feedback_followups():
     finally:
         db.close()
 
-async def handle_followup_logic(db, session, user, user_input):
+async def handle_followup_logic(db, session, user, user_input, classification):
     feedback = await analyze_followup_feedback(user_input, session)
-    print(f"feedback : {feedback}")
     parsed = json.loads(feedback)
     intent = parsed.get("intent")
 
+    # 👥 Share intent detected
+    if await is_share_intent(user_input):
+        return "Send this to your friends: ‘I just got a perfect game drop from Thrum 🎮 — it's a vibe! Tap here to try it 👉 https://wa.me/12764000071?text=Hey%2C%20I%20heard%20Thrum%20can%20drop%20perfect%20games%20for%20my%20mood.%20Hit%20me%20with%20one!%20🔥’"
+
     if intent in ["want_another"]:
         session.phase = PhaseEnum.DISCOVERY
-        return await handle_discovery(db=db,session=session, user=user)
+        return await handle_discovery(db=db, session=session, user=user, classification=classification, user_input=user_input)
 
     if intent in ["dont_want_another"]:
         if not user.name:
@@ -56,8 +60,9 @@ async def handle_followup_logic(db, session, user, user_input):
                 "Got a name I can remember you by? Always nice to keep things personal 🙌",
                 "What's your name, friend? I've got a good memory when it counts 💾"
             ]
-
-            return random.choice(name_prompts)
+            reply = random.choice(name_prompts)
+            print(f"handle_followup_logic : {reply}")
+            return reply
         elif not user.playtime:
             playtime_prompts = [
                 f"When do you usually play, {user.name}? Evenings, weekends, or those late-night sessions?",
@@ -67,11 +72,27 @@ async def handle_followup_logic(db, session, user, user_input):
                 f"{user.name}, do you sneak in your games at night, on lazy Sundays, or some other time?",
                 f"Evenings, weekends, or late nights — when’s your favorite time to play, {user.name}?"
             ]
+            reply = random.choice(playtime_prompts)
+            print(f"handle_followup_logic : {reply}")
+            return reply
+        
+    session.phase = PhaseEnum.ENDING
+    return await handle_ending(session)
 
-            return random.choice(playtime_prompts)
-        else:
-            session.phase = PhaseEnum.ENDING
-            await handle_ending(session)
+            # followup_prompts = [
+            #     "Cool — just wondering, do you lean more toward story-rich games or fast-action ones?",
+            #     "One last thing — do you usually enjoy emotional stories or chaos and action?",
+            #     "Quick vibe check: you prefer deep stories or quick, intense gameplay?",
+            #     "Just curious — story-driven vibes or pure arcade-style action?",
+            #     "Do you tend to dive into game stories, or go straight for the action?",
+            #     "Final thing — do stories hook you, or are you here for gameplay?"
+            # ]
+            # reply = random.choice(followup_prompts)
+            # print(f"handle_followup_logic : {reply}")
+            # session.awaiting_reply = True
+            # return reply
+
+            
 async def get_post_recommendation_reply(user_input: str, last_game_name: str, session: Session, db) -> str | None:
     """
     Detect if the user is reacting to a game we just recommended.

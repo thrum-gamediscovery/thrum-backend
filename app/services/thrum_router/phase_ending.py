@@ -8,14 +8,13 @@ async def handle_ending(session):
     and returns a warm farewell message.
     """
     session.phase = PhaseEnum.ENDING
-    session.session_type = SessionTypeEnum.CLOSED  # Optional: update status if tracked
 
-    farewell_lines = [
-        "Alrighty! I’ll be here whenever you’re in the mood for a fresh game 🎮✨",
-        "Catch you later — your next game drop will be ready when you are!",
-        "Good chatting! Ping me anytime you want a new vibe 👋",
-        "All done for now! Can’t wait to share the next great one with you.",
-    ]
-
-    import random
-    return random.choice(farewell_lines)
+    user_prompt = (
+    "The user has either gone silent, declined more games, or seems to be disengaging.\n"
+    "Write a warm, friendly farewell message to end the session gracefully.\n"
+    "Keep it short — no more than 10–15 words.\n"
+    "Sound natural, not robotic. No follow-up questions. No pressure to return.\n"
+    "Tone should feel like a friend signing off respectfully.\n"
+    "If possible, include a soft suggestion that you’re always here if they return."
+)
+    return user_prompt

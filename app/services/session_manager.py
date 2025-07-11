@@ -1,8 +1,16 @@
 from datetime import datetime, timedelta
 from sqlalchemy.orm import Session as DBSession
 from app.db.models.session import Session
-from app.db.models.enums import SessionTypeEnum
+from app.db.models.enums import SessionTypeEnum, ResponseTypeEnum
 from app.services.nudge_checker import detect_user_is_cold  # ✅ import smart tone checker
+from app.db.models.enums import SenderEnum
+
+def update_returning_user_flag(session):
+    if session.meta_data.get("returning_user") is None:
+        if session.meta_data.get("last_interaction"):
+            session.meta_data["returning_user"] = True
+        else:
+            session.meta_data["returning_user"] = False
 
 def is_session_idle(session, idle_minutes=10):
     if not session.interactions:
@@ -18,7 +26,7 @@ def get_session_state(last_active: datetime) -> SessionTypeEnum:
     elapsed = now - last_active
     if elapsed > timedelta(hours=48):
         return SessionTypeEnum.COLD
-    elif elapsed > timedelta(hours=11):
+    elif elapsed > timedelta(minutes=30): #elif elapsed > timedelta(hours=11):
         return SessionTypeEnum.PASSIVE
     else:
         return SessionTypeEnum.ACTIVE
@@ -39,7 +47,11 @@ async def update_or_create_session(db: DBSession, user):
             start_time=now,
             end_time=now,
             state=SessionTypeEnum.ONBOARDING,
-            meta_data={"is_user_cold": False}
+            meta_data={
+                "is_user_cold": False,
+                "last_interaction": datetime.utcnow().isoformat(),
+                "returning_user": False
+            }
         )
         db.add(new_session)
         db.commit()
@@ -57,7 +69,7 @@ async def update_or_create_session(db: DBSession, user):
     # 📝 Update session state
     if elapsed > timedelta(hours=48):
         last_session.state = SessionTypeEnum.COLD
-    elif elapsed > timedelta(hours=11):
+    elif elapsed > timedelta(minutes=30):
         last_session.state = SessionTypeEnum.PASSIVE
     else:
         last_session.state = SessionTypeEnum.ACTIVE
@@ -72,12 +84,30 @@ async def update_or_create_session(db: DBSession, user):
             start_time=now,
             end_time=now,
             state=SessionTypeEnum.ONBOARDING,
-            meta_data={"is_user_cold": is_cold}
+            meta_data={
+                "is_user_cold": is_cold,
+                "last_interaction": datetime.utcnow().isoformat(),
+                "returning_user": False
+            }
         )
         db.add(new_session)
         db.commit()
         db.refresh(new_session)
         return new_session
+
+    # 💡 NEW: Time-based returning_user check (30+ min idle = reengagement)
+    last_interaction_time_str = last_session.meta_data.get("last_interaction")
+    if last_interaction_time_str:
+        try:
+            last_interaction_time = datetime.fromisoformat(last_interaction_time_str)
+            idle_seconds = (now - last_interaction_time).total_seconds()
+            if idle_seconds > 1800:  # 30 minutes
+                last_session.meta_data["returning_user"] = True
+        except Exception:
+            pass  # Fallback in case of invalid format
+
+    last_session.meta_data["last_interaction"] = datetime.utcnow().isoformat()
+    update_returning_user_flag(last_session)
 
     return last_session
 
@@ -148,3 +178,10 @@ def is_session_idle_or_fading(session) -> bool:
         return True
 
     return False
+
+def detect_tone_shift(session) -> bool:
+    tones = [
+        i.tone_tag for i in session.interactions[-5:]
+        if i.tone_tag and i.sender == SenderEnum.User
+    ]
+    return len(set(tones)) > 1 if len(tones) >= 3 else False

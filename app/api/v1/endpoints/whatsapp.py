@@ -11,6 +11,8 @@ from app.api.v1.endpoints.chat import user_chat_with_thrum, bot_chat_with_thrum,
 from app.services.session_manager import update_or_create_session, is_session_idle
 from app.services.create_reply import generate_thrum_reply
 from app.utils.region_utils import infer_region_from_phone, get_timezone_from_region
+from app.utils.whatsapp import send_whatsapp_message
+from app.services.modify_thrum_reply import format_reply
 
 
 router = APIRouter()
@@ -42,7 +44,6 @@ async def whatsapp_webhook(request: Request, From: str = Form(...), Body: str = 
     
     # ✅ Step 1: Create new user if not found in DB
     if not user:
-        print(f"From : {From}")
         region = await infer_region_from_phone(From)
         timezone_str = await get_timezone_from_region(region)
         user = UserProfile(
@@ -64,15 +65,20 @@ async def whatsapp_webhook(request: Request, From: str = Form(...), Body: str = 
         # Always stop waiting after any reply
         session.awaiting_reply = False
 
-    reply = await generate_thrum_reply(user=user, session=session, user_input=user_input, db=db)
+    response_prompt = await generate_thrum_reply(db=db,user=user, session=session, user_input=user_input)
+    reply = await format_reply(session=session,user_input=user_input, user_prompt=response_prompt)
     if len(session.interactions) == 0 or is_session_idle(session):
         await asyncio.sleep(5)
 
+    
+    # 📩 Return final reply to WhatsApp
+    await send_whatsapp_message(
+        phone_number=user.phone_number,
+        message=reply,
+        sent_from_thrum=False
+    )
     # 📤 Send response and maintain session state
     await bot_reply(request=request, db=db, user=user, reply=reply)
     session.awaiting_reply = True
     session.last_thrum_timestamp = datetime.utcnow()
     db.commit()
-    
-    # 📩 Return final reply to WhatsApp
-    return reply

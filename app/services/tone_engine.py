@@ -1,7 +1,23 @@
 import re
+import os
 import openai
+from datetime import datetime
 from app.db.session import SessionLocal
 from app.db.models.session import Session as DBSession
+from app.db.models.enums import SenderEnum
+
+model= os.getenv("GPT_MODEL")
+
+# 🧠 Extract latest user tone from session.interactions
+def get_last_user_tone_from_session(session) -> str:
+    if not session or not session.interactions:
+        return "neutral"
+
+    user_interactions = [i for i in session.interactions if i.sender == SenderEnum.User]
+    if not user_interactions:
+        return "neutral"
+
+    return user_interactions[-1].tone_tag or "neutral"
 
 # GPT tone → internal style mapping
 TONE_STYLE_MAP = {
@@ -29,7 +45,7 @@ Return only the phrase. No emojis. Max 5 words.
 """
     try:
         response = openai.ChatCompletion.create(
-            model="gpt-4.1-mini",
+            model=model,
             messages=[{"role": "user", "content": prompt}],
             temperature=0.9,
             max_tokens=12,
@@ -60,9 +76,20 @@ TONE_TRANSFORMS = {
     "dry": [flatten_sentence()],
 }
 
-def apply_tone_style(reply: str, tone: str) -> str:
+def apply_tone_style(reply: str, session) -> str:
+    """
+    Apply tone transforms based on recent tone history stored in session.
+    Falls back to the latest tone in session.meta_data['tone'].
+    """
+    history = session.meta_data.get("tone_history", [])
+    tone = history[-1] if history else session.meta_data.get("tone")
+
+    if not tone:
+        return reply  # No tone to apply
+
     for transform in TONE_TRANSFORMS.get(tone, []):
         reply = transform(reply)
+
     return reply
 
 # 🎯 Optional Gen-Z slang injection
@@ -81,19 +108,28 @@ async def get_response_style(tone: str, reply: str) -> str:
     return reply
 
 # 🧠 GPT-Based Tone Detection
-async def detect_tone_cluster(db, session, user_input: str) -> str:
+async def detect_tone_cluster(user_input: str) -> str:
     prompt = f"""
-You are a tone detector for a conversational assistant.
-Classify the user's message below into one of these tone clusters:
-[genz, chaotic, sincere, ironic, casual, neutral, warm, open, closed, funny, defiant, excited]
+Classify the tone of this user message based on both emotion and style.
+
+Choose ONE or a COMBINATION (max 2) from:
+[genz, chaotic, sincere, ironic, casual, neutral, warm, open, closed, funny, defiant, excited, frustrated, bored, angry, satisfied, confused, sad]
+
+Rules:
+- If slang, emojis, or hype → tag genz
+- If tone is frustrated *and* genz → return "genz frustrated"
+- If tone is unsure or irritated → tag confused or frustrated
+- If short, dry replies like "ok", "fine", or "hello?" → bored or frustrated
+- If joyful or thankful → satisfied or excited
+- If style is unclear → return neutral
 
 Message: "{user_input}"
 
-Only respond with ONE WORD that best describes the tone. No punctuation.
+Only return ONE or TWO words (space-separated). No punctuation.
 """
     try:
         response = openai.ChatCompletion.create(
-            model="gpt-4.1-mini",
+            model=model,
             messages=[{"role": "user", "content": prompt}],
             temperature=0,
         )
@@ -105,9 +141,9 @@ Only respond with ONE WORD that best describes the tone. No punctuation.
     return tone
 
 # 🎛️ Final Tone Validator + Styling
-async def tone_match_validator(reply: str, user_id: str, user_input: str, db) -> str:
+async def tone_match_validator(reply: str, user_id: str, user_input: str, db, session) -> str:
     try:
-        gpt_tone = await detect_tone_cluster(db, None, user_input)
+        gpt_tone = await detect_tone_cluster(user_input)
         mapped_tone = TONE_STYLE_MAP.get(gpt_tone, "neutral")
         print(f"✅ Tone applied: {mapped_tone} (from GPT: {gpt_tone})")
     except Exception as e:
@@ -115,7 +151,8 @@ async def tone_match_validator(reply: str, user_id: str, user_input: str, db) ->
         mapped_tone = "neutral"
 
     store_user_tone(user_id, mapped_tone)
-    styled_reply = apply_tone_style(reply, mapped_tone)
+    update_tone_in_history(session, mapped_tone)
+    styled_reply = apply_tone_style(reply, session)
     final_reply = await get_response_style(mapped_tone, styled_reply)
     return final_reply
 
@@ -138,3 +175,27 @@ def store_user_tone(user_id: str, tone: str):
         print(f"⚠️ Failed to store tone: {e}")
     finally:
         db.close()
+
+def update_tone_in_history(session, tone: str):
+    try:
+        # Ensure that meta_data and tone_history exist
+        session.meta_data = session.meta_data or {}
+        session.meta_data["tone_history"] = session.meta_data.get("tone_history", [])
+
+        # Update the last entry in tone_history with the new tone and timestamp
+        if session.meta_data["tone_history"]:
+            # Replace the last entry in the list
+            session.meta_data["tone_history"][-1] = {
+                "tone": tone,
+                "timestamp": datetime.utcnow().isoformat()
+            }
+        else:
+            # If tone_history is empty, initialize it with the first entry
+            session.meta_data["tone_history"].append({
+                "tone": tone,
+                "timestamp": datetime.utcnow().isoformat()
+            })
+
+    except Exception as e:
+        # Handle errors gracefully
+        print(f"Error updating tone in history: {e}")
