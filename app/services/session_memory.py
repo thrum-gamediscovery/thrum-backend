@@ -147,7 +147,17 @@ async def deliver_game_immediately(db: Session, user, session) -> str:
     game, _ = await game_recommendation(db=db, user=user, session=session)
 
     if not game:
-        return "Hmm, couldn't find a match right now. Try again soon!"
+        print("-----------------------------------------------------------")
+        user_prompt =( f"Use this prompt only when no games are available for the user’s chosen genre and platform.\n"
+                        f"never repeat the same sentence every time do change that always.\n"
+                        f"you must warmly inform the user there’s no match for that combination — robotic.\n"
+                        f"clearly mention that for that genre and platfrom there is no game.so pick different genre or platfrom.\n"
+                        f"tell them to pick a different genre or platform.\n"
+                        f"Highlight that game discovery is meant to be fun and flexible, never a dead end.\n"
+                        f"Never use words like 'sorry,' 'unfortunately,' or any kind of generic filler.\n"
+                        f"The reply must be 12–18 words, in a maximum of two sentences, and always end with an enthusiastic and empowering invitation to explore new options together.\n"
+                        )
+        return user_prompt
     else:
         session.last_recommended_game = game["title"]
 
@@ -256,6 +266,7 @@ async def ask_discovery_question(session) -> str:
     Dynamically generate a discovery question using gpt-4o.
     Now adds freedom-language to each question (e.g. 'or something totally different?')
     """
+    user_promt = None
     last_user_tone = get_last_user_tone_from_session(session)
     def get_last(arr):
         return arr[-1] if isinstance(arr, list) and arr else None
@@ -288,34 +299,6 @@ ask question of 10-12 words only.
 - Looking for strategy, sports, role-playing… or just whatever breaks the rules?
 """.strip()
 
-    elif not session.exit_mood:
-        genre = get_last(session.genre)
-        platform = get_last(session.platform_preference)
-        user_promt = f"""
-Speak entirely in the user's tone: {last_user_tone}.  
-Use their style, energy, and attitude naturally. Do not describe or name the tone — just talk like that.
-
-Don’t mention the tone itself — just speak like someone who naturally talks this way.
-You're Thrum — a playful, emotionally smart game assistant.
-
-You already know:
-- Genre: {genre or "unknown"}
-- Platform: {platform or "unknown"}
-
-Ask ONE friendly, expressive question to discover the user’s **current mood or emotional vibe**.
-ask question of 10-12 words only.
-✅ Use casual, human language  
-✅ Mention some example moods (e.g. “emotional”, “competitive”, “funny”)  
-✅ Add a soft ending like “or something totally different?”  
-✅ One emoji max  
-❌ No greetings, no double questions
-
-🧠 Example styles:
-- What mood are you in — emotional, competitive, or funny? Or something totally different? 🎮
-- Feeling chill, chaotic, or in a story-rich kinda headspace… or something else entirely?
-- What’s the vibe today — sneaky, calm, cozy? Or are we breaking all the molds?
-""".strip()
-        
     elif not session.platform_preference:
         mood = session.exit_mood
         genre = get_last(session.genre)
@@ -344,4 +327,33 @@ ask question of 10-12 words only.
 - PS5 or Switch? Or do you roll with browser games and retro consoles?
 """.strip()
         
+    elif not session.exit_mood:
+        genre = get_last(session.genre)
+        platform = get_last(session.platform_preference)
+        user_promt = f"""
+Speak entirely in the user's tone: {last_user_tone}.  
+Use their style, energy, and attitude naturally. Do not describe or name the tone — just talk like that.
+
+Don’t mention the tone itself — just speak like someone who naturally talks this way.
+You're Thrum — a playful, emotionally smart game assistant.
+
+You already know:
+- Genre: {genre or "unknown"}
+- Platform: {platform or "unknown"}
+
+Ask ONE friendly, expressive question to discover the user’s **current mood or emotional vibe**.
+ask question of 10-12 words only.
+✅ Use casual, human language  
+✅ Mention some example moods (e.g. “emotional”, “competitive”, “funny”)  
+✅ Add a soft ending like “or something totally different?”  
+✅ One emoji max  
+❌ No greetings, no double questions
+
+🧠 Example styles:
+- What mood are you in — emotional, competitive, or funny? Or something totally different? 🎮
+- Feeling chill, chaotic, or in a story-rich kinda headspace… or something else entirely?
+- What’s the vibe today — sneaky, calm, cozy? Or are we breaking all the molds?
+""".strip()
+        
+    
     return user_promt

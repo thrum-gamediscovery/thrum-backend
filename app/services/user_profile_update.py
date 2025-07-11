@@ -130,9 +130,10 @@ async def update_user_from_classification(db: Session, user, classification: dic
         print(f"update matched genre : {matched_genre}")
         if matched_genre:
             user.genre_prefs.setdefault(today, [])
-            if matched_genre not in user.genre_prefs[today]:
-                user.genre_prefs[today].append(matched_genre)
-                print(f"✅ Added genre '{matched_genre}' to user.genre_prefs[{today}]")
+            if matched_genre in user.genre_prefs[today]:
+                user.genre_prefs[today].remove(matched_genre)
+            user.genre_prefs[today].append(matched_genre)
+            print(f"✅ Added genre '{matched_genre}' to user.genre_prefs[{today}]")
 
             # ✅ Remove from user.reject_tags["genre"]
             if matched_genre in user.reject_tags.get("genre", []):
@@ -149,16 +150,13 @@ async def update_user_from_classification(db: Session, user, classification: dic
             # ✅ Add to session.genre
             if session:
                 session_genres = session.genre or []
-                if matched_genre not in session_genres:
-                    session_genres.append(matched_genre)
-                    session.genre = session_genres
+                if matched_genre in session_genres:
+                    session_genres.remove(matched_genre)
+                session_genres.append(matched_genre)
+                session.genre = session_genres
+                flag_modified(session, "genre")
 
-                    # ✅ Ensure SQLAlchemy detects the change
-                    flag_modified(session, "genre")
-
-                    print(f"[✅ Genre added to session]: {session_genres}")
-                else:
-                    print(f"[ℹ️ Genre already present]: {matched_genre}")
+                print(f"[✅ Genre added to session]: {session_genres}")
             else:
                 print("❌ Session object is missing or invalid.")
 

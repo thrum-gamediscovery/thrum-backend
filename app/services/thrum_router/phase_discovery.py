@@ -34,7 +34,18 @@ async def handle_discovery(db, session, user, classification, user_input):
         session.discovery_questions_asked = 0
 
         game, _ = await game_recommendation(db=db, session=session, user=user)
-
+        if not game:
+            print("################################################################")
+            user_prompt =( f"Use this prompt only when no games are available for the user’s chosen genre and platform.\n"
+                        f"never repeat the same sentence every time do change that always.\n"
+                        f"you must warmly inform the user there’s no match for that combination — robotic.\n"
+                        f"clearly mention that for that genre and platfrom there is no game.so pick different genre or platfrom.\n"
+                        f"tell them to pick a different genre or platform.\n"
+                        f"Highlight that game discovery is meant to be fun and flexible, never a dead end.\n"
+                        f"Never use words like 'sorry,' 'unfortunately,' or any kind of generic filler.\n"
+                        f"The reply must be 12–18 words, in a maximum of two sentences, and always end with an enthusiastic and empowering invitation to explore new options together.\n"
+                        )
+            return user_prompt
         # Pull platform info
         preferred_platforms = session.platform_preference or []
         user_platform = preferred_platforms[-1] if preferred_platforms else None
@@ -70,6 +81,9 @@ async def handle_discovery(db, session, user, classification, user_input):
 
     else:
         question = await ask_discovery_question(session)
+        if question is None:
+            session.phase = PhaseEnum.DELIVERY
+            return await deliver_game_immediately(db=db, session=session, user=user)
         session.discovery_questions_asked += 1
         return question
 
@@ -82,7 +96,18 @@ async def handle_user_info(db, user, classification, session, user_input):
         session.discovery_questions_asked = 0
 
         game, _ = await game_recommendation(db=db, user=user, session=session)
-
+        if not game:
+            print("################################################################")
+            user_prompt =( f"Use this prompt only when no games are available for the user’s chosen genre and platform.\n"
+                        f"never repeat the same sentence every time do change that always.\n"
+                        f"you must warmly inform the user there’s no match for that combination — robotic.\n"
+                        f"clearly mention that for that genre and platfrom there is no game.so pick different genre or platfrom.\n"
+                        f"tell them to pick a different genre or platform.\n"
+                        f"Highlight that game discovery is meant to be fun and flexible, never a dead end.\n"
+                        f"Never use words like 'sorry,' 'unfortunately,' or any kind of generic filler.\n"
+                        f"The reply must be 12–18 words, in a maximum of two sentences, and always end with an enthusiastic and empowering invitation to explore new options together.\n"
+                        )
+            return user_prompt
         # Extract platform info
         preferred_platforms = session.platform_preference or []
         user_platform = preferred_platforms[-1] if preferred_platforms else None

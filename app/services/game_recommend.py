@@ -6,7 +6,7 @@ from app.db.models.game_recommendations import GameRecommendation
 from app.db.models.enums import PhaseEnum, SenderEnum
 from app.db.models.session import Session as UserSession
 from app.db.models.game import Game
-from sqlalchemy import func, cast, Integer, or_
+from sqlalchemy import func, cast, Integer, or_, and_
 from scipy.spatial.distance import cosine
 from datetime import datetime
 from typing import Optional, Dict, Tuple
@@ -16,15 +16,15 @@ model = SentenceTransformer("all-MiniLM-L12-v2")
 
 async def game_recommendation(db: Session, user, session):
     today = datetime.utcnow().date().isoformat()
-
+    print(f"--> session : {session}")
     # Step 1: Pull platform, genre, mood
     platform = session.platform_preference[-1] if session.platform_preference else (
         user.platform_prefs.get(today, [])[-1] if user.platform_prefs and today in user.platform_prefs and user.platform_prefs[today]
         else next((p[-1] for p in reversed(user.platform_prefs.values()) if p), None) if user.platform_prefs else None
     )
-    genre = session.genre[-1] if session.genre else (
-        user.genre_prefs.get(today, [])[-1] if user.genre_prefs and today in user.genre_prefs and user.genre_prefs[today]
-        else next((g[-1] for g in reversed(user.genre_prefs.values()) if g), None) if user.genre_prefs else None
+    genre = session.genre if session.genre else (
+    user.genre_prefs.get(today, []) if user.genre_prefs and today in user.genre_prefs
+        else next((g for g in reversed(user.genre_prefs.values()) if g), []) if user.genre_prefs else []
     )
     mood = session.exit_mood if session.exit_mood else (
         user.mood_tags.get(today) if user.mood_tags and today in user.mood_tags
@@ -58,10 +58,15 @@ async def game_recommendation(db: Session, user, session):
     print("💡 Input check:.......................................................", genre, platform)
 
     if genre:
-        base_query = base_query.filter(
-            Game.genre.any(func.lower(genre.strip().lower()))
-        )
-    
+        genre_filters = [Game.genre.any(func.lower(g.strip().lower())) for g in genre]
+        filtered_query = base_query.filter(and_(*genre_filters))
+        test_games = filtered_query.all()
+        if not test_games and len(genre) > 1:
+            # Fallback: use only the last genre
+            print("[ℹ️] No games found with all genres; falling back to last genre only.")
+            last_genre = genre[-1]
+            filtered_query = base_query.filter(Game.genre.any(func.lower(last_genre.strip().lower())))
+        base_query = filtered_query
     if platform:
         platform_game_ids = db.query(GamePlatform.game_id).filter(
             func.lower(GamePlatform.platform) == platform.lower()
@@ -140,40 +145,49 @@ async def game_recommendation(db: Session, user, session):
         {"genre": True, "platform": False, "cluster": False, "story": False},
     ]
 
-    candidate_games = []
-    for level in filter_levels:
-        current = []
-        for game in base_games:
-            if level["genre"] and genre and genre.lower() not in [g.lower() for g in (game.genre or [])]:
-                continue
-            if level["platform"] and platform:
-                platform_rows = [p[0] for p in db.query(GamePlatform.platform).filter(GamePlatform.game_id == game.game_id)]
-                if platform.lower() not in [p.lower() for p in platform_rows]:
-                    continue
-            if level["cluster"] and cluster_tags:
-                cluster_val = game.mood_tags.get("cluster") if game.mood_tags else None
-                if not cluster_val or cluster_val not in cluster_tags:
-                    continue
-            if level.get("story", False) and user.story_pref is not None:
-                if game.has_story != user.story_pref:
-                    continue
-            current.append(game)
-
-        print(f"[🧪] Filter level: {level} → candidates: {len(current)}")
-        if current:
-            candidate_games = current
-            break
+    def genre_filter_loop(base_games, genres_to_use):
+        candidate_games = []
+        for level in filter_levels:
+            current = []
+            for game in base_games:
+                if level["genre"] and genres_to_use:
+                    game_genres = [g.lower() for g in (game.genre or [])]
+                    if not all(g.lower() in game_genres for g in genres_to_use):
+                        continue
+                if level["platform"] and platform:
+                    platform_rows = [p[0] for p in db.query(GamePlatform.platform).filter(GamePlatform.game_id == game.game_id)]
+                    if platform.lower() not in [p.lower() for p in platform_rows]:
+                        continue
+                if level["cluster"] and cluster_tags:
+                    cluster_val = game.mood_tags.get("cluster") if game.mood_tags else None
+                    if not cluster_val or cluster_val not in cluster_tags:
+                        continue
+                if level.get("story", False) and user.story_pref is not None:
+                    if game.has_story != user.story_pref:
+                        continue
+                current.append(game)
+            print(f"[🧪] Filter level: {level} (genres={genres_to_use}) → candidates: {len(current)}")
+            if current:
+                return current
+        return []
+    
+    # -- Attempt with all genres
+    candidate_games = genre_filter_loop(base_games, genre)
+    # -- If no match and >1 genre, fallback to last genre only
+    if not candidate_games and genre and len(genre) > 1:
+        print("[ℹ️] No candidates for all genres, falling back to last genre.")
+        candidate_games = genre_filter_loop(base_games, [genre[-1]])
 
     if not candidate_games:
-        print("[⚠️] No match after soft filtering. Falling back to unfiltered base games.")
-        candidate_games = base_games
-
+        return None, None
+    
     # Step 6: Embedding-based scoring
     user_interactions = [i for i in session.interactions if i.sender == SenderEnum.User]
     user_input = user_interactions[-1].content if user_interactions else ""
-    mood_input = f"{genre} | {user_input}" if genre else None
+    mood_input = f"{mood} | {user_input}" if mood else None
     mood_vector = model.encode(mood_input) if mood_input else None
-    genre_input = f"{genre} | {user_input}" if genre else None
+    genre_str = ", ".join(genre) if genre else ""
+    genre_input = f"{genre} | {user_input}" if genre_str else None
     genre_vector = model.encode(genre_input) if genre_input else None
 
     def to_vector(v):
