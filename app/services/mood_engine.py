@@ -46,3 +46,45 @@ async def detect_mood_from_text(db: Session, user_input: str) -> Optional[str]:
 
     print(f"🧠 Best matched mood (fallback): {best_mood} (score: {best_score:.4f})")
     return best_mood
+
+# SECTION 1 - MOOD & INPUT CLASSIFIER PHASE
+async def classify_entry(db, user, session, input_text: str) -> dict:
+    from app.services.tone_classifier import classify_tone
+    print(f"📥 Entry message: {input_text}")
+
+    # Step 1: Detect mood
+    mood = await detect_mood_from_text(db=db, user_input=input_text)
+    print(f"🧠 Detected mood: {mood}")
+
+    # Step 2: Classify tone
+    tone = classify_tone(input_text)
+    print(f"🎭 Classified tone: {tone}")
+
+    # Step 3: Confidence score
+    vec = model.encode(input_text, convert_to_tensor=True)
+    norm = np.linalg.norm(vec.cpu().numpy())
+    confidence_score = round(min(1.0, norm / 10), 3)
+    print(f"🔍 Confidence score: {confidence_score}")
+
+    # Step 4: Save into session
+    session.entry_mood = mood
+    session.meta_data = session.meta_data or {}
+    session.meta_data["entry_tone"] = tone
+    session.meta_data["confidence_score"] = confidence_score
+
+    # Step 5: Save into user for today
+    from datetime import datetime
+    from sqlalchemy.orm.attributes import flag_modified
+    today = str(datetime.utcnow().date())
+    user.mood_tags[today] = mood
+    user.last_updated["mood_tags"] = str(datetime.utcnow())
+    flag_modified(user, "mood_tags")
+    flag_modified(user, "last_updated")
+
+    db.commit()
+
+    return {
+        "mood": mood,
+        "tone": tone,
+        "confidence_score": confidence_score
+    }

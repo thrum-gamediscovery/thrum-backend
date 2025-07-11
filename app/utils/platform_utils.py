@@ -30,3 +30,16 @@ def get_default_platform(platform: str) -> str:
         return platform
     else:
         return None
+
+# SECTION 2 - PLATFORM TAG DISCOVERY
+async def get_best_platform_match_from_tags(db: Session, platform_tags: list) -> list:
+    valid_platforms = await get_valid_platforms_from_db(db)
+    matched_platforms = []
+    
+    for tag in platform_tags:
+        for platform in valid_platforms:
+            if tag.lower() in platform.lower() or platform.lower() in tag.lower():
+                matched_platforms.append(platform)
+                break
+    
+    return matched_platforms

@@ -8,11 +8,12 @@ from app.db.models.user_profile import UserProfile
 from app.db.deps import get_db
 from app.db.models.enums import PlatformEnum
 from app.api.v1.endpoints.chat import user_chat_with_thrum, bot_chat_with_thrum, ChatRequest
-from app.services.session_manager import update_or_create_session, is_session_idle
+from app.services.session_manager import update_or_create_session, is_session_idle, boot_entry
 from app.services.create_reply import generate_thrum_reply
 from app.utils.region_utils import infer_region_from_phone, get_timezone_from_region
 from app.utils.whatsapp import send_whatsapp_message
 from app.services.modify_thrum_reply import format_reply
+from app.services.mood_engine import classify_entry
 
 
 router = APIRouter()
@@ -42,7 +43,7 @@ async def whatsapp_webhook(request: Request, From: str = Form(...), Body: str = 
     user = db.query(UserProfile).filter(UserProfile.phone_number == From).first()
     user_input = Body
     
-    # ✅ Step 1: Create new user if not found in DB
+    # ✅ Step 1: Create new user if not found in DB or handle boot phase
     if not user:
         region = await infer_region_from_phone(From)
         timezone_str = await get_timezone_from_region(region)
@@ -55,8 +56,24 @@ async def whatsapp_webhook(request: Request, From: str = Form(...), Body: str = 
         db.add(user)
         db.commit()
         db.refresh(user)
+        
+        # Boot phase for new user
+        boot_result = boot_entry(user_id=str(user.user_id), platform="WhatsApp")
+        if boot_result.get("reply"):
+            await send_whatsapp_message(
+                phone_number=user.phone_number,
+                message=boot_result["reply"],
+                sent_from_thrum=True
+            )
+            return PlainTextResponse("OK")
     
     session = await user_chat(request=request, db=db, user=user, Body=user_input)
+    
+    # Entry classification for first message in session
+    if len(session.interactions) <= 1:
+        entry_result = await classify_entry(db, user, session, user_input)
+        print(f"Entry classification: {entry_result}")
+    
     if session.awaiting_reply:
         now = datetime.utcnow()
         if session.last_thrum_timestamp and now - session.last_thrum_timestamp < timedelta(seconds=60):

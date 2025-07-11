@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta
 from sqlalchemy.orm import Session as DBSession
 from app.db.models.session import Session
+from app.db.models.user_profile import UserProfile
 from app.db.models.enums import SessionTypeEnum, ResponseTypeEnum
 from app.services.nudge_checker import detect_user_is_cold  # ✅ import smart tone checker
 from app.db.models.enums import SenderEnum
@@ -30,6 +31,50 @@ def get_session_state(last_active: datetime) -> SessionTypeEnum:
         return SessionTypeEnum.PASSIVE
     else:
         return SessionTypeEnum.ACTIVE
+
+# SECTION 5 - SESSION & MEMORY UPDATES
+def update_user_mood(user, session, mood_result: str):
+    from sqlalchemy.orm.attributes import flag_modified
+    today = datetime.utcnow().date().isoformat()
+    user.mood_tags[today] = mood_result
+    user.last_updated["mood_tags"] = str(datetime.utcnow())
+    
+    if not session.entry_mood:
+        session.entry_mood = mood_result
+    session.exit_mood = mood_result
+
+    flag_modified(user, "mood_tags")
+    flag_modified(user, "last_updated")
+    db.commit()
+
+def add_rejected_game(user, session, game_id: str):
+    if str(game_id) not in session.rejected_games:
+        session.rejected_games.append(str(game_id))
+
+def add_genre_preference(user, session, genre: str):
+    from sqlalchemy.orm.attributes import flag_modified
+    today = datetime.utcnow().date().isoformat()
+    user.genre_prefs.setdefault(today, [])
+    if genre not in user.genre_prefs[today]:
+        user.genre_prefs[today].append(genre)
+        flag_modified(user, "genre_prefs")
+
+    session.genre = session.genre or []
+    if genre not in session.genre:
+        session.genre.append(genre)
+
+def reject_genre(user, session, genre: str):
+    from sqlalchemy.orm.attributes import flag_modified
+    user.reject_tags.setdefault("genre", [])
+    if genre not in user.reject_tags["genre"]:
+        user.reject_tags["genre"].append(genre)
+        flag_modified(user, "reject_tags")
+
+    session.meta_data = session.meta_data or {}
+    session.meta_data.setdefault("reject_tags", {"genre": [], "platform": [], "other": []})
+    if genre not in session.meta_data["reject_tags"]["genre"]:
+        session.meta_data["reject_tags"]["genre"].append(genre)
+        flag_modified(session, "meta_data")
 
 # 🔁 Create or update session based on user activity
 async def update_or_create_session(db: DBSession, user):
@@ -185,3 +230,96 @@ def detect_tone_shift(session) -> bool:
         if i.tone_tag and i.sender == SenderEnum.User
     ]
     return len(set(tones)) > 1 if len(tones) >= 3 else False
+
+# SECTION 0 - BOOT + ENTRY PHASE
+def is_new_user(db, user_id):
+    from uuid import UUID
+    if isinstance(user_id, str):
+        try:
+            user_id = UUID(user_id)
+        except ValueError:
+            return True
+    return db.query(UserProfile).filter(UserProfile.user_id == user_id).first() is None
+
+def get_time_context():
+    hour = datetime.now().hour
+    if hour < 6:
+        return "early_morning"
+    elif hour < 12:
+        return "morning"
+    elif hour < 17:
+        return "afternoon"
+    elif hour < 21:
+        return "evening"
+    else:
+        return "late_night"
+
+def create_new_session(db: DBSession, user_id: str, platform: str = "WhatsApp") -> Session:
+    session = Session(
+        user_id=user_id,
+        start_time=datetime.utcnow(),
+        end_time=datetime.utcnow(),
+        state=SessionTypeEnum.ONBOARDING,
+        meta_data={"platform": platform}
+    )
+    db.add(session)
+    db.commit()
+    db.refresh(session)
+    return session
+
+def generate_greeting(user: UserProfile, time_context: str) -> str:
+    if not user.name:
+        if time_context == "morning":
+            return "Morning! Ready to find something fresh to play?"
+        elif time_context == "evening":
+            return "Evening! What kind of vibe are you going for tonight?"
+        else:
+            return "Hey! I'm here if you want to find a good game — just drop a word or how you're feeling."
+    else:
+        if time_context == "morning":
+            return f"Morning {user.name}! Ready for a new game?"
+        elif time_context == "evening":
+            return f"Hey {user.name}! What's the vibe tonight?"
+        else:
+            return f"Hey {user.name}! Looking for something to play?"
+
+def boot_entry(user_id: str, platform: str = "WhatsApp") -> dict:
+    from app.db.session import SessionLocal
+    db = SessionLocal()
+    try:
+        time_context = get_time_context()
+
+        if is_new_user(db, user_id):
+            print(f"👋 New user detected: {user_id}")
+            user = UserProfile(phone_number=f"boot_{user_id}", name=None, mood_tags={}, genre_prefs={}, platform_prefs={})
+            db.add(user)
+            db.commit()
+        else:
+            from uuid import UUID
+            if isinstance(user_id, str):
+                try:
+                    user_id = UUID(user_id)
+                except ValueError:
+                    user_id = None
+            user = db.query(UserProfile).filter(UserProfile.user_id == user_id).first() if user_id else None
+
+        session = create_new_session(db=db, user_id=user_id, platform=platform)
+        greeting = generate_greeting(user=user, time_context=time_context)
+
+        return {
+            "reply": greeting,
+            "session_id": session.session_id,
+            "user_id": user.user_id,
+            "time_context": time_context
+        }
+
+    except Exception as e:
+        print(f"❌ Boot phase failed: {e}")
+        return {
+            "reply": "Hey! I'm here if you want to find a good game — just drop a word or how you're feeling.",
+            "session_id": None,
+            "user_id": user_id,
+            "time_context": "unknown"
+        }
+    finally:
+        db.close()

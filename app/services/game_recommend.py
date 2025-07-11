@@ -9,8 +9,9 @@ from app.db.models.game import Game
 from sqlalchemy import func, cast, Integer, or_
 from scipy.spatial.distance import cosine
 from datetime import datetime
-from typing import Optional, Dict, Tuple
+from typing import Optional, Dict, Tuple, List
 import numpy as np
+import random
 
 model = SentenceTransformer("all-MiniLM-L12-v2")
 
@@ -232,15 +233,214 @@ async def game_recommendation(db: Session, user, session):
     )
     db.add(game_rec)
     db.commit()
-    session.phase = PhaseEnum.FOLLOWUP
-    session.followup_triggered = True
+
+
+# SECTION 3 - GAME RECOMMENDATION GENERATION & MEMORY MATCHING
+def get_recommendations_by_tags(
+    db: Session,
+    genre_tags: List[str],
+    platform_tags: List[str],
+    vibe_tags: List[str],
+    rejected_ids: List[str],
+    max_results: int = 5
+) -> List[dict]:
+    print(f"🎯 Tags: genre={genre_tags}, platform={platform_tags}, vibe={vibe_tags}")
+    
+    games = db.query(Game).filter(Game.title != None).all()
+
+    results = []
+    for game in games:
+        if str(game.game_id) in rejected_ids:
+            continue
+
+        # Check genre match
+        if genre_tags and game.genre:
+            if not any(g.lower() in [genre.lower() for genre in game.genre] for g in genre_tags):
+                continue
+        
+        # Check platform match via relationship
+        if platform_tags:
+            game_platforms = [p.platform for p in game.platforms]
+            if not any(p.lower() in [plat.lower() for plat in game_platforms] for p in platform_tags):
+                continue
+
+        emotional_blurb = generate_blurb(game, vibe_tags)
+        game_platforms = [p.platform for p in game.platforms] if game.platforms else []
+        
+        results.append({
+            "id": str(game.game_id),
+            "title": game.title,
+            "blurb": emotional_blurb,
+            "platforms": game_platforms
+        })
+
+    if not results:
+        print("⚠️ No direct match. Returning wildcard games.")
+        results = get_random_games(db, rejected_ids, limit=max_results)
+
+    return results[:max_results]
+
+def generate_blurb(game, vibe_tags):
+    if "cozy" in vibe_tags:
+        return f"A slow, warm game to unwind — {game.title} feels like a rainy Sunday."
+    if "solo" in vibe_tags:
+        return f"Quiet but gripping — {game.title} lets you explore on your own terms."
+    if "party" in vibe_tags:
+        return f"Bring your crew — {game.title} turns boredom into chaos."
+    
+    return f"{game.title} has a unique feel — give it 10 minutes and you'll know."
+
+def get_random_games(db, rejected_ids, limit=3):
+    games = db.query(Game).filter(Game.title != None).all()
+    valid = [g for g in games if str(g.game_id) not in rejected_ids]
+    random.shuffle(valid)
+    return [
+        {
+            "id": str(g.game_id),
+            "title": g.title,
+            "blurb": f"No idea why — but something about {g.title} might click.",
+            "platforms": [p.platform for p in g.platforms] if g.platforms else []
+        }
+        for g in valid[:limit]
+    ]
+
+# SECTION 4 - LLM OUTPUT TUNING
+def format_recommendation_output(games: List[dict], tone: str, mood: str, recall_game: str = None) -> str:
+    from random import choice
+    print(f"🪄 Building output with tone: {tone}, mood: {mood}")
+
+    lines = []
+
+    if tone == "cold":
+        intro = "Here's some stuff. Maybe one fits. 🧊"
+    elif tone == "vague":
+        intro = "Not sure, but you might like one of these?"
+    else:
+        intro = choice([
+            "Okay, I think I've got something 🎮",
+            "Got a few picks for your vibe 🧠",
+            "Alright, try these out ↓"
+        ])
+    lines.append(intro)
+
+    for game in games:
+        title = game["title"]
+        blurb = game.get("blurb", "")
+        share_hint = f"→ Send this to your crew: *{title}* might be their next obsession."
+
+        game_line = f"\n🎲 *{title}*\n{blurb}\n{share_hint}"
+        lines.append(game_line)
+
+    if recall_game:
+        lines.append(f"\n🧠 Want more like *{recall_game}*? Just say so.")
+
+    closing = choice([
+        "\n🕹 Ready when you are.",
+        "\nHit me up if you want a curveball pick.",
+        "\nI can keep going if you're still bored 👾"
+    ])
+    lines.append(closing)
+
+    return "\n".join(lines)
+
+# SECTION 6 - LLM EXECUTION + GAME MATCHING
+def pick_best_game(user, session, db):
+    from app.services.tone_classifier import classify_tone
+    
+    mood = session.exit_mood or session.entry_mood
+    preferred_genres = list(user.genre_prefs.values())[-1] if user.genre_prefs else []
+    rejected_ids = session.rejected_games or []
+    tone = classify_tone(session.interactions[-1].content if session.interactions else "")
+
+    print(f"[MATCH] Mood: {mood}, Genre: {preferred_genres}, Tone: {tone}")
+
+    query = db.query(Game).filter(Game.title != None)
+
+    # Filter by mood tags if available
+    if mood and hasattr(Game, 'mood_tags'):
+        query = query.filter(Game.mood_tags.contains({"mood": mood}))
+    
+    # Filter by genre
+    if preferred_genres:
+        genre_filters = [Game.genre.any(func.lower(g)) for g in preferred_genres]
+        query = query.filter(or_(*genre_filters))
+
+    # Exclude rejected games
+    if rejected_ids:
+        query = query.filter(~Game.game_id.in_(rejected_ids))
+
+    candidates = query.all()
+    print(f"[MATCH] Found {len(candidates)} candidates")
+
+    if not candidates:
+        # Fallback to any game not rejected
+        candidates = db.query(Game).filter(
+            Game.title != None,
+            ~Game.game_id.in_(rejected_ids) if rejected_ids else True
+        ).all()
+        
+    if not candidates:
+        return None
+
+    # Apply tone-based filtering
+    if tone == "cold" and candidates:
+        # Prefer shorter games for cold users
+        short_games = [g for g in candidates if "short" in (g.game_vibes or [])]
+        if short_games:
+            candidates = short_games
+
+    # Add some randomness
+    if random.random() < 0.2 and len(candidates) > 3:
+        candidates = random.sample(candidates, 3)
+        print("[MATCH] Injected surprise diversity")
+
+    pick = random.choice(candidates)
+    platforms = [p.platform for p in pick.platforms] if pick.platforms else ["Unknown"]
+    
     return {
-        "title": top_game.title,
-        "description": top_game.description[:200] if top_game.description else None,
-        "genre": top_game.genre,
-        "game_vibes": top_game.game_vibes,
-        "mechanics": top_game.mechanics,
-        "visual_style": top_game.visual_style,
-        "has_story": top_game.has_story,
-        "platforms": [p[0] for p in platforms]
-    }, age_ask_required
+        "title": pick.title,
+        "platform": platforms[0] if platforms else "Unknown",
+        "genre": pick.genre[0] if pick.genre else "Game",
+        "summary": pick.description,
+        "link": f"https://store.steampowered.com/search/?term={pick.title.replace(' ', '+')}"
+    }
+
+# SECTION 7 - OUTPUT FORMATTER + MESSAGING INTEGRATION
+def format_game_reply(game: dict, mood: str = None, tone: str = "neutral", platform: str = "whatsapp") -> str:
+    title = game.get("title")
+    link = game.get("link")
+    genre = game.get("genre")
+    summary = game.get("summary")
+
+    if tone == "cold":
+        intro = random.choice([
+            f"Low-key rec if you're not feelin' it: ",
+            f"No pressure, but this one's a chill shot: ",
+            f"Just tossing it out there: "
+        ])
+    elif tone == "positive":
+        intro = random.choice([
+            f"🔥 You might love this one: ",
+            f"Let's GO. Try this: ",
+            f"Based on your vibe → "
+        ])
+    else:
+        intro = random.choice([
+            f"Here's something that fits: ",
+            f"Match incoming: ",
+            f"Mood → Game: "
+        ])
+
+    mood_line = f"🧠 You mentioned feeling *{mood.lower()}* —" if mood else ""
+
+    if summary:
+        summary = summary.strip().split(".")[0] + "."
+    else:
+        summary = "Check it out."
+
+    if platform == "whatsapp":
+        return f"{intro}*{title}* on *{game['platform']}*\n{mood_line} {summary}\n{link}"
+    elif platform == "discord":
+        return f"**{title}** — *{genre}*\n{summary}\n🔗 {link}"
+    else:
+        return f"{intro}{title} ({genre})\n{summary}\nPlay it here: {link}"
