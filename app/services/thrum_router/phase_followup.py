@@ -28,3 +28,33 @@ async def ask_followup_que(session) -> str:
     }
     
     return await generate_dynamic_response(context)
+
+async def get_followup():
+    from app.db.session import SessionLocal
+    from datetime import datetime, timedelta
+    from app.utils.whatsapp import send_whatsapp_message
+    from app.db.models.session import Session
+    
+    db = SessionLocal()
+    now = datetime.utcnow()
+
+    sessions = db.query(Session).filter(
+        Session.awaiting_reply == True,
+        Session.followup_triggered == True
+    ).all()
+    
+    for s in sessions:
+        user = s.user
+        if not s.last_thrum_timestamp:
+            continue
+
+        delay = timedelta(seconds=5)
+        
+        if now - s.last_thrum_timestamp > delay:
+            reply = await ask_followup_que(s)
+            await send_whatsapp_message(user.phone_number, reply)
+            s.last_thrum_timestamp = now
+            s.awaiting_reply = True
+            s.followup_triggered = False    
+        db.commit()
+    db.close()
