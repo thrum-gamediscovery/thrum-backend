@@ -38,3 +38,37 @@ async def explain_last_game_match(session):
     }
     
     return await generate_dynamic_response(context)
+
+async def recommend_game():
+    from app.db.session import SessionLocal
+    from datetime import datetime, timedelta
+    from app.utils.whatsapp import send_whatsapp_message
+    from app.db.models.session import Session
+    
+    db = SessionLocal()
+    now = datetime.utcnow()
+
+    sessions = db.query(Session).filter(
+        Session.awaiting_reply == True,
+        Session.intent_override_triggered == True
+    ).all()
+    
+    for s in sessions:
+        user = s.user
+        if not s.last_thrum_timestamp:
+            continue
+
+        delay = timedelta(seconds=10)
+
+        if now - s.last_thrum_timestamp > delay:
+            context = {
+                'phase': 'auto_recommend',
+                'last_game': s.last_recommended_game,
+                'mood': s.exit_mood or s.entry_mood
+            }
+            reply = await generate_dynamic_response(context)
+            await send_whatsapp_message(user.phone_number, reply)
+            s.last_thrum_timestamp = now
+            s.intent_override_triggered = False
+        db.commit()
+    db.close()
