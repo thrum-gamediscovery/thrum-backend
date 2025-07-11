@@ -268,7 +268,7 @@ def create_new_session(db: DBSession, user_id: str, platform: str = "WhatsApp") 
     return session
 
 async def generate_greeting(user: UserProfile, time_context: str) -> str:
-    from app.services.dynamic_response_engine import generate_dynamic_response
+    from app.services.dynamic_response_engine import generate_dynamic_response_legacy
     
     context = {
         'phase': 'greeting',
@@ -277,7 +277,7 @@ async def generate_greeting(user: UserProfile, time_context: str) -> str:
         'returning_user': bool(user.last_updated)
     }
     
-    return await generate_dynamic_response(context)
+    return await generate_dynamic_response_legacy(context)
 
 async def boot_entry(user_id: str, platform: str = "WhatsApp") -> dict:
     from app.db.session import SessionLocal

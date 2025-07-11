@@ -62,21 +62,61 @@ async def generate_thrum_reply(db, user, session, user_input: str) -> str:
 
     return "Hmm, something went wrong. Let's try again!"
 
-# Enhanced recommendation flow using dynamic responses
+# Enhanced recommendation flow using interactive conversation
 async def generate_enhanced_recommendation(db, user, session, user_input: str) -> str:
-    from app.services.dynamic_response_engine import generate_dynamic_response
+    from app.services.interactive_conversation_engine import create_interactive_engine
+    from app.services.learning_engine import UserLearningProfile
     
-    # Get game recommendation
-    game = pick_best_game(user, session, db)
+    # Extract preferences from current input
+    await _extract_preferences_from_input(user, session, user_input)
     
-    context = {
-        'phase': 'enhanced_recommendation',
-        'user_input': user_input,
-        'interaction_count': len(session.interactions),
-        'mood': session.exit_mood or session.entry_mood,
-        'rejected_games': session.rejected_games or [],
-        'recommended_game': game.get('title') if game else None,
-        'last_game': session.last_recommended_game
+    # Create interactive conversation engine
+    interactive_engine = await create_interactive_engine(user, session)
+    
+    # Generate interactive response that continues gathering info
+    response = await interactive_engine.generate_interactive_response(user_input)
+    
+    # Update learning profile
+    profile = UserLearningProfile(user, session)
+    profile.log_feedback(mood=session.exit_mood or session.entry_mood)
+    db.commit()
+    
+    return response
+
+async def _extract_preferences_from_input(user, session, user_input: str):
+    """Extract preferences from user input"""
+    from app.services.learning_engine import UserLearningProfile
+    from datetime import datetime
+    from sqlalchemy.orm.attributes import flag_modified
+    
+    profile = UserLearningProfile(user, session)
+    input_lower = user_input.lower()
+    
+    # Extract mood
+    mood_keywords = {
+        'chill': ['chill', 'relax', 'calm', 'peaceful', 'cozy'],
+        'hyped': ['hyped', 'excited', 'pumped', 'energetic'],
+        'creative': ['creative', 'build', 'craft', 'design'],
+        'story': ['story', 'narrative', 'emotional'],
+        'action': ['action', 'fast', 'intense']
     }
     
-    return await generate_dynamic_response(context)
+    for mood, keywords in mood_keywords.items():
+        if any(keyword in input_lower for keyword in keywords):
+            session.exit_mood = mood
+            profile.update_preferences(mood=mood)
+            break
+    
+    # Extract platform
+    platform_keywords = {
+        'PC': ['pc', 'computer', 'steam'],
+        'Mobile': ['mobile', 'phone'],
+        'Switch': ['switch', 'nintendo'],
+        'PlayStation': ['ps4', 'ps5', 'playstation'],
+        'Xbox': ['xbox']
+    }
+    
+    for platform, keywords in platform_keywords.items():
+        if any(keyword in input_lower for keyword in keywords):
+            profile.update_preferences(platform=platform)
+            break

@@ -2,42 +2,45 @@ from app.services.game_recommend import game_recommendation
 from app.db.models.enums import PhaseEnum
 from sqlalchemy.orm import Session as DBSession
 from app.services.dynamic_response_engine import generate_dynamic_response
+from app.services.learning_engine import UserLearningProfile
 
 async def handle_delivery(db: DBSession, session, user, classification, user_input):
+    from app.services.intelligent_ai_engine import create_intelligent_ai
+    
     # Get game recommendation
     game, _ = await game_recommendation(db=db, user=user, session=session)
     
     if game:
         session.last_recommended_game = game["title"]
         
-        context = {
-            'phase': 'recommendation',
-            'user_input': user_input,
-            'recommended_game': game["title"],
-            'mood': session.exit_mood or session.entry_mood,
-            'rejected_games': session.rejected_games or [],
-            'platforms': game.get("platforms", []),
-            'genre': game.get("genre", [])
+        # Use intelligent AI to generate personalized recommendation
+        ai = await create_intelligent_ai(user, session)
+        
+        game_data = {
+            "title": game["title"],
+            "description": game.get("description", ""),
+            "genre": game.get("genre", []),
+            "platforms": game.get("platforms", []),
+            "game_vibes": game.get("game_vibes", []),
+            "has_story": game.get("has_story", False)
         }
         
-        return await generate_dynamic_response(context)
+        # Generate intelligent recommendation with reasoning
+        recommendation = await ai.generate_game_recommendation_with_reasoning(game_data)
+        
+        # Log recommendation in learning profile
+        profile = UserLearningProfile(user, session)
+        profile.log_feedback(mood=session.exit_mood or session.entry_mood)
+        
+        db.commit()
+        
+        return recommendation
     
-    context = {
-        'phase': 'no_game',
-        'user_input': user_input,
-        'mood': session.exit_mood or session.entry_mood
-    }
-    
-    return await generate_dynamic_response(context)
+    return await generate_dynamic_response(user, session, user_input, phase='no_game')
 
 async def explain_last_game_match(session):
-    context = {
-        'phase': 'explain',
-        'last_game': session.last_recommended_game,
-        'interaction_count': len(session.interactions)
-    }
-    
-    return await generate_dynamic_response(context)
+    user = session.user
+    return await generate_dynamic_response(user, session, phase='explain')
 
 async def recommend_game():
     from app.db.session import SessionLocal
@@ -61,12 +64,7 @@ async def recommend_game():
         delay = timedelta(seconds=10)
 
         if now - s.last_thrum_timestamp > delay:
-            context = {
-                'phase': 'auto_recommend',
-                'last_game': s.last_recommended_game,
-                'mood': s.exit_mood or s.entry_mood
-            }
-            reply = await generate_dynamic_response(context)
+            reply = await generate_dynamic_response(user, s, phase='auto_recommend')
             await send_whatsapp_message(user.phone_number, reply)
             s.last_thrum_timestamp = now
             s.intent_override_triggered = False
