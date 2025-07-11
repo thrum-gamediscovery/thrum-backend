@@ -267,23 +267,19 @@ def create_new_session(db: DBSession, user_id: str, platform: str = "WhatsApp") 
     db.refresh(session)
     return session
 
-def generate_greeting(user: UserProfile, time_context: str) -> str:
-    if not user.name:
-        if time_context == "morning":
-            return "Morning! Ready to find something fresh to play?"
-        elif time_context == "evening":
-            return "Evening! What kind of vibe are you going for tonight?"
-        else:
-            return "Hey! I'm here if you want to find a good game — just drop a word or how you're feeling."
-    else:
-        if time_context == "morning":
-            return f"Morning {user.name}! Ready for a new game?"
-        elif time_context == "evening":
-            return f"Hey {user.name}! What's the vibe tonight?"
-        else:
-            return f"Hey {user.name}! Looking for something to play?"
+async def generate_greeting(user: UserProfile, time_context: str) -> str:
+    from app.services.dynamic_response_engine import generate_dynamic_response
+    
+    context = {
+        'phase': 'greeting',
+        'time_context': time_context,
+        'user_name': user.name,
+        'returning_user': bool(user.last_updated)
+    }
+    
+    return await generate_dynamic_response(context)
 
-def boot_entry(user_id: str, platform: str = "WhatsApp") -> dict:
+async def boot_entry(user_id: str, platform: str = "WhatsApp") -> dict:
     from app.db.session import SessionLocal
     db = SessionLocal()
     try:
@@ -304,7 +300,7 @@ def boot_entry(user_id: str, platform: str = "WhatsApp") -> dict:
             user = db.query(UserProfile).filter(UserProfile.user_id == user_id).first() if user_id else None
 
         session = create_new_session(db=db, user_id=user_id, platform=platform)
-        greeting = generate_greeting(user=user, time_context=time_context)
+        greeting = await generate_greeting(user=user, time_context=time_context)
 
         return {
             "reply": greeting,

@@ -58,7 +58,7 @@ async def whatsapp_webhook(request: Request, From: str = Form(...), Body: str = 
         db.refresh(user)
         
         # Boot phase for new user
-        boot_result = boot_entry(user_id=str(user.user_id), platform="WhatsApp")
+        boot_result = await boot_entry(user_id=str(user.user_id), platform="WhatsApp")
         if boot_result.get("reply"):
             await send_whatsapp_message(
                 phone_number=user.phone_number,

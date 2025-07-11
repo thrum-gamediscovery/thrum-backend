@@ -15,6 +15,7 @@ from app.services.tone_engine import detect_tone_cluster, update_tone_in_history
 from app.utils.genre import infer_tags_from_mood_tone
 from app.services.game_recommend import get_recommendations_by_tags, format_recommendation_output, pick_best_game, format_game_reply
 
+
 @safe_call()
 async def generate_thrum_reply(db, user, session, user_input: str) -> str:
     # 🔥 Intent override (e.g., "just give me a game")
@@ -61,43 +62,21 @@ async def generate_thrum_reply(db, user, session, user_input: str) -> str:
 
     return "Hmm, something went wrong. Let's try again!"
 
-# Enhanced recommendation flow using new sections
+# Enhanced recommendation flow using dynamic responses
 async def generate_enhanced_recommendation(db, user, session, user_input: str) -> str:
-    # Get mood and tone from session
-    mood = session.exit_mood or session.entry_mood
-    tone = session.meta_data.get("entry_tone", "neutral") if session.meta_data else "neutral"
+    from app.services.dynamic_response_engine import generate_dynamic_response
     
-    if mood and tone:
-        # Use tag discovery
-        tags = await infer_tags_from_mood_tone(db, mood, tone)
-        
-        # Get recommendations
-        rejected_ids = session.rejected_games or []
-        recommendations = get_recommendations_by_tags(
-            db=db,
-            genre_tags=tags.get("genres", []),
-            platform_tags=[],
-            vibe_tags=tags.get("vibes", []),
-            rejected_ids=rejected_ids,
-            max_results=3
-        )
-        
-        if recommendations:
-            # Update user preferences
-            for genre in tags.get("genres", []):
-                add_genre_preference(user, session, genre)
-            
-            # Format output
-            return format_recommendation_output(
-                games=recommendations,
-                tone=tone,
-                mood=mood,
-                recall_game=session.last_recommended_game
-            )
-    
-    # Fallback to existing game recommendation
+    # Get game recommendation
     game = pick_best_game(user, session, db)
-    if game:
-        return format_game_reply(game, mood, tone, "whatsapp")
     
-    return "Let me think of something good for you... What kind of mood are you in?"
+    context = {
+        'phase': 'enhanced_recommendation',
+        'user_input': user_input,
+        'interaction_count': len(session.interactions),
+        'mood': session.exit_mood or session.entry_mood,
+        'rejected_games': session.rejected_games or [],
+        'recommended_game': game.get('title') if game else None,
+        'last_game': session.last_recommended_game
+    }
+    
+    return await generate_dynamic_response(context)
