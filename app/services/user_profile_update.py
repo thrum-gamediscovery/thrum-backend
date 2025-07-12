@@ -93,7 +93,7 @@ async def update_game_feedback_from_json(db, user_id: UUID, session,feedback_dat
 async def update_user_from_classification(db: Session, user, classification: dict,session):
     today = date.today().isoformat()
 
-    print('classification........', classification)
+    print('classification............', classification)
 
     name = classification.get("name")
     mood = classification.get("mood")
