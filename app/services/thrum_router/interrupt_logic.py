@@ -7,7 +7,7 @@ from app.services.thrum_router.phase_intro import handle_intro
 from app.services.thrum_router.phase_ending import handle_ending
 
 from app.services.thrum_router.phase_confirmation import handle_confirmed_game
-from app.services.thrum_router.phase_discovery import handle_discovery, handle_user_info, handle_other_input, dynamic_faq_gpt
+from app.services.thrum_router.phase_discovery import handle_discovery, handle_user_info, handle_other_input
 from app.services.session_memory import SessionMemory
 
 async def check_intent_override(db, user_input, user, session, classification):
