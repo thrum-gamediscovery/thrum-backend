@@ -8,6 +8,7 @@ from app.services.thrum_router.phase_ending import handle_ending
 
 from app.services.thrum_router.phase_confirmation import handle_confirmed_game
 from app.services.thrum_router.phase_discovery import handle_discovery, handle_user_info, handle_other_input
+from app.services.session_memory import SessionMemory
 
 async def check_intent_override(db, user_input, user, session, classification):
     print('check_intent_override.........................')
@@ -25,12 +26,17 @@ async def check_intent_override(db, user_input, user, session, classification):
         else:
             should_recommend = await have_to_recommend(db=db, user=user, classification=classification, session=session)
 
+            session_memory = SessionMemory(session)
+            memory_context_str = session_memory.to_prompt()
+            
             if should_recommend:
                 session.phase = PhaseEnum.DELIVERY
                 game,_ =  await game_recommendation(db=db, user=user, session=session)
                 if not game:
                     print("################################################################")
-                    user_prompt =( f"Use this prompt only when no games are available for the user’s chosen genre and platform.\n"
+                    user_prompt =( 
+                        f"{memory_context_str}\n"
+                        f"Use this prompt only when no games are available for the user’s chosen genre and platform.\n"
                         f"never repeat the same sentence every time do change that always.\n"
                         f"you must warmly inform the user there’s no match for that combination — robotic.\n"
                         f"clearly mention that for that genre and platfrom there is no game.so pick different genre or platfrom.\n"
@@ -59,6 +65,7 @@ async def check_intent_override(db, user_input, user, session, classification):
 
                 # Final user prompt for GPT
                 user_prompt = (
+                    f"{memory_context_str}\n"
                     f"Suggest a second game after the user rejected the previous one.The whole msg should no more than 25-30 words.\n"
                     f"The game must be **{game['title']}** (use bold Markdown: **{game['title']}**).\n"
                     f"In one short line (10–12 words), explain why this new game fits them —\n"

@@ -2,6 +2,7 @@ import openai
 import os
 from app.db.models.enums import SenderEnum
 import types
+from app.services.session_memory import SessionMemory
 
 openai.api_key = os.getenv("OPENAI_API_KEY")
 model= os.getenv("GPT_MODEL")
@@ -40,8 +41,11 @@ async def format_reply(session, user_input, user_prompt):
         "story_preference": session.story_preference if session.story_preference is not None else None
     }
 
+    session_memory = SessionMemory(session)
+    memory_context_str = session_memory.to_prompt()
+
     # Build system prompt with clean injected guidance
-    system_prompt = f"""You are Thrum — a reflective, emotionally intelligent AI that quietly lives inside the user's space.  
+    system_prompt = f"""{memory_context_str} You are Thrum — a reflective, emotionally intelligent AI that quietly lives inside the user's space.  
 You don't assist — you interpret, mirror, and emotionally respond based on the user's tone, phrasing, and rhythm.
 
 Build your reply by emotionally reflecting:

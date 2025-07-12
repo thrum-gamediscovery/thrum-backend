@@ -1,11 +1,15 @@
 import openai
 import os
+from app.services.session_memory import SessionMemory
 
 openai.api_key = os.getenv("OPENAI_API_KEY")
 model= os.getenv("GPT_MODEL")
 
 async def is_share_intent(user_input: str) -> bool:
-    prompt = f"""
+    session_memory = SessionMemory(session)
+    memory_context_str = session_memory.to_prompt()
+
+    prompt = f"""{memory_context_str}
 You're Thrum’s intent detector.
 
 Figure out if the message below expresses interest in **sharing** a game or experience with others — like a friend, group, or someone else.

@@ -5,23 +5,28 @@ from app.db.models.enums import PhaseEnum
 from app.utils.error_handler import safe_call
 from app.services.game_recommend import game_recommendation
 from app.services.tone_classifier import classify_tone
-from app.services.input_classifier import classify_user_input
+from app.services.input_classifier import classify_user_intent
+from app.services.session_memory import SessionMemory
 
 @safe_call("Hmm, I had trouble figuring out what to ask next. Let's try something fun instead! 🎮")
 async def handle_discovery(db, session, user, classification, user_input):
+    session_memory = SessionMemory(session)
+    memory_context_str = session_memory.to_prompt()
+
     # if any(phrase in user_input.lower() for phrase in ["what do you do", "how does it work", "explain", "how this works", "Explain me this", "Explain me first"]):
     #     return (
     #         "I help you find games that match your mood, genre, or vibe 🎮\n"
     #         "You can say something like 'fast action', 'sad story', or even a title like 'GTA'."
     #     )
     
-    # mood_tag = await classify_tone(user_input)
-    # intent = await classify_user_input(session=session, user_input=user_input)
-
-    # if mood_tag:
-    #     session.meta_data["entry_mood"] = mood_tag
-    # if intent and intent.intent_type:
-    #     session.meta_data["intent_type"] = intent.intent_type
+    intent_result = await classify_user_intent(user_input, session)
+    tone_tag = await classify_tone(user_input)
+    session_memory = SessionMemory(session)
+    session_memory.update(last_intent=intent_result, tone=tone_tag)
+    session.last_tone = tone_tag
+    session.last_intent = intent_result
+    db.commit()
+    
     session.phase = PhaseEnum.DISCOVERY
     discovery_data = await extract_discovery_signals(session)
 
@@ -36,7 +41,9 @@ async def handle_discovery(db, session, user, classification, user_input):
         game, _ = await game_recommendation(db=db, session=session, user=user)
         if not game:
             print("################################################################")
-            user_prompt =( f"Use this prompt only when no games are available for the user’s chosen genre and platform.\n"
+            user_prompt =(
+                        f"{memory_context_str}\n"
+                        f"Use this prompt only when no games are available for the user’s chosen genre and platform.\n"
                         f"never repeat the same sentence every time do change that always.\n"
                         f"you must warmly inform the user there’s no match for that combination — robotic.\n"
                         f"clearly mention that for that genre and platfrom there is no game.so pick different genre or platfrom.\n"
@@ -65,6 +72,7 @@ async def handle_discovery(db, session, user, classification, user_input):
 
         # 🧠 User Prompt (fresh rec after rejection, warm tone, 20–25 words)
         user_prompt = (
+            f"{memory_context_str}\n" 
             f"The user just rejected the last recommended game so add compensation message for that like apologized or something like that.dont use sorry that didnt click always.\n"
             f"the user input is negative so add emotion so user felt noticed that he didnt like that game, ask for apologise too if needed\n"
             f"Suggest a new one: **{game['title']}**.\n"
@@ -89,6 +97,9 @@ async def handle_discovery(db, session, user, classification, user_input):
 
 
 async def handle_user_info(db, user, classification, session, user_input):
+    session_memory = SessionMemory(session)
+    memory_context_str = session_memory.to_prompt()
+    
     should_recommend = await have_to_recommend(db=db, user=user, classification=classification, session=session)
 
     if should_recommend:
@@ -98,7 +109,9 @@ async def handle_user_info(db, user, classification, session, user_input):
         game, _ = await game_recommendation(db=db, user=user, session=session)
         if not game:
             print("################################################################")
-            user_prompt =( f"Use this prompt only when no games are available for the user’s chosen genre and platform.\n"
+            user_prompt =( 
+                        f"{memory_context_str}\n"
+                        f"Use this prompt only when no games are available for the user’s chosen genre and platform.\n"
                         f"never repeat the same sentence every time do change that always.\n"
                         f"you must warmly inform the user there’s no match for that combination — robotic.\n"
                         f"clearly mention that for that genre and platfrom there is no game.so pick different genre or platfrom.\n"
@@ -127,6 +140,7 @@ async def handle_user_info(db, user, classification, session, user_input):
 
         # Final user prompt for GPT
         user_prompt = (
+            f"{memory_context_str}\n"
             f"Suggest the game **{game['title']}** to the user.\n"
             f"In one short line (20–22 words), explain why this game fits them —\n"
             f"– it must include The game title in bold using Markdown: **{game['title']}**\n"
@@ -153,8 +167,12 @@ async def handle_other_input(db, user, session, user_input: str) -> str:
     Guides GPT to interpret the input using prior Thrum reply context and respond
     warmly, intelligently, and concisely.
     """
+    
+    session_memory = SessionMemory(session)
+    memory_context_str = session_memory.to_prompt()
 
     user_prompt = (
+        f"{memory_context_str}\n"
         f"The user just said: “{user_input}”\n"
         f"This isn't a game request — it's likely emotional, casual, reactive, or unclear.\n"
         f"Use the previous Thrum message to infer what they might be responding to.\n"

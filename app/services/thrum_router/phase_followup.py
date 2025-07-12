@@ -12,7 +12,7 @@ from app.services.thrum_router.interrupt_logic import check_intent_override
 from app.db.models.game_recommendations import GameRecommendation
 from app.db.models.game import Game
 from app.db.models.game_platforms import GamePlatform
-
+from app.services.session_memory import SessionMemory
 
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
@@ -24,9 +24,12 @@ async def handle_followup(db, session, user, user_input,classification):
 
 async def ask_followup_que(session) -> str:
     last_user_tone = get_last_user_tone_from_session(session)
-    
+    session_memory = SessionMemory(session)
+    memory_context_str = session_memory.to_prompt()
+
     game_title = session.last_recommended_game or "that game"
     prompt = f"""
+    {memory_context_str}
 You are Thrum — an emotionally aware, tone-matching gaming companion.
 
 The user was just recommended a game.
@@ -47,7 +50,6 @@ Tone must feel warm, casual, playful, or witty — depending on the user’s ton
 
 Only output one emotionally intelligent follow-up. Nothing else.
 """
-
 
     response = await openai.ChatCompletion.acreate(
         model="gpt-4",
@@ -86,6 +88,9 @@ async def get_followup():
 
 async def handle_game_inquiry(db: Session, user, session, user_input: str) -> str:
     game_id = session.meta_data.get("find_game")
+    session_memory = SessionMemory(session)
+    memory_context_str = session_memory.to_prompt()
+
     if not game_id:
         return "⚠️ The user asked about a game, but no valid game was found in session metadata."
 
@@ -125,6 +130,7 @@ async def handle_game_inquiry(db: Session, user, session, user_input: str) -> st
         db.commit()
 
         return f"""
+        {memory_context_str}
 The user was already recommended the game **{game_info['title']}**, but now they have some follow-up questions.
 
 Here are the game details to help you respond naturally:

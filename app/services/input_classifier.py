@@ -6,6 +6,7 @@ from openai import OpenAIError
 from app.db.models.session import Session
 from app.db.models.game_recommendations import GameRecommendation
 from app.db.models.enums import SenderEnum
+from app.services.session_memory import SessionMemory
 
 # Set API Key
 openai.api_key = os.getenv("OPENAI_API_KEY")
@@ -30,7 +31,11 @@ async def classify_user_intent(user_input: str, session):
     thrum_interactions = [i for i in session.interactions if i.sender == SenderEnum.Thrum]
     last_thrum_reply = thrum_interactions[-1].content if thrum_interactions else ""
     
+    session_memory = SessionMemory(session)
+    memory_context_str = session_memory.to_prompt()
+
     user_prompt = f"""
+    {memory_context_str}
 User message: "{user_input}"
 You are a classification engine for a conversational game assistant.
 last thrum reply: {last_thrum_reply} (This is the reply that Thrum gave to the user's last message) """
@@ -137,7 +142,11 @@ async def classify_user_input(session, user_input: str) -> dict | str:
     else:
         last_game = None
 
-    system_prompt = '''
+    session_memory = SessionMemory(session)
+    memory_context_str = session_memory.to_prompt()
+
+    system_prompt = f'''
+    {memory_context_str}
 You are a classification engine inside a mood-based game recommendation bot.
 
 Your job is to extract and return the following user profile fields based on the user's input message.  
@@ -323,7 +332,11 @@ async def analyze_followup_feedback(user_reply: str, session) -> dict:
     game_title = session.last_recommended_game
     thrum_interactions = [i for i in session.interactions if i.sender == SenderEnum.Thrum]
     last_thrum_reply = thrum_interactions[-1].content if thrum_interactions else ""
-    prompt = f"""
+    
+    session_memory = SessionMemory(session)
+    memory_context_str = session_memory.to_prompt()
+
+    prompt = f"""{memory_context_str}
 You're Thrum — a fast, friendly, emotionally smart game recommender.
 
 The user was recommended the game: *{game_title}*

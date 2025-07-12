@@ -1,4 +1,5 @@
 from app.db.models.enums import PhaseEnum, SessionTypeEnum
+from app.services.session_memory import SessionMemory
 
 async def handle_ending(session):
     """
@@ -9,7 +10,11 @@ async def handle_ending(session):
     """
     session.phase = PhaseEnum.ENDING
 
+    session_memory = SessionMemory(session)
+    memory_context_str = session_memory.to_prompt()
+
     user_prompt = (
+    f"{memory_context_str}\n"
     "The user has either gone silent, declined more games, or seems to be disengaging.\n"
     "Write a warm, friendly farewell message to end the session gracefully.\n"
     "Keep it short — no more than 10–15 words.\n"

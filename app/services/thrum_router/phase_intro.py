@@ -1,15 +1,20 @@
 
 from app.db.models.enums import PhaseEnum
+from app.services.session_memory import SessionMemory
 
 async def handle_intro(session):
+    session_memory = SessionMemory(session)
+    memory_context_str = session_memory.to_prompt()
+
     if session.meta_data.get("returning_user"):
-        return build_reengagement_intro(session)
-    return build_first_time_intro()
+        return build_reengagement_intro(session, memory_context_str)
+    return build_first_time_intro(memory_context_str)
 
 import random
 
-def build_first_time_intro():
-    user_prompt = """
+def build_first_time_intro(memory_context_str):
+    user_prompt = f"""
+    {memory_context_str}
     Use their style, energy, and attitude naturally. Do not describe or name the tone — just talk like that.
     your intro as a thrum should include in this.
     Don’t mention the tone itself — just speak like someone who naturally talks this way.
@@ -28,14 +33,15 @@ def build_first_time_intro():
     """
     return user_prompt
 
-def build_reengagement_intro(session):
+def build_reengagement_intro(session, memory_context_str):
     user_name = session.meta_data.get("user_name", "")
     last_game = session.meta_data.get("last_game", "")
 
     options = [
-        f"Back already? I was humming game ideas after that *{last_game}* drop. 🔁",
-        f"Yo {user_name}, I didn’t forget that *{last_game}* pick. Wanna remix that vibe?",
-        "You're back — love that. Let’s keep the streak going 🔥",
-        "I saved some titles for this moment. Wanna dive in?",
+        f"{memory_context_str}\nBack already? I was humming game ideas after that *{last_game}* drop. 🔁",
+        f"{memory_context_str}\nYo {user_name}, I didn’t forget that *{last_game}* pick. Wanna remix that vibe?",
+        f"{memory_context_str}\nYou're back — love that. Let’s keep the streak going 🔥",
+        f"{memory_context_str}\nI saved some titles for this moment. Wanna dive in?",
     ]
+
     return random.choice(options)
