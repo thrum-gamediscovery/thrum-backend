@@ -224,16 +224,16 @@ You must infer from both keywords and tone — even if the user is casual, brief
    → If they react to specific games with name they mentioned in user input(just for an example. if user input is "i love Celeste" and you infere they actually like that game),then put that title in game, accepted as True or False based on their reaction, and reason as the reason why they like or dislike it.
    → If they react to specific games with like/dislike:
    [
-     {
+     {{
        "game": "Celeste",
        "accepted": false,
        "reason": "too intense for me"
-     },
-     {
+     }},
+     {{
        "game": "Unpacking",
        "accepted": true,
        "reason": "emotional and relaxing"
-     }
+     }}
    ]
 
 12. find_game(title of the game)
@@ -250,7 +250,7 @@ You must infer from both keywords and tone — even if the user is casual, brief
 
 🛠️ OUTPUT FORMAT (Strict JSON):
 
-{
+{{
   "name": "...",
   "mood": "...",
   "game_vibe": "...",
@@ -262,14 +262,14 @@ You must infer from both keywords and tone — even if the user is casual, brief
   "playtime_pref": "...",
   "regect_tag": ["..."],
   "game_feedback": [
-    {
+    {{
       "game": "...",
       "accepted": true/false/None,
       "reason": "..."
-    }
+    }}
   ],
   "find_game":"..." 
-}
+}}
 
 🧠 HINTS:
 - If a field is not mentioned or cannot be inferred, return "None" (or [] for lists).
