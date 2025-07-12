@@ -16,6 +16,8 @@ logging.getLogger("sqlalchemy.pool").setLevel(logging.ERROR)
 logging.getLogger("uvicorn.access").setLevel(logging.ERROR)
 logging.getLogger("uvicorn.error").setLevel(logging.ERROR)
 logging.getLogger("fastapi").setLevel(logging.ERROR)
+logging.getLogger('sqlalchemy.engine.Engine').disabled = True
+logging.disable(logging.WARNING)
 
 from fastapi import FastAPI
 from app.middleware.session_middleware import SessionIDMiddleware
