@@ -102,10 +102,14 @@ async def game_recommendation(db: Session, user, session):
     if not base_games:
         return None, None
         # Step 1.5: Cold start → recommend random safe game
+    print('test............................1')
+    print('platform............', platform)
+    print('platform............', genre)
+    print('platform............', mood)
     if not platform and not genre and not mood:
         print("[🧊] Cold start: returning a safe random game.")
         random_game = base_query.order_by(func.random()).first()
-
+        print('random_game...........', random_game)
         if not random_game:
             return None, None
 
