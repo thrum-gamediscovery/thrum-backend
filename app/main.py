@@ -9,13 +9,13 @@ Main entry point for the FastAPI application.
 # app/main.py
 
 import logging
+logging.basicConfig()
+logging.getLogger('sqlalchemy').setLevel(logging.ERROR)
 logging.getLogger('sqlalchemy.engine').setLevel(logging.ERROR)
 logging.getLogger("sqlalchemy.pool").setLevel(logging.ERROR)
 logging.getLogger("uvicorn.access").setLevel(logging.ERROR)
 logging.getLogger("uvicorn.error").setLevel(logging.ERROR)
 logging.getLogger("fastapi").setLevel(logging.ERROR)
-
-logging.basicConfig(level=logging.ERROR)
 
 from fastapi import FastAPI
 from app.middleware.session_middleware import SessionIDMiddleware
