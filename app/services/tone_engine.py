@@ -136,7 +136,7 @@ Only return ONE or TWO words (space-separated). No punctuation.
             messages=[{"role": "user", "content": prompt}],
             temperature=0,
         )
-        tone = response["choices"][0]["message"]["content"].strip().lower().split()[0]
+        tone = response.choices[0].message.content.strip()
         print(f"🎯 Detected tone cluster: {tone}")
     except Exception as e:
         print(f"⚠️ Tone detection failed: {e}")
