@@ -5,6 +5,8 @@ from typing import Dict, Any, Optional, List
 from datetime import datetime
 from sqlalchemy.orm.attributes import flag_modified
 from app.services.context_enhancer import create_context_enhancer
+from app.services.adaptive_responses import create_adaptive_response_system
+from app.core.conversation_config import *
 
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
@@ -16,11 +18,12 @@ class NaturalConversationEngine:
         self.conversation_memory = self._build_conversation_memory()
         self.user_profile = self._build_user_profile()
         self.context_enhancer = create_context_enhancer(user, session)
+        self.adaptive_responses = create_adaptive_response_system(user, session)
 
     def _build_conversation_memory(self) -> List[Dict]:
         """Build recent conversation history for context"""
         memory = []
-        recent_interactions = self.session.interactions[-8:] if self.session.interactions else []
+        recent_interactions = self.session.interactions[-CONVERSATION_MEMORY_LIMIT:] if self.session.interactions else []
         
         for interaction in recent_interactions:
             role = "user" if interaction.sender.name == "User" else "assistant"
@@ -128,7 +131,7 @@ Return JSON:
 
         try:
             response = client.chat.completions.create(
-                model="gpt-4o-mini",
+                model=OPENAI_MODEL,
                 messages=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_input}
@@ -242,14 +245,14 @@ RESPONSE STYLE:
 
         try:
             response = client.chat.completions.create(
-                model="gpt-4o-mini",
+                model=OPENAI_MODEL,
                 messages=[
                     {"role": "system", "content": system_prompt},
-                    *self.conversation_memory[-4:],
+                    *self.conversation_memory[-CONTEXT_ANALYSIS_DEPTH:],
                     {"role": "user", "content": user_input}
                 ],
-                max_tokens=150,
-                temperature=0.8,
+                max_tokens=OPENAI_MAX_TOKENS,
+                temperature=OPENAI_TEMPERATURE,
                 presence_penalty=0.3
             )
             
@@ -259,12 +262,11 @@ RESPONSE STYLE:
             return self._generate_fallback_response(user_input, intent)
 
     def _generate_fallback_response(self, user_input: str, intent: str) -> str:
-        """Generate fallback responses when AI fails"""
+        """Generate adaptive fallback responses when AI fails"""
         user_input_lower = user_input.lower()
-        name = f" {self.user.name}" if self.user.name else ""
         
         if intent == "greeting" or any(word in user_input_lower for word in ['hello', 'hi', 'hey']):
-            return f"Hey there{name}! 😊 I'm Thrum, your game buddy. What kind of vibe are you going for today?"
+            return self.adaptive_responses.get_adaptive_greeting()
         
         elif intent == "game_request" or "game" in user_input_lower:
             if self.user_profile["preferences"]:
@@ -273,7 +275,7 @@ RESPONSE STYLE:
                 return "I'd love to help! Tell me your current mood - are you feeling chill, hyped, or something else? 🌈"
         
         elif any(word in user_input_lower for word in ['chill', 'relax', 'calm']):
-            return "Nice! For a chill vibe, what platform do you usually play on? 🎮"
+            return self.adaptive_responses.get_adaptive_follow_up("mood_shared")
         
         else:
             return "I'm here to help you discover amazing games! What's your vibe today? 🎲"

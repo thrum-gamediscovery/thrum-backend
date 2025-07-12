@@ -10,7 +10,7 @@ from app.db.models.enums import PlatformEnum
 from app.utils.region_utils import infer_region_from_phone, get_timezone_from_region
 from app.utils.whatsapp import send_whatsapp_message
 from app.services.session_manager import update_or_create_session
-from app.services.conversation_manager import create_conversation_manager
+from app.services.natural_reply_engine import generate_natural_reply
 
 router = APIRouter()
 
@@ -57,8 +57,7 @@ async def whatsapp_webhook(request: Request, From: str = Form(...), Body: str = 
     session = await update_or_create_session(db, user)
     
     # Generate natural conversation response
-    conversation_manager = await create_conversation_manager(user, session, db)
-    reply = await conversation_manager.process_conversation(user_input)
+    reply = await generate_natural_reply(db, user, session, user_input)
     
     # Update session state quickly
     session.awaiting_reply = False
