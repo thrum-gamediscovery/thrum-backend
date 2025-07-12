@@ -57,6 +57,8 @@ async def whatsapp_webhook(request: Request, From: str = Form(...), Body: str = 
         db.refresh(user)
     
     session = await user_chat(request=request, db=db, user=user, Body=user_input)
+    session.followup_triggered= False
+    session.intent_override_triggered = False
     if session.awaiting_reply:
         now = datetime.utcnow()
         if session.last_thrum_timestamp and now - session.last_thrum_timestamp < timedelta(seconds=60):
@@ -64,6 +66,7 @@ async def whatsapp_webhook(request: Request, From: str = Form(...), Body: str = 
                 session.user.silence_count = 0
         # Always stop waiting after any reply
         session.awaiting_reply = False
+    db.commit()
 
     response_prompt = await generate_thrum_reply(db=db,user=user, session=session, user_input=user_input)
     reply = await format_reply(session=session,user_input=user_input, user_prompt=response_prompt)
