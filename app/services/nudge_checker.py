@@ -10,7 +10,11 @@ from app.db.models.session import Session
 from app.utils.whatsapp import send_whatsapp_message
 from app.db.models.enums import SenderEnum, PhaseEnum
 import random
-import openai
+import os
+from openai import AsyncOpenAI
+
+model= os.getenv("GPT_MODEL")
+client = AsyncOpenAI()
 
 # 🧠 GPT-based tone detection
 async def detect_user_is_cold(session, db) -> bool:
@@ -28,7 +32,7 @@ Message: "{i.content}"
 Respond with one word only.
 """
         try:
-            res = openai.ChatCompletion.create(
+            res = await client.chat.completions.create(
                 model=model,
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0

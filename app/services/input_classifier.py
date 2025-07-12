@@ -116,7 +116,7 @@ OUTPUT FORMAT (Strict JSON) strictly deny to add another text:
 """
 
     if user_prompt:
-        response = openai.ChatCompletion.create(
+        response = await client.chat.completions.create(
             model=model,
             messages=[
                 {"role": "system", "content": system_prompt.strip()},
@@ -309,7 +309,7 @@ last recommended game:
 Now classify into the format below.
 '''
     try:    
-        response = openai.ChatCompletion.create(
+        response = await client.chat.completions.create(
             model=model,
             messages=[
                 {"role": "system", "content": system_prompt.strip()},

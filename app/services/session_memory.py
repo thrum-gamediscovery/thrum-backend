@@ -5,6 +5,9 @@ from app.services.tone_engine import get_last_user_tone_from_session, tone_match
 import json
 import openai
 import os
+from openai import AsyncOpenAI
+
+client = AsyncOpenAI()
 
 openai.api_key = os.getenv("OPENAI_API_KEY")
 model= os.getenv("GPT_MODEL")
@@ -171,7 +174,7 @@ Use 1–2 emojis. No links. No soft language like “maybe” or “you could”
 Just 3 bold, confident lines.
 """
     try:
-        response = openai.ChatCompletion.create(
+        response = await client.chat.completions.create(
             model=model,
             temperature=0.4,
             messages=[{"role": "user", "content": prompt.strip()}]

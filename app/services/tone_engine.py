@@ -5,6 +5,9 @@ from datetime import datetime
 from app.db.session import SessionLocal
 from app.db.models.session import Session as DBSession
 from app.db.models.enums import SenderEnum
+from openai import AsyncOpenAI
+
+client = AsyncOpenAI()
 
 model= os.getenv("GPT_MODEL")
 
@@ -44,7 +47,7 @@ It should sound playful or confident, like "this one slaps" or "bet".
 Return only the phrase. No emojis. Max 5 words.
 """
     try:
-        response = openai.ChatCompletion.create(
+        response = await client.chat.completions.create(
             model=model,
             messages=[{"role": "user", "content": prompt}],
             temperature=0.9,
@@ -128,7 +131,7 @@ Message: "{user_input}"
 Only return ONE or TWO words (space-separated). No punctuation.
 """
     try:
-        response = openai.ChatCompletion.create(
+        response = await client.chat.completions.create(
             model=model,
             messages=[{"role": "user", "content": prompt}],
             temperature=0,
