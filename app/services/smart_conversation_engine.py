@@ -16,56 +16,64 @@ class SmartConversationEngine:
         """Process conversation using GPT to extract info and respond naturally"""
         print(f"🤖 SmartConversationEngine processing: {user_input}")
         
-        # Get current context
         context = self._build_context()
-        print(f"📝 Context: {context}")
-        
-        # Use GPT to extract information and generate response
         extraction_response = await self._extract_and_respond(user_input, context)
-        print(f"🎯 GPT Response: {extraction_response}")
         
-        # Update user profile based on GPT extraction
+        # Update user profile
         await self._update_profile_from_gpt(extraction_response.get('extracted_info', {}))
         
-        response = extraction_response.get('response', "Hey! I'm Thrum, your game buddy. What's on your mind?")
-        print(f"✅ Final response: {response}")
+        response = extraction_response.get('response', "Hey! I'm Thrum, your game buddy. What's your vibe? 🎮")
+        print(f"✅ Response: {response}")
         return response
 
     async def _extract_and_respond(self, user_input: str, context: str) -> Dict:
         """Use GPT to extract information and generate response"""
         
-        system_prompt = f"""You are Thrum, a smart game discovery assistant. Your job is to:
-1. Extract any user information (name, mood, platform, genre preferences, etc.)
-2. Generate a natural, engaging response
-3. Remember and reference previous context
+        interaction_count = len(self.session.interactions)
+        
+        system_prompt = f"""You are Thrum, an engaging game discovery assistant. Be conversational and ask ONE smart follow-up question.
 
-Current Context:
-{context}
+Context: {context}
+Interaction #{interaction_count + 1}
 
-Respond with JSON in this format:
+Rules:
+- Extract info naturally
+- Ask intelligent follow-ups based on what they say
+- Reference previous context when relevant
+- Keep responses under 40 words
+- Use emojis sparingly but effectively
+- Sound like a knowledgeable gaming friend
+
+Respond with JSON:
 {{
-    "response": "Your natural conversational response",
+    "response": "Your engaging response with ONE follow-up question",
     "extracted_info": {{
-        "name": "extracted name or null",
-        "mood": "extracted mood or null", 
-        "platform": "extracted platform or null",
-        "genre": "extracted genre preference or null",
-        "sentiment": "positive/neutral/negative",
-        "intent": "greeting/question/request/etc"
+        "name": "name if mentioned",
+        "mood": "mood/vibe if expressed",
+        "platform": "platform if mentioned",
+        "genre": "genre if mentioned",
+        "engagement_level": "high/medium/low"
     }}
 }}
 
-Be conversational, friendly, and smart. Extract information naturally without being obvious about it."""
+Make it feel like a natural conversation, not an interview."""
 
         try:
+            # Add recent conversation history for better context
+            messages = [{"role": "system", "content": system_prompt}]
+            
+            # Add last 3 interactions for context
+            for interaction in self.session.interactions[-3:]:
+                role = "user" if interaction.sender.name == "User" else "assistant"
+                messages.append({"role": role, "content": interaction.content})
+            
+            messages.append({"role": "user", "content": user_input})
+            
             response = client.chat.completions.create(
                 model="gpt-4o-mini",
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_input}
-                ],
-                max_tokens=300,
-                temperature=0.7
+                messages=messages,
+                max_tokens=120,
+                temperature=0.8
             )
             
             result = json.loads(response.choices[0].message.content.strip())
@@ -73,10 +81,25 @@ Be conversational, friendly, and smart. Extract information naturally without be
             
         except Exception as e:
             print(f"GPT extraction error: {e}")
+            # Smart fallback based on input
+            fallback_response = self._generate_fallback_response(user_input)
             return {
-                "response": "I'm here to help you discover amazing games! What's your vibe today?",
+                "response": fallback_response,
                 "extracted_info": {}
             }
+    
+    def _generate_fallback_response(self, user_input: str) -> str:
+        """Generate smart fallback when GPT fails"""
+        input_lower = user_input.lower()
+        
+        if any(word in input_lower for word in ['hi', 'hello', 'hey']):
+            return "Hey! 👋 I'm Thrum, your game discovery buddy. What's your current vibe?"
+        elif any(word in input_lower for word in ['chill', 'relax']):
+            return "Chill vibes! 😌 What platform do you usually game on?"
+        elif any(word in input_lower for word in ['action', 'intense']):
+            return "Action mood! 🔥 PC, console, or mobile gaming?"
+        else:
+            return "Tell me more! What kind of gaming energy are you feeling? 🎮"
 
     async def _update_profile_from_gpt(self, extracted_info: Dict):
         """Update user profile based on GPT extraction"""
@@ -123,30 +146,33 @@ Be conversational, friendly, and smart. Extract information naturally without be
             self.db.commit()
 
     def _build_context(self) -> str:
-        """Build current user context"""
-        context_parts = []
+        """Build concise user context"""
+        context = []
         
         if self.user.name:
-            context_parts.append(f"User name: {self.user.name}")
-        
-        if self.user.platform_prefs:
-            platforms = []
-            for platform_list in self.user.platform_prefs.values():
-                platforms.extend(platform_list)
-            if platforms:
-                context_parts.append(f"Known platforms: {', '.join(set(platforms))}")
+            context.append(f"Name: {self.user.name}")
         
         if self.session.exit_mood:
-            context_parts.append(f"Current mood: {self.session.exit_mood}")
+            context.append(f"Mood: {self.session.exit_mood}")
         
+        # Recent platforms
+        if self.user.platform_prefs:
+            recent_platforms = list(self.user.platform_prefs.values())[-1:]
+            if recent_platforms:
+                platforms = list(set([p for sublist in recent_platforms for p in sublist]))
+                context.append(f"Platforms: {', '.join(platforms)}")
+        
+        # Recent genres
         if self.user.genre_prefs:
-            genres = []
-            for genre_list in self.user.genre_prefs.values():
-                genres.extend(genre_list)
-            if genres:
-                context_parts.append(f"Preferred genres: {', '.join(set(genres))}")
+            recent_genres = list(self.user.genre_prefs.values())[-1:]
+            if recent_genres:
+                genres = list(set([g for sublist in recent_genres for g in sublist]))
+                context.append(f"Likes: {', '.join(genres)}")
         
         if self.session.last_recommended_game:
-            context_parts.append(f"Last recommended: {self.session.last_recommended_game}")
+            context.append(f"Last rec: {self.session.last_recommended_game}")
         
-        return "\n".join(context_parts) if context_parts else "New conversation - no previous context"
+        interaction_count = len(self.session.interactions)
+        context.append(f"Interactions: {interaction_count}")
+        
+        return " | ".join(context) if context else "New user"

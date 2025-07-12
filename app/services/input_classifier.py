@@ -11,17 +11,14 @@ from app.db.models.enums import SenderEnum
 openai.api_key = os.getenv("OPENAI_API_KEY")
 model= os.getenv("GPT_MODEL")
 
-# Define updated intents
+# Simplified intents for natural Thrum flow
 intents = [
     "Greet", 
     "Request_Quick_Recommendation", 
     "Reject_Recommendation", 
-    "Inquire_About_Game", 
-    "Give_Info", 
-    "Share_Game", 
-    "Opt_Out", 
-    "Other_Question", 
     "Confirm_Game",
+    "Give_Info", 
+    "Opt_Out", 
     "Other"
 ]
 
@@ -84,12 +81,9 @@ OUTPUT FORMAT (Strict JSON) strictly deny to add another text:
     "Greet": true/false,
     "Request_Quick_Recommendation": true/false,
     "Reject_Recommendation": true/false,
-    "Inquire_About_Game": true/false,
-    "Give_Info": true/false,
-    "Share_Game": true/false,
-    "Opt_Out": true/false,
-    "Other_Question": true/false,
     "Confirm_Game": true/false,
+    "Give_Info": true/false,
+    "Opt_Out": true/false,
     "Other": true/false
 }
 """
@@ -112,7 +106,15 @@ OUTPUT FORMAT (Strict JSON) strictly deny to add another text:
         except Exception as e:
             print(":x: GPT classification failed:", e)
             # Return a default response if there is an error
-            return {intent: False for intent in intents}
+            return {
+                "Greet": False,
+                "Request_Quick_Recommendation": False,
+                "Reject_Recommendation": False,
+                "Confirm_Game": False,
+                "Give_Info": False,
+                "Opt_Out": False,
+                "Other": True
+            }
 
 
 

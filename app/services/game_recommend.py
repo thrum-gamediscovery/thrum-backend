@@ -109,9 +109,6 @@ async def game_recommendation(db: Session, user, session):
         db.add(game_rec)
         db.commit()
 
-        session.phase = PhaseEnum.FOLLOWUP
-        session.followup_triggered = True
-
         return {
             "title": random_game.title,
             "description": random_game.description[:200] if random_game.description else None,
@@ -121,7 +118,7 @@ async def game_recommendation(db: Session, user, session):
             "visual_style": random_game.visual_style,
             "has_story": random_game.has_story,
             "platforms": [p[0] for p in platforms]
-        }, False
+        }, 0.5
     
     # Step 4: Mood cluster for soft filtering
     cluster_tags = []
@@ -233,6 +230,18 @@ async def game_recommendation(db: Session, user, session):
     )
     db.add(game_rec)
     db.commit()
+    
+    return {
+        "title": top_game.title,
+        "description": top_game.description[:200] if top_game.description else None,
+        "genre": top_game.genre,
+        "game_vibes": top_game.game_vibes,
+        "mechanics": top_game.mechanics,
+        "visual_style": top_game.visual_style,
+        "has_story": top_game.has_story,
+        "platforms": [p[0] for p in platforms],
+        "age_ask_required": age_ask_required
+    }, ranked[0][1]
 
 
 # SECTION 3 - GAME RECOMMENDATION GENERATION & MEMORY MATCHING

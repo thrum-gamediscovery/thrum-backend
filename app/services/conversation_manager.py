@@ -12,54 +12,75 @@ class ConversationManager:
 
     @safe_call("I'm here to help you find amazing games! What's your vibe today? 🎮")
     async def process_conversation(self, user_input: str) -> str:
-        """Main conversation processing with natural flow"""
+        """Enhanced conversation processing with interactive elements"""
         print(f"🎯 ConversationManager processing: {user_input}")
         
-        # Create natural conversation engine and interaction tracker
+        # Create engines
         engine = await create_natural_conversation_engine(self.user, self.session, self.db)
         tracker = await create_interaction_tracker(self.user, self.session, self.db)
         
-        # Check if user needs a game recommendation
+        # Add conversation momentum tracking
+        momentum = self._assess_conversation_momentum()
+        
+        # Check for recommendation readiness
         should_recommend = await self._should_recommend_game(user_input, engine)
         
         if should_recommend:
-            # Generate game recommendation with natural explanation
             response = await self._generate_game_recommendation(user_input, engine)
         else:
-            # Continue natural conversation
             response = await engine.process_message(user_input)
+            
+            # Add engagement boosters for low momentum
+            if momentum == "low" and len(self.session.interactions) > 2:
+                response += "\n\nI'm really curious about your gaming style! What's a game that completely hooked you recently? 🎯"
         
-        # Log the interaction
+        # Log interaction
         await tracker.log_interaction(user_input, response)
         
         return response
+    
+    def _assess_conversation_momentum(self) -> str:
+        """Assess conversation momentum for engagement"""
+        if len(self.session.interactions) < 2:
+            return "starting"
+        
+        recent_user_msgs = [i.content for i in self.session.interactions[-3:] if i.sender.name == "User"]
+        if not recent_user_msgs:
+            return "stalled"
+        
+        avg_length = sum(len(msg) for msg in recent_user_msgs) / len(recent_user_msgs)
+        return "high" if avg_length > 20 else "low" if avg_length < 8 else "medium"
 
     async def _should_recommend_game(self, user_input: str, engine) -> bool:
-        """Determine if user is ready for a game recommendation"""
+        """Intelligently determine if user is ready for a game recommendation"""
         user_input_lower = user_input.lower()
         
-        # Direct game requests
+        # Direct requests
         if any(phrase in user_input_lower for phrase in [
-            'recommend', 'suggest', 'give me a game', 'find me', 'what should i play'
+            'recommend', 'suggest', 'give me a game', 'find me', 'what should i play', 'show me'
         ]):
             return True
         
-        # Check if we have enough info and user seems ready
-        has_mood = bool(self.session.exit_mood or self.user.mood_tags)
-        has_preferences = bool(
-            self.user.genre_prefs or 
-            self.user.platform_prefs or 
-            self.session.platform_preference
-        )
+        # Check readiness signals
+        readiness_signals = ['yeah', 'yes', 'sure', 'okay', 'sounds good', 'perfect', 'let\'s go', 'do it']
+        if any(signal in user_input_lower for signal in readiness_signals):
+            return True
         
-        # If we have basic info and user is engaging, offer recommendation
+        # Progressive recommendation logic
+        has_mood = bool(self.session.exit_mood or self.user.mood_tags)
+        has_preferences = bool(self.user.genre_prefs or self.user.platform_prefs or self.session.platform_preference)
         interaction_count = len(self.session.interactions)
-        if interaction_count >= 2 and (has_mood or has_preferences):
-            # Check if they're asking follow-up questions or seem ready
-            if any(word in user_input_lower for word in [
-                'yeah', 'yes', 'sure', 'okay', 'sounds good', 'perfect'
-            ]):
-                return True
+        
+        # Recommend after gathering basic info
+        if interaction_count >= 3 and has_mood:
+            return True
+        
+        if interaction_count >= 4 and has_preferences:
+            return True
+        
+        # User seems engaged and we have some info
+        if interaction_count >= 2 and len(user_input) > 15 and (has_mood or has_preferences):
+            return True
         
         return False
 
@@ -88,61 +109,36 @@ class ConversationManager:
             return await engine.process_message(user_input)
 
     async def _format_recommendation_response(self, game_data: dict, confidence: float, engine) -> str:
-        """Format game recommendation in natural conversation style"""
+        """Format game recommendation with interactive elements"""
         
-        # Build context for natural recommendation
-        user_context = {
-            "name": self.user.name,
-            "mood": self.session.exit_mood,
-            "preferences": {
-                "platforms": self._get_recent_platforms(),
-                "genres": self._get_recent_genres()
-            },
-            "interaction_style": self._get_interaction_style()
-        }
+        title = game_data.get('title', 'this game')
+        mood = self.session.exit_mood or 'your vibe'
+        platforms = game_data.get('platforms', [])
         
-        recommendation_prompt = f"""Generate a natural game recommendation response as Thrum.
-
-GAME TO RECOMMEND:
-Title: {game_data.get('title', 'Unknown')}
-Genre: {game_data.get('genre', [])}
-Description: {game_data.get('description', '')[:200]}
-Platforms: {game_data.get('platforms', [])}
-Game Vibes: {game_data.get('game_vibes', [])}
-
-USER CONTEXT:
-{user_context}
-
-STYLE GUIDELINES:
-- Sound excited about this specific match
-- Explain WHY this game fits their vibe
-- Reference their preferences naturally
-- Keep it conversational and under 60 words
-- Use **bold** for the game title
-- Include relevant emoji
-- End with a natural follow-up question
-
-Make it feel like a friend who really knows games is recommending something perfect for them."""
-
-        try:
-            from openai import OpenAI
-            client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-            
-            response = client.chat.completions.create(
-                model="gpt-4o-mini",
-                messages=[{"role": "user", "content": recommendation_prompt}],
-                max_tokens=120,
-                temperature=0.8
-            )
-            
-            return response.choices[0].message.content.strip()
-            
-        except Exception as e:
-            print(f"Recommendation formatting error: {e}")
-            # Fallback to simple recommendation
-            title = game_data.get('title', 'this game')
-            mood = self.session.exit_mood or 'your vibe'
-            return f"Perfect! I found **{title}** for you - it totally matches your {mood} mood! 🎮 What do you think?"
+        # Create engaging recommendation with follow-up options
+        base_rec = f"Perfect match! **{title}** totally captures your {mood} mood! 🎯"
+        
+        # Add platform context if relevant
+        user_platforms = self._get_recent_platforms()
+        if user_platforms and any(p in platforms for p in user_platforms):
+            base_rec += f" Plus it's on {user_platforms[0]}!"
+        
+        # Interactive follow-ups based on confidence
+        if confidence > 0.8:
+            follow_ups = [
+                "This is going to be perfect for you! Want to know why I'm so confident?",
+                "I'm really excited about this match! Should I tell you what makes it special?",
+                "This feels like it was made for your current vibe! Interested?"
+            ]
+        else:
+            follow_ups = [
+                "What do you think? Want me to explain why this fits?",
+                "Sound interesting? I can tell you more about what makes it great!",
+                "Does this sound like your kind of game?"
+            ]
+        
+        import random
+        return f"{base_rec} {random.choice(follow_ups)}"
 
     def _get_recent_platforms(self) -> list:
         """Get user's recent platform preferences"""
@@ -163,15 +159,36 @@ Make it feel like a friend who really knows games is recommending something perf
         return list(set(recent_genres))
 
     def _get_interaction_style(self) -> str:
-        """Determine user's interaction style based on conversation"""
+        """Determine user's interaction style for better responses"""
+        interaction_count = len(self.session.interactions)
+        user_messages = [i.content for i in self.session.interactions if i.sender.name == "User"]
+        
+        if not user_messages:
+            return "new_user"
+        
+        avg_length = sum(len(msg) for msg in user_messages) / len(user_messages)
+        question_count = sum(msg.count('?') for msg in user_messages)
+        
+        if avg_length > 30 and question_count > 1:
+            return "detailed_curious"
+        elif avg_length < 10:
+            return "brief_casual"
+        elif interaction_count > 5:
+            return "engaged"
+        else:
+            return "getting_comfortable"
+
+    def add_interactive_elements(self, response: str, user_input: str) -> str:
+        """Add interactive elements to responses"""
         interaction_count = len(self.session.interactions)
         
-        if interaction_count <= 2:
-            return "new_user"
-        elif interaction_count <= 5:
-            return "getting_comfortable"
-        else:
-            return "engaged"
+        # Add contextual questions for engagement
+        if interaction_count == 1 and "mood" not in response.lower():
+            response += "\n\nQuick question - what's your current gaming mood? 🎮"
+        elif interaction_count == 3 and not self.user.platform_prefs:
+            response += "\n\nBtw, what do you usually play on? 📱💻🎮"
+        
+        return response
 
 async def create_conversation_manager(user, session, db):
     """Factory function to create conversation manager"""

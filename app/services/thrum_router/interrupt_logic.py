@@ -45,21 +45,16 @@ async def check_intent_override(db, user_input, user, session, classification):
                 else:
                     platform_note = f"Available on: {', '.join(game_platforms)}."
 
-                # Final user prompt for GPT
-                user_prompt = (
-                    f"Suggest a second game after the user rejected the previous one.The whole msg should no more than 25-30 words.\n"
-                    f"The game must be **{game['title']}** (use bold Markdown: **{game['title']}**).\n"
-                    f"In one short line (10–12 words), explain why this new game fits them —\n"
-                    f"based on its genre, vibe, story, or mechanics — and vary from the first suggestion if possible.\n"
-                    f"Mirror the user's reason for rejection in a warm, human way before suggesting the new game.\n"
-                    f"Use user context from the system prompt (like genre, story_preference, platform_preference) to personalize.\n"
-                    f"Then naturally include this platform note (rephrase it to sound friendly, do not paste as-is): {platform_note}\n"
-                    f"Tone must be confident, warm, emotionally intelligent — never robotic.\n"
-                    f"Never say 'maybe' or 'you might like'. Be sure the game feels tailored.\n"
-                    f"If the user was only asking about availability and the game was unavailable, THEN and only then, offer a different suggestion that is available.\n"
-                )
-
-                return user_prompt
+                # Interactive rejection response
+                mood = session.exit_mood or "good"
+                rejection_count = session.game_rejection_count
+                
+                if rejection_count == 0:
+                    response = f"No worries! Let me try **{game['title']}** instead - it's got that perfect {mood} energy you're after. {platform_note} Sound better? 🎯"
+                else:
+                    response = f"Got it! How about **{game['title']}**? It's totally different and matches your {mood} vibe perfectly. {platform_note} This one feel right? 😊"
+                
+                return response
             else: 
                 explanation_response = await explain_last_game_match(session=session)
                 return explanation_response
@@ -67,7 +62,10 @@ async def check_intent_override(db, user_input, user, session, classification):
     # Handle request for quick game recommendation
     elif classification_intent.get("Request_Quick_Recommendation"):
         session.phase = PhaseEnum.DELIVERY
-        return await deliver_game_immediately(db, user, session)
+        quick_response = await deliver_game_immediately(db, user, session)
+        # Add interactive follow-up
+        quick_response += "\n\nWant me to explain why this is perfect for you? 🤔"
+        return quick_response
 
     # Handle user inquiry about a game
     elif classification_intent.get("Inquire_About_Game"):
@@ -77,7 +75,13 @@ async def check_intent_override(db, user_input, user, session, classification):
     # Handle information provided by the user
     elif classification_intent.get("Give_Info"):
         session.phase = PhaseEnum.DISCOVERY
-        return await handle_discovery(db=db, session=session, classification=classification, user=user, user_input=user_input)
+        discovery_response = await handle_discovery(db=db, session=session, classification=classification, user=user, user_input=user_input)
+        
+        # Add engagement based on info provided
+        if len(user_input) > 20:  # Detailed response
+            discovery_response += "\n\nI love the detail! This helps me understand your style perfectly. ✨"
+        
+        return discovery_response
 
     # Handle user opting out
     elif classification_intent.get("Opt_Out"):
@@ -99,8 +103,15 @@ async def check_intent_override(db, user_input, user, session, classification):
     elif classification_intent.get("Other") or classification_intent.get("Other_Question"):
         if session.phase == PhaseEnum.INTRO:
             return handle_discovery(db=db, session=session, classification=classification, user=user, user_input=user_input)
-        # Handle the "Other" intent, which represents any input that doesn't fit the categories above
-        return await handle_other_input(db, user, session, user_input)
+        
+        other_response = await handle_other_input(db, user, session, user_input)
+        
+        # Add gentle redirect if conversation is wandering
+        interaction_count = len(session.interactions)
+        if interaction_count > 3 and not session.exit_mood:
+            other_response += "\n\nLet's get you a great game recommendation! What's your current vibe? 🎮"
+        
+        return other_response
 
     # Default handling if no specific intent is detected
     return None

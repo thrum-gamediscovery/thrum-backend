@@ -6,52 +6,90 @@ from app.services.learning_engine import UserLearningProfile
 
 @safe_call("Let me find something perfect for you.")
 async def handle_discovery(db, session, user, classification, user_input):
-    # Update user preferences based on input
     profile = UserLearningProfile(user, session)
     
-    # Extract info from user input and update profile
+    # Extract and update preferences
     await _extract_and_update_preferences(user_input, profile, db)
     
-    # Generate natural discovery response
-    return await generate_dynamic_response(user, session, user_input, phase='discovery')
+    # Generate interactive discovery response
+    response = await generate_dynamic_response(user, session, user_input, phase='discovery')
+    
+    # Add interactive follow-ups based on what we learned
+    interaction_count = len(session.interactions)
+    
+    if session.exit_mood and not user.platform_prefs and interaction_count < 4:
+        response += f"\n\nPerfect {session.exit_mood} vibes! What do you usually play on? 🎮"
+    elif user.platform_prefs and not session.exit_mood:
+        response += "\n\nNice setup! What's your current mood - chill, hyped, or something else? 🌈"
+    elif interaction_count > 3 and not user.genre_prefs:
+        response += "\n\nWhat type of games usually grab you? Action, puzzles, stories? 🤔"
+    
+    return response
 
 async def _extract_and_update_preferences(user_input, profile, db):
+    """Extract preferences and update profile with interactive feedback"""
     from datetime import datetime
     from sqlalchemy.orm.attributes import flag_modified
-    """Use AI to intelligently extract preferences from user input"""
-    from app.services.intelligent_ai_engine import create_intelligent_ai
     
-    # Create AI instance for intelligent analysis
-    ai = await create_intelligent_ai(profile.user, profile.session)
+    input_lower = user_input.lower()
+    today = datetime.utcnow().date().isoformat()
     
-    # Analyze user input intelligently
-    analysis = await ai.analyze_user_intent(user_input)
+    # Quick mood detection
+    mood_map = {
+        'chill': ['chill', 'relax', 'calm', 'peaceful'],
+        'hyped': ['hyped', 'excited', 'pumped', 'energetic'],
+        'creative': ['creative', 'build', 'craft', 'design'],
+        'story': ['story', 'narrative', 'emotional']
+    }
     
-    # Update preferences based on AI analysis
-    if analysis.get('mood'):
-        profile.update_preferences(mood=analysis['mood'])
+    for mood, keywords in mood_map.items():
+        if any(word in input_lower for word in keywords):
+            profile.session.exit_mood = mood
+            break
     
-    if analysis.get('platform'):
-        profile.update_preferences(platform=analysis['platform'])
+    # Platform detection
+    platform_map = {
+        'PC': ['pc', 'computer', 'steam'],
+        'Mobile': ['mobile', 'phone', 'android', 'ios'],
+        'Switch': ['switch', 'nintendo'],
+        'PlayStation': ['ps4', 'ps5', 'playstation'],
+        'Xbox': ['xbox']
+    }
     
-    if analysis.get('genre_interest'):
-        # Add to genre preferences
-        today = datetime.utcnow().date().isoformat()
-        if not profile.user.genre_prefs:
-            profile.user.genre_prefs = {}
-        profile.user.genre_prefs.setdefault(today, []).append(analysis['genre_interest'])
-        flag_modified(profile.user, "genre_prefs")
+    for platform, keywords in platform_map.items():
+        if any(word in input_lower for word in keywords):
+            if not profile.user.platform_prefs:
+                profile.user.platform_prefs = {}
+            profile.user.platform_prefs.setdefault(today, []).append(platform)
+            flag_modified(profile.user, "platform_prefs")
+            break
     
-    if analysis.get('game_mentioned'):
-        # Store mentioned game for context
-        profile.session.meta_data = profile.session.meta_data or {}
-        profile.session.meta_data['mentioned_game'] = analysis['game_mentioned']
-        flag_modified(profile.session, "meta_data")
+    # Genre detection
+    genre_keywords = ['puzzle', 'action', 'rpg', 'adventure', 'strategy', 'simulation']
+    for genre in genre_keywords:
+        if genre in input_lower:
+            if not profile.user.genre_prefs:
+                profile.user.genre_prefs = {}
+            profile.user.genre_prefs.setdefault(today, []).append(genre)
+            flag_modified(profile.user, "genre_prefs")
+            break
     
     db.commit()
 
 async def handle_user_info(db, user, classification, session, user_input):
-    return await generate_dynamic_response(user, session, user_input, phase='discovery')
+    response = await generate_dynamic_response(user, session, user_input, phase='discovery')
+    
+    # Add engagement booster for vague responses
+    if len(user_input) < 10:
+        response += "\n\nTell me more! What's got you in the mood to game today? 😊"
+    
+    return response
 
 async def handle_other_input(db, user, session, user_input: str) -> str:
-    return await generate_dynamic_response(user, session, user_input, phase='other')
+    response = await generate_dynamic_response(user, session, user_input, phase='other')
+    
+    # Redirect to discovery if conversation is drifting
+    if len(session.interactions) > 2 and not session.exit_mood:
+        response += "\n\nLet's find you something awesome to play! What's your vibe right now? 🎯"
+    
+    return response
