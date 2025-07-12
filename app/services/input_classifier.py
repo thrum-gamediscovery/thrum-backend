@@ -12,6 +12,8 @@ from app.services.session_memory import SessionMemory
 openai.api_key = os.getenv("OPENAI_API_KEY")
 model= os.getenv("GPT_MODEL")
 
+client = openai.OpenAI()
+
 # Define updated intents
 intents = [
     "Greet", 
@@ -376,9 +378,9 @@ Rules:
 Only return valid JSON. No explanation.
 """
 
-    response = await openai.ChatCompletion.acreate(
+    response = await client.chat.completions.create(
         model=model,
-        temperature=0.3,
+        temperature=0.7,
         messages=[{"role": "system", "content": prompt}]
     )
     return response.choices[0].message.content.strip()

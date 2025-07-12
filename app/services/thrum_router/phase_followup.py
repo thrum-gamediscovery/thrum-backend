@@ -16,6 +16,8 @@ from app.services.session_memory import SessionMemory
 
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
+client = openai.OpenAI()
+
 async def handle_followup(db, session, user, user_input,classification):
     override_reply = await check_intent_override(db=db, user_input=user_input, user=user, session=session, classification=classification)
     if override_reply:
@@ -51,7 +53,7 @@ Tone must feel warm, casual, playful, or witty — depending on the user’s ton
 Only output one emotionally intelligent follow-up. Nothing else.
 """
 
-    response = await openai.ChatCompletion.acreate(
+    response = await client.chat.completions.create(
         model="gpt-4",
         temperature=0.5,
         messages=[

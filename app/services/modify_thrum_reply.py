@@ -7,6 +7,8 @@ from app.services.session_memory import SessionMemory
 openai.api_key = os.getenv("OPENAI_API_KEY")
 model= os.getenv("GPT_MODEL")
 
+client = openai.OpenAI()
+
 async def format_reply(session, user_input, user_prompt):
     if isinstance(user_prompt, types.CoroutineType):
         user_prompt = await user_prompt
@@ -93,7 +95,7 @@ You strictly never allow replies longer than **20–25 words**.
         print("Type of user_prompt:", type(user_prompt))
         print("Type of system_prompt:", type(system_prompt))
         print("Type of user_context:", type(user_context))
-        response = await openai.ChatCompletion.acreate(
+        response = await client.chat.completions.create(
             model=model,
             temperature=0.5,
             messages=[
@@ -102,7 +104,7 @@ You strictly never allow replies longer than **20–25 words**.
                 {"role": "system", "content": f"user_context = {user_context}"}
             ]
         )
-        return response["choices"][0]["message"]["content"].strip()
+        return response.choices[0].message.content.strip()
     # except openai.error.OpenAIError as e:
     #     print("OpenAI API error:", e)
     #     return "Sorry, there was an issue processing your request. Please try again."

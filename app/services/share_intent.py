@@ -5,11 +5,11 @@ from app.services.session_memory import SessionMemory
 openai.api_key = os.getenv("OPENAI_API_KEY")
 model= os.getenv("GPT_MODEL")
 
-async def is_share_intent(user_input: str) -> bool:
-    session_memory = SessionMemory(session)
-    memory_context_str = session_memory.to_prompt()
+client = openai.OpenAI()
 
-    prompt = f"""{memory_context_str}
+async def is_share_intent(user_input: str) -> bool:
+
+    prompt = f"""
 You're Thrum’s intent detector.
 
 Figure out if the message below expresses interest in **sharing** a game or experience with others — like a friend, group, or someone else.
@@ -26,7 +26,7 @@ User message: "{user_input}"
 Return only `true` or `false`. No explanation.
     """
 
-    response = await openai.ChatCompletion.acreate(
+    response = await client.chat.completions.create(
         model=model,  # or model if you're using that
         temperature=0,
         max_tokens=5,
@@ -35,4 +35,4 @@ Return only `true` or `false`. No explanation.
         ]
     )
 
-    return response["choices"][0]["message"]["content"].strip().lower() == "true"
+    return response.choices[0].message.content.strip()
