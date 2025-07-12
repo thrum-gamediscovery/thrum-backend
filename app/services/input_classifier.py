@@ -23,6 +23,7 @@ intents = [
     "Opt_Out", 
     "Other_Question", 
     "Confirm_Game",
+    "About_FAQ",
     "Other"
 ]
 
@@ -73,6 +74,18 @@ Carefully consider the context of the conversation and the specific tone or dire
 
 - **Confirm_Game**: Triggered when the user confirms their interest in a game that was previously recommended. The confirmation could be something like "Yes, I want that one," or "I like that game." This is explicitly confirming the previous game suggestion, meaning that the user is showing interest in the exact game Thrum recommended.
 
+- **About_FAQ**: Triggered when the user asks about what Thrum does, how it works, who you are, or any general FAQ about the service. Examples:  
+    - "how does it work?"  
+    - "what can you do?"  
+    - "who are you?"  
+    - "what is this?"  
+    - "tell me about yourself"  
+    - "explain"  
+    - "are you a bot?"  
+    - "what's your job?"  
+    - "how does Thrum find games?"  
+  Only set to true if the question is about Thrum or the game recommendation process itself.
+
 - **Other**: Triggered for any input that doesn’t match the above categories. This could include irrelevant or non-conversational responses, random input, or statements that do not fall within the intent framework.
 
 ### Steps for classification:
@@ -95,6 +108,7 @@ OUTPUT FORMAT (Strict JSON) strictly deny to add another text:
     "Opt_Out": true/false,
     "Other_Question": true/false,
     "Confirm_Game": true/false,
+    "About_FAQ": true/false,
     "Other": true/false
 }
 """

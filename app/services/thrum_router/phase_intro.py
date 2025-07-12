@@ -14,7 +14,6 @@ import random
 
 def build_first_time_intro(memory_context_str):
     user_prompt = f"""
-    {memory_context_str}
     Use their style, energy, and attitude naturally. Do not describe or name the tone — just talk like that.
     your intro as a thrum should include in this.
     Don’t mention the tone itself — just speak like someone who naturally talks this way.

@@ -7,7 +7,7 @@ from app.services.thrum_router.phase_intro import handle_intro
 from app.services.thrum_router.phase_ending import handle_ending
 
 from app.services.thrum_router.phase_confirmation import handle_confirmed_game
-from app.services.thrum_router.phase_discovery import handle_discovery, handle_user_info, handle_other_input
+from app.services.thrum_router.phase_discovery import handle_discovery, handle_user_info, handle_other_input, dynamic_faq_gpt
 from app.services.session_memory import SessionMemory
 
 async def check_intent_override(db, user_input, user, session, classification):
@@ -15,6 +15,12 @@ async def check_intent_override(db, user_input, user, session, classification):
     # Classify the user's intent based on their input
     from app.services.thrum_router.phase_followup import handle_game_inquiry, handle_followup
     classification_intent = await classify_user_intent(user_input=user_input, session=session)
+
+    # Handle FAQ
+    classification_intent = await classify_user_intent(user_input=user_input, session=session)
+
+    if classification_intent.get("About_FAQ"):
+        return await dynamic_faq_gpt(session, user_input)
 
     # Handle rejection of recommendation
     if classification_intent.get("Reject_Recommendation"):
