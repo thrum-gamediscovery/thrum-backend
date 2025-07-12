@@ -43,9 +43,7 @@ async def check_intent_override(db, user_input, user, session, classification):
                 game,_ =  await game_recommendation(db=db, user=user, session=session)
                 platfrom_link = None
                 description = None
-                platfrom_link = game.get("link", None)
-                description = game.get("description",None)
-
+                
                 if not game:
                     print("################################################################")
                     user_prompt =( 
@@ -65,6 +63,9 @@ async def check_intent_override(db, user_input, user, session, classification):
                 user_platform = preferred_platforms[-1] if preferred_platforms else None
                 game_platforms = game.get("platforms", [])
 
+                platfrom_link = game.get("link", None)
+                description = game.get("description",None)
+                
                 # Dynamic platform mention line (natural, not template)
                 if user_platform and user_platform in game_platforms:
                     platform_note = f"It’s playable on your preferred platform: {user_platform}."

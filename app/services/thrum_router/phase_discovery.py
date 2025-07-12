@@ -41,8 +41,7 @@ async def handle_discovery(db, session, user, classification, user_input):
         game, _ = await game_recommendation(db=db, session=session, user=user)
         platfrom_link = None
         description = None
-        platfrom_link = game.get("link", None)
-        description = game.get("description",None)
+        
         if not game:
             print("################################################################")
             user_prompt =(
@@ -61,7 +60,8 @@ async def handle_discovery(db, session, user, classification, user_input):
         preferred_platforms = session.platform_preference or []
         user_platform = preferred_platforms[-1] if preferred_platforms else None
         game_platforms = game.get("platforms", [])
-
+        platfrom_link = game.get("link", None)
+        description = game.get("description",None)
         # Dynamic platform line (not templated)
         if user_platform and user_platform in game_platforms:
             platform_note = f"It’s available on your preferred platform: {user_platform}."
@@ -115,8 +115,7 @@ async def handle_user_info(db, user, classification, session, user_input):
         game, _ = await game_recommendation(db=db, user=user, session=session)
         platfrom_link = None
         description = None
-        platfrom_link = game.get("link", None)
-        description = game.get("description",None)
+        
         if not game:
             print("################################################################")
             user_prompt =( 
@@ -135,7 +134,8 @@ async def handle_user_info(db, user, classification, session, user_input):
         preferred_platforms = session.platform_preference or []
         user_platform = preferred_platforms[-1] if preferred_platforms else None
         game_platforms = game.get("platforms", [])
-
+        platfrom_link = game.get("link", None)
+        description = game.get("description",None)
         # Dynamic platform mention line (natural, not template)
         if user_platform and user_platform in game_platforms:
             platform_note = f"It’s playable on your preferred platform: {user_platform}."

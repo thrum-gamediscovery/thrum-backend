@@ -205,8 +205,6 @@ async def deliver_game_immediately(db: Session, user, session) -> str:
 
     platfrom_link = None
     description = None
-    platfrom_link = game.get("link", None)
-    description = game.get("description",None)
 
     if not game:
         print("-----------------------------------------------------------")
@@ -228,6 +226,9 @@ async def deliver_game_immediately(db: Session, user, session) -> str:
         preferred_platforms = session.platform_preference or []
         user_platform = preferred_platforms[-1] if preferred_platforms else None
         game_platforms = game.get("platforms", [])
+
+        platfrom_link = game.get("link", None)
+        description = game.get("description",None)
 
         # Build natural platform note
         if user_platform and user_platform in game_platforms:
