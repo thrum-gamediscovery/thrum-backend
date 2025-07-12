@@ -9,6 +9,53 @@ import os
 openai.api_key = os.getenv("OPENAI_API_KEY")
 model= os.getenv("GPT_MODEL")
 
+# At the top of app/services/session_memory.py
+
+class SessionMemory:
+    def __init__(self, session):
+        # Initialize from DB session object; can expand as needed
+        self.user_name = getattr(session, "user", None).name if hasattr(session, "user") and session.user else None
+        self.mood = getattr(session, "exit_mood", None)
+        self.genre = session.genre[-1] if session.genre else None
+        self.platform = session.platform_preference[-1] if session.platform_preference else None
+        self.story_preference = getattr(session, "story_preference", None)
+        self.tone = getattr(session, "last_tone", None)
+        self.rejections = getattr(session, "rejected_games", [])
+        self.likes = getattr(session, "liked_games", []) if hasattr(session, "liked_games") else []
+        self.last_game = getattr(session, "last_recommended_game", None)
+        self.last_intent = getattr(session, "last_intent", None)
+        self.history = [(i.sender, i.content) for i in getattr(session, "interactions", [])]
+        # Add any more fields as you want!
+
+    def update(self, **kwargs):
+        for k, v in kwargs.items():
+            if hasattr(self, k):
+                setattr(self, k, v)
+
+    def to_prompt(self):
+        # Summarize memory into a context string for LLM system prompt
+        out = []
+        if self.user_name:
+            out.append(f"User name: {self.user_name}")
+        if self.mood:
+            out.append(f"Mood: {self.mood}")
+        if self.genre:
+            out.append(f"Genre: {self.genre}")
+        if self.platform:
+            out.append(f"Platform: {self.platform}")
+        if self.story_preference is not None:
+            out.append(f"Story preference: {'Yes' if self.story_preference else 'No'}")
+        if self.rejections:
+            out.append(f"Rejected games: {self.rejections}")
+        if self.likes:
+            out.append(f"Liked games: {self.likes}")
+        if self.last_game:
+            out.append(f"Last game suggested: {self.last_game}")
+        if self.last_intent:
+            out.append(f"Last intent: {self.last_intent}")
+        # Optionally add recent interaction snippets
+        return " | ".join(out)
+
 # 🎮 Optional: Emojis for visual flavor (keep platform names raw)
 PLATFORM_EMOJIS = {
     "PlayStation 5": "🎮",
@@ -45,6 +92,9 @@ VARIATION_LINES = [
 ]
 
 async def format_game_output(session, game: dict, user_context: dict = None) -> str:
+    session_memory = SessionMemory(session)
+    memory_context_str = session_memory.to_prompt()
+
     thrum_interactions = [i for i in session.interactions if i.sender == SenderEnum.Thrum]
     last_thrum_reply = thrum_interactions[-1].content if thrum_interactions else ""
     user_interactions = [i for i in session.interactions if i.sender == SenderEnum.User]
@@ -98,6 +148,7 @@ Story: {has_story}
 """.strip()
     # :brain: Prompt
     prompt = f"""
+    {memory_context_str}
 The user’s tone is: {last_user_tone}
 Match your reply style to this tone.
 Don’t mention the tone itself — just speak like someone who naturally talks this way.
@@ -144,11 +195,15 @@ async def deliver_game_immediately(db: Session, user, session) -> str:
     Returns:
         str: GPT-formatted game message
     """
+    session_memory = SessionMemory(session)
+    memory_context_str = session_memory.to_prompt()
+
     game, _ = await game_recommendation(db=db, user=user, session=session)
 
     if not game:
         print("-----------------------------------------------------------")
-        user_prompt =( f"Use this prompt only when no games are available for the user’s chosen genre and platform.\n"
+        user_prompt =(  f"{memory_context_str}\n"
+                        f"Use this prompt only when no games are available for the user’s chosen genre and platform.\n"
                         f"never repeat the same sentence every time do change that always.\n"
                         f"you must warmly inform the user there’s no match for that combination — robotic.\n"
                         f"clearly mention that for that genre and platfrom there is no game.so pick different genre or platfrom.\n"
@@ -180,6 +235,7 @@ async def deliver_game_immediately(db: Session, user, session) -> str:
 
         # 🧠 Final Prompt
         user_prompt = (
+            f"{memory_context_str}\n"
             f"The user clearly asked for a game right away — no questions, no delay.\n"
             f"Recommend: **{game['title']}**\n"
             f"Write a complete message (max 25 words) with:\n"
@@ -201,6 +257,9 @@ async def confirm_input_summary(session) -> str:
     Uses gpt-4o to generate a short, human-sounding confirmation line from mood, genre, and platform.
     No game names or suggestions — just a fun, natural acknowledgment.
     """
+    session_memory = SessionMemory(session)
+    memory_context_str = session_memory.to_prompt()
+
     mood = session.exit_mood or None
     genre_list = session.genre or []
     platform_list = session.platform_preference or []
@@ -210,6 +269,7 @@ async def confirm_input_summary(session) -> str:
         return "Got it — let me find something for you."
     # Human tone prompt
     user_prompt = (
+    f"{memory_context_str}\n"
     f"Here’s what the user just shared:\n"
     f"– Mood: {mood or 'Not given'}\n"
     f"– Genre: {genre or 'Not given'}\n"
@@ -274,7 +334,12 @@ async def ask_discovery_question(session) -> str:
     if not session.genre:
         mood = session.exit_mood
         platform = get_last(session.platform_preference)
+        
+        session_memory = SessionMemory(session)
+        memory_context_str = session_memory.to_prompt()
+
         user_promt = f"""
+f"{memory_context_str}\n"
 Speak entirely in the user's tone: {last_user_tone}.  
 Use their style, energy, and attitude naturally. Do not describe or name the tone — just talk like that.
 

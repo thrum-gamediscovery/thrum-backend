@@ -8,6 +8,7 @@ from datetime import datetime, timedelta
 from app.db.session import SessionLocal
 from app.utils.whatsapp import send_whatsapp_message
 import openai
+from app.services.session_memory import SessionMemory
 
 async def get_recommend(db, user, session):
     genre = session.memory.get("last_genre")
@@ -23,10 +24,14 @@ async def get_recommend(db, user, session):
 
     if game:
         session.last_recommended_game = game["title"]
-
     else:
         print("################################################################")
-        user_prompt =( f"Use this prompt only when no games are available for the user’s chosen genre and platform.\n"
+        session_memory = SessionMemory(session)
+        memory_context_str = session_memory.to_prompt()
+
+        user_prompt =( 
+                        f"{memory_context_str}\n"
+                        f"Use this prompt only when no games are available for the user’s chosen genre and platform.\n"
                         f"never repeat the same sentence every time do change that always.\n"
                         f"you must warmly inform the user there’s no match for that combination — robotic.\n"
                         f"clearly mention that for that genre and platfrom there is no game.so pick different genre or platfrom.\n"
@@ -64,9 +69,12 @@ async def explain_last_game_match(session):
     else:
         last_game = None
     
+    session_memory = SessionMemory(session)
+    memory_context_str = session_memory.to_prompt()
+    
     # Generate the user prompt with information about the user's feedback
     user_prompt = f"""
-    
+    f"{memory_context_str}\n"
     Last suggested game: "{last_game.get('title') if last_game else 'None'}"
 
     Write Thrum’s reply:
