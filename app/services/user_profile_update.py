@@ -93,6 +93,9 @@ async def update_game_feedback_from_json(db, user_id: UUID, session,feedback_dat
 async def update_user_from_classification(db: Session, user, classification: dict,session):
     today = date.today().isoformat()
 
+    if not isinstance(classification, dict):
+        print(f"[BUG] update_user_from_classification: classification is not dict: {classification}")
+        return
     print('classification............', classification)
 
     name = classification.get("name")
