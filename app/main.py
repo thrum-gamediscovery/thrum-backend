@@ -15,6 +15,8 @@ logging.getLogger("uvicorn.access").setLevel(logging.ERROR)
 logging.getLogger("uvicorn.error").setLevel(logging.ERROR)
 logging.getLogger("fastapi").setLevel(logging.ERROR)
 
+logging.basicConfig(level=logging.ERROR)
+
 from fastapi import FastAPI
 from app.middleware.session_middleware import SessionIDMiddleware
 from app.api.v1.router import api_router
