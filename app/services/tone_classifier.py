@@ -22,7 +22,7 @@ def classify_tone(text: str) -> str:
     """
     input_embedding = model.encode(text, convert_to_tensor=True)
     scores = {
-        tone: util.max_cos_sim(input_embedding, emb).item()
+        util.cos_sim(input_embedding, emb)[0][0].item()
         for tone, emb in tone_embeddings.items()
     }
     return max(scores, key=scores.get)
