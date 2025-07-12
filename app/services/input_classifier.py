@@ -144,6 +144,7 @@ async def classify_user_input(session, user_input: str) -> dict | str:
 
     session_memory = SessionMemory(session)
     memory_context_str = session_memory.to_prompt()
+    print('.......................', memory_context_str)
 
     system_prompt = f'''
     {memory_context_str}
@@ -250,7 +251,7 @@ You must infer from both keywords and tone — even if the user is casual, brief
 
 🛠️ OUTPUT FORMAT (Strict JSON):
 
-{{
+{
   "name": "...",
   "mood": "...",
   "game_vibe": "...",
@@ -269,7 +270,7 @@ You must infer from both keywords and tone — even if the user is casual, brief
     }
   ],
   "find_game":"..." 
-}}
+}
 
 🧠 HINTS:
 - If a field is not mentioned or cannot be inferred, return "None" (or [] for lists).
