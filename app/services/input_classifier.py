@@ -53,13 +53,12 @@ Carefully consider the context of the conversation and the specific tone or dire
 
 ### General Guidelines for Classification:
 - Focus on the **current state** of the conversation, including what was last said by Thrum and how the user is responding.
-- Avoid misclassifying if the user response is part of the natural flow (e.g., a greeting in response to a prior greeting).
+- Avoid misclassifying if the user response is part of the natural flow
 - Ensure that you distinguish between **intent requests** (like game suggestions or profile updates) and **actions** (like opting out or confirming a suggestion).
 
 ### Here are the intents to classify:
+- **Greet**: Triggered when the user greets the bot . This intent is ** must not triggered** if Thrum’s last message was already a greeting.
 
-- **Greet**: Triggered when the user greets the bot (e.g., "hi", "hello"). This intent is **not triggered** if Thrum’s last message was already a greeting. The bot should acknowledge the greeting warmly and proceed accordingly.
-  
 - **Request_Quick_Recommendation**: Triggered when the user explicitly asks for a game suggestion at that time, without mentioning the previous game recommendation. This intent is activated when the user requests a new game recommendation directly, such as saying "give me a game" or similar phrases.
 
 - **Reject_Recommendation**: Triggered when the user directly rejects the game suggested in the previous response. This can be a clear refusal such as "Not that one," "I don’t like this," or other similar phrases that reject the previously suggested game.

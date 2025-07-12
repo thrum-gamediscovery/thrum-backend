@@ -261,14 +261,13 @@ async def deliver_game_immediately(db: Session, user, session) -> str:
 
 
 async def confirm_input_summary(session) -> str:
-    last_user_tone = get_last_user_tone_from_session(session)
-
     """
     Uses gpt-4o to generate a short, human-sounding confirmation line from mood, genre, and platform.
     No game names or suggestions — just a fun, natural acknowledgment.
     """
     session_memory = SessionMemory(session)
     memory_context_str = session_memory.to_prompt()
+    session.intent_override_triggered = True
 
     mood = session.exit_mood or None
     genre_list = session.genre or []
