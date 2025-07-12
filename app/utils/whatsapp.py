@@ -10,10 +10,6 @@ async def create_request(user_id):
     return Request(scope)
 
 async def send_whatsapp_message(phone_number: str, message: str, sent_from_thrum=True):
-    # Development mode - skip actual sending if rate limited
-    if os.getenv('DEV_MODE') == 'true':
-        print(f"🔧 DEV MODE: Would send to {phone_number}: {message}")
-        return
 
     account_sid = os.getenv('TWILIO_ACCOUNT_SID')
     auth_token = os.getenv('TWILIO_AUTH_TOKEN')

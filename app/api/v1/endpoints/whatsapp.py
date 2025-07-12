@@ -68,10 +68,14 @@ async def whatsapp_webhook(request: Request, From: str = Form(...), Body: str = 
     print(f"📤 [END-POINT] Sending response: {reply}")
     print(f"📞 To phone: {user.phone_number}")
     
-    await send_whatsapp_message(
-        phone_number=user.phone_number,
-        message=reply,
-        sent_from_thrum=False
-    )
+    try:
+        await send_whatsapp_message(
+            phone_number=user.phone_number,
+            message=reply,
+            sent_from_thrum=False
+        )
+        print(f"✅ Message sent successfully")
+    except Exception as e:
+        print(f"❌ Failed to send WhatsApp message: {e}")
     
     return "OK"

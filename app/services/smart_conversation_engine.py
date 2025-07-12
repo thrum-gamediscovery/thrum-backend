@@ -14,17 +14,22 @@ class SmartConversationEngine:
 
     async def process_conversation(self, user_input: str) -> str:
         """Process conversation using GPT to extract info and respond naturally"""
+        print(f"🤖 SmartConversationEngine processing: {user_input}")
         
         # Get current context
         context = self._build_context()
+        print(f"📝 Context: {context}")
         
         # Use GPT to extract information and generate response
         extraction_response = await self._extract_and_respond(user_input, context)
+        print(f"🎯 GPT Response: {extraction_response}")
         
         # Update user profile based on GPT extraction
         await self._update_profile_from_gpt(extraction_response.get('extracted_info', {}))
         
-        return extraction_response.get('response', "Hey! I'm Thrum, your game buddy. What's on your mind?")
+        response = extraction_response.get('response', "Hey! I'm Thrum, your game buddy. What's on your mind?")
+        print(f"✅ Final response: {response}")
+        return response
 
     async def _extract_and_respond(self, user_input: str, context: str) -> Dict:
         """Use GPT to extract information and generate response"""
