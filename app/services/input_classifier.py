@@ -146,7 +146,7 @@ async def classify_user_input(session, user_input: str) -> dict | str:
     memory_context_str = session_memory.to_prompt()
 
     system_prompt = f'''
-    {memory_context_str}
+    {{memory_context_str}}
 You are a classification engine inside a mood-based game recommendation bot.
 
 Your job is to extract and return the following user profile fields based on the user's input message.  
