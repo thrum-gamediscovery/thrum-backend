@@ -16,7 +16,8 @@ client = openai.AsyncOpenAI()
 
 # Define updated intents
 intents = [
-    "Greet", 
+    "Greet",
+    "Phase_Discovery",
     "Request_Quick_Recommendation", 
     "Reject_Recommendation", 
     "Inquire_About_Game", 
@@ -25,7 +26,6 @@ intents = [
     "Opt_Out", 
     "Other_Question", 
     "Confirm_Game",
-    "About_FAQ",
     "Other"
 ]
 
@@ -59,6 +59,8 @@ Carefully consider the context of the conversation and the specific tone or dire
 ### Here are the intents to classify:
 - **Greet**: Triggered when the user greets the bot . This intent is ** must not triggered** if Thrum’s last message was already a greeting.
 
+- **Phase_Discovery**: - Triggered  only if Thrum's last reply is greeting message, and the user gives a positive response (e.g., affirmatives like "yeah", "cool", "okay", "let's go", "yup"). This intent indicates that the user is ready to proceed to the discovery phase(in which we are going to ask question) without needing any further prompting.
+
 - **Request_Quick_Recommendation**: Triggered when the user explicitly asks for a game suggestion at that time, without mentioning the previous game recommendation. This intent is activated when the user requests a new game recommendation directly, such as saying "give me a game" or similar phrases.
 
 - **Reject_Recommendation**: Triggered when the user directly rejects the game suggested in the previous response. This can be a clear refusal such as "Not that one," "I don’t like this," or other similar phrases that reject the previously suggested game.
@@ -71,21 +73,9 @@ Carefully consider the context of the conversation and the specific tone or dire
 
 - **Opt_Out**: Triggered when the user opts out or indicates they no longer wish to continue the conversation. This intent is activated when phrases like "I'm done," "Stop," "Not interested," or "Leave me alone" are used to end or discontinue the conversation.
 
-- **Other_Question**: Triggered when the user asks any question that is not directly related to game recommendations, profile updates, or anything related to the ongoing game discovery process. This could include general inquiries, or off-topic questions not tied to Thrum’s previous responses.
+- **Other_Question**: Triggered when the user asks any question related to the themselves or about the thrum(for eg. "what do you do?","How are you?","what make you powerful" or any kind of general question) or any kind of general question then it must get true.
 
 - **Confirm_Game**: Triggered when the user confirms their interest in a game that was previously recommended. The confirmation could be something like "Yes, I want that one," or "I like that game." This is explicitly confirming the previous game suggestion, meaning that the user is showing interest in the exact game Thrum recommended.
-
-- **About_FAQ**: Triggered when the user asks about what Thrum does, how it works, who you are, or any general FAQ about the service. Examples:  
-    - "how does it work?"  
-    - "what can you do?"  
-    - "who are you?"  
-    - "what is this?"  
-    - "tell me about yourself"  
-    - "explain"  
-    - "are you a bot?"  
-    - "what's your job?"  
-    - "how does Thrum find games?"  
-  Only set to true if the question is about Thrum or the game recommendation process itself.
 
 - **Other**: Triggered for any input that doesn’t match the above categories. This could include irrelevant or non-conversational responses, random input, or statements that do not fall within the intent framework.
 
@@ -101,6 +91,7 @@ Your reply must be a valid JSON object with only the key-value structure shown a
 OUTPUT FORMAT (Strict JSON) strictly deny to add another text:
 {
     "Greet": true/false,
+    "Phase_Discovery": true/false,
     "Request_Quick_Recommendation": true/false,
     "Reject_Recommendation": true/false,
     "Inquire_About_Game": true/false,
@@ -109,7 +100,6 @@ OUTPUT FORMAT (Strict JSON) strictly deny to add another text:
     "Opt_Out": true/false,
     "Other_Question": true/false,
     "Confirm_Game": true/false,
-    "About_FAQ": true/false,
     "Other": true/false
 }
 """

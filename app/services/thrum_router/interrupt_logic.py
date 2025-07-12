@@ -19,9 +19,12 @@ async def check_intent_override(db, user_input, user, session, classification):
     # Handle FAQ
     classification_intent = await classify_user_intent(user_input=user_input, session=session)
 
-    if classification_intent.get("About_FAQ"):
-        return await dynamic_faq_gpt(session, user_input)
+    # if classification_intent.get("About_FAQ"):
+    #     return await dynamic_faq_gpt(session, user_input)
 
+    if classification_intent.get("Phase_Discovery"):
+        return handle_discovery(db=db, session=session, classification=classification, user=user, user_input=user_input)
+    
     # Handle rejection of recommendation
     if classification_intent.get("Reject_Recommendation"):
         # If the user has rejected the recommendation twice, reset and handle discovery phase
@@ -117,8 +120,6 @@ async def check_intent_override(db, user_input, user, session, classification):
 
     # Handle user confirming a game recommendation
     elif classification_intent.get("Confirm_Game"):
-        if session.phase == PhaseEnum.INTRO:
-            return handle_discovery(db=db, session=session, classification=classification, user=user, user_input=user_input)
         session.phase = PhaseEnum.CONFIRMATION
         return await handle_confirmed_game(db, user, session)
     
@@ -128,9 +129,6 @@ async def check_intent_override(db, user_input, user, session, classification):
 
     # Handle cases where user input doesn't match any predefined intent
     elif classification_intent.get("Other") or classification_intent.get("Other_Question"):
-        if session.phase == PhaseEnum.INTRO:
-            return handle_discovery(db=db, session=session, classification=classification, user=user, user_input=user_input)
-        # Handle the "Other" intent, which represents any input that doesn't fit the categories above
         return await handle_other_input(db, user, session, user_input)
 
     # Default handling if no specific intent is detected
