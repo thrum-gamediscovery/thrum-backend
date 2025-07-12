@@ -56,8 +56,8 @@ async def _generate_contextual_reply(db, user, session, user_input: str, classif
     if classification.get('Opt_Out'):
         return _handle_opt_out()
     
-    # Default discovery flow
-    return await _handle_discovery_conversation(db, user, session, user_input, classification)
+    # Handle unusual/random chat and negative responses
+    return await _handle_unusual_or_negative_input(db, user, session, user_input, classification)
 
 def _should_recommend_game(user, session, user_input: str) -> bool:
     """Determine if we should recommend a game based on context"""
@@ -161,12 +161,93 @@ async def _handle_preference_gathering(db, user, session, classification: dict) 
     db.commit()
     return "\n\n".join(responses)
 
+async def _handle_unusual_or_negative_input(db, user, session, user_input: str, classification: dict) -> str:
+    """Handle unusual, random, or negative responses naturally"""
+    input_lower = user_input.lower().strip()
+    
+    # Handle negative responses
+    negative_patterns = ['no', 'nah', 'not really', 'not interested', 'boring', 'whatever', 'meh', 'idk', 'dunno']
+    if any(pattern in input_lower for pattern in negative_patterns):
+        return await _handle_negative_response(db, user, session, user_input)
+    
+    # Handle random/unusual chat
+    random_patterns = ['lol', 'haha', 'wtf', 'what', 'huh', 'ok', 'cool', 'nice', 'weird']
+    if any(pattern in input_lower for pattern in random_patterns) or len(user_input) < 5:
+        return await _handle_random_chat(db, user, session, user_input)
+    
+    # Handle off-topic questions
+    question_patterns = ['how are you', 'what are you', 'who made you', 'where are you from']
+    if any(pattern in input_lower for pattern in question_patterns):
+        return await _handle_off_topic_questions(db, user, session, user_input)
+    
+    # Default discovery conversation
+    return await _handle_discovery_conversation(db, user, session, user_input, classification)
+
+async def _handle_negative_response(db, user, session, user_input: str) -> str:
+    """Handle negative or dismissive responses"""
+    responses = [
+        "No worries at all! Sometimes it's just not the right moment. I'm here whenever you feel like finding something cool to play 🎮",
+        "Totally fair. Gaming moods come and go. Hit me up when you're feeling it – I'll have something good ready 😊",
+        "All good! Maybe you're just not in the gaming headspace right now. Come back whenever – no pressure 👍",
+        "Fair enough. Not every day is a gaming day. I'll be here when you want to discover something awesome 🌟"
+    ]
+    return random.choice(responses)
+
+async def _handle_random_chat(db, user, session, user_input: str) -> str:
+    """Handle random or short responses"""
+    input_lower = user_input.lower().strip()
+    
+    if input_lower in ['lol', 'haha']:
+        responses = [
+            "Haha glad I could get a laugh! So... games? Or are we just vibing? 😄",
+            "😂 Alright, now that we're warmed up – want me to find you something fun to play?",
+            "Haha nice! Ok but seriously, what's your gaming vibe today?"
+        ]
+    elif input_lower in ['ok', 'cool', 'nice']:
+        responses = [
+            "Cool cool. So what's got you in the mood to game today?",
+            "Nice! Alright, let's find you something perfect. What's your current vibe?",
+            "Ok awesome. Tell me – chill games or something more intense?"
+        ]
+    elif input_lower in ['what', 'huh', 'wtf']:
+        responses = [
+            "Haha I know, I'm a bit different! I'm basically a game matchmaker. Tell me your mood and I'll find the perfect game 🎯",
+            "Yeah I get that reaction a lot 😅 I help people find games that actually match how they're feeling. Want to try it?",
+            "I'm Thrum! Think of me as your personal game curator. What kind of vibe are you going for today?"
+        ]
+    else:
+        responses = [
+            "Tell me more! What's got you in the mood to game today? 😊",
+            "I'm getting curious about your gaming style. What usually grabs you?",
+            "Interesting! So what kind of games usually click with you?"
+        ]
+    
+    return random.choice(responses)
+
+async def _handle_off_topic_questions(db, user, session, user_input: str) -> str:
+    """Handle off-topic questions naturally"""
+    input_lower = user_input.lower()
+    
+    if 'how are you' in input_lower:
+        responses = [
+            "I'm doing great, thanks for asking! Always excited to help people find their next favorite game. How about you – what's your gaming mood today?",
+            "Pretty good! Just here matching people with games that fit their vibe. Speaking of which, what's yours today?"
+        ]
+    elif 'what are you' in input_lower or 'who made you' in input_lower:
+        responses = [
+            "I'm Thrum – think of me as your personal game discovery buddy! I help people find games that actually match their mood, not just popular stuff. Want to try it?",
+            "I'm a game recommendation bot, but not the boring kind! I actually listen to how you're feeling and find games that fit. What's your vibe today?"
+        ]
+    else:
+        responses = [
+            "Haha that's a good question, but I'm way better at talking about games! What kind of mood are you in for gaming?",
+            "Interesting question! But let's talk about something I'm really good at – finding you the perfect game. What's your vibe?"
+        ]
+    
+    return random.choice(responses)
+
 async def _handle_discovery_conversation(db, user, session, user_input: str, classification: dict) -> str:
     """Handle general discovery conversation"""
-    
-    # Natural conversation responses based on context
-    if len(user_input) < 5:
-        return "Tell me more! What's got you in the mood to game today? 😊"
     
     # Ask for missing key info
     if not session.exit_mood and not user.mood_tags:
@@ -194,22 +275,44 @@ async def _handle_game_confirmation(user, session) -> str:
 async def _handle_game_rejection(db, user, session) -> str:
     """Handle when user rejects recommended game"""
     
-    # Natural rejection handling from examples
-    responses = [
-        "Fair enough – not everything clicks. Mind if I ask what kind of shooters do work for you?",
-        "Understandable—but this one's more like strategy meets deckbuilding, not like Yu-Gi-Oh levels of lore 😅\n\nWant to take a peek or prefer something else entirely?",
-        "Got it. That's super helpful. You're not just an FPS fan – you're a Fortnite fan 🔥\n\nOk, no more shooter suggestions—how do you feel about something completely different to cool down between matches?"
-    ]
+    # Track rejection count for adaptive responses
+    session.game_rejection_count = getattr(session, 'game_rejection_count', 0) + 1
+    rejection_count = session.game_rejection_count
     
+    if rejection_count == 1:
+        # First rejection - gentle and curious
+        responses = [
+            "Fair enough – not everything clicks. Mind if I ask what missed the mark? The style, pace, or something else?",
+            "No worries! What usually grabs your attention in games?",
+            "Got it. That's actually helpful – what kind of games do work for you?"
+        ]
+    elif rejection_count == 2:
+        # Second rejection - more understanding, different approach
+        responses = [
+            "Alright, seems I'm not nailing your vibe yet. Want to try something completely different?",
+            "Ok I'm clearly missing something here 😅 Help me out – what's your ideal gaming experience?",
+            "Fair point. Let me switch gears entirely. What's a game you actually loved recently?"
+        ]
+    else:
+        # Multiple rejections - wildcard approach
+        responses = [
+            "Wildcard time! I've got something totally out of left field that might surprise you. Want to risk it?",
+            "Alright, I'm going full random mode. Sometimes the best games are the ones you'd never expect to like 🎲",
+            "Ok new strategy – tell me about literally anything you're into (movies, music, whatever) and I'll find a game connection 🤔"
+        ]
+    
+    db.commit()
     return random.choice(responses)
 
 def _handle_opt_out() -> str:
     """Handle when user wants to end conversation"""
     # Natural opt-out responses from examples
     responses = [
-        "Alright, I'll stop here for now—but I've got more puzzle gems whenever you're ready 🧩",
+        "Alright, I'll stop here for now—but I've got more gems whenever you're ready 🧩",
         "Got more recs when you're ready – chill, weird, epic, whatever you're into 💬 Just shout.",
-        "Totally fine. Come back later. I'll be here, and maybe smarter."
+        "Totally fine. Come back later. I'll be here, and maybe smarter.",
+        "No problem! Hit me up whenever you're in the mood for something new 🎮",
+        "All good. Maybe it just wasn't the day for it. Come back when you're ready – I'm still learning! 😊"
     ]
     
     return random.choice(responses)
