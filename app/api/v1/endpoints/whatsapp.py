@@ -10,7 +10,7 @@ from app.db.models.enums import PlatformEnum
 from app.utils.region_utils import infer_region_from_phone, get_timezone_from_region
 from app.utils.whatsapp import send_whatsapp_message
 from app.services.session_manager import update_or_create_session
-from app.services.dynamic_response_engine import generate_dynamic_response
+from app.services.conversation_manager import create_conversation_manager
 
 router = APIRouter()
 
@@ -56,8 +56,9 @@ async def whatsapp_webhook(request: Request, From: str = Form(...), Body: str = 
     # Fast session update
     session = await update_or_create_session(db, user)
     
-    # Generate dynamic response using existing db session
-    reply = await generate_dynamic_response(user=user, session=session, user_input=user_input, db=db)
+    # Generate natural conversation response
+    conversation_manager = await create_conversation_manager(user, session, db)
+    reply = await conversation_manager.process_conversation(user_input)
     
     # Update session state quickly
     session.awaiting_reply = False
@@ -78,4 +79,4 @@ async def whatsapp_webhook(request: Request, From: str = Form(...), Body: str = 
     except Exception as e:
         print(f"❌ Failed to send WhatsApp message: {e}")
     
-    return "OK"
+    return ""

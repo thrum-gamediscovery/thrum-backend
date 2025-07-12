@@ -35,11 +35,17 @@ def generate_fallback_response(user_input: str, user, session) -> str:
 
 async def generate_dynamic_response(user, session, user_input: str = "", phase: str = None, db=None) -> str:
     """Generate smart responses using GPT-powered conversation engine"""
+    print(f"🚀 generate_dynamic_response called with input: {user_input}")
+    
     try:
         engine = SmartConversationEngine(user, session, db)
         response = await engine.process_conversation(user_input)
+        print(f"🎆 SmartConversationEngine returned: {response}")
         return response
     except Exception as e:
-        print(f"Smart conversation error: {e}")
+        print(f"❌ Smart conversation error: {e}")
+        print(f"🔄 Falling back to rule-based response")
         # Fallback to rule-based responses
-        return generate_fallback_response(user_input, user, session)
+        fallback = generate_fallback_response(user_input, user, session)
+        print(f"🔙 Fallback response: {fallback}")
+        return fallback

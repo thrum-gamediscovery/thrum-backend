@@ -100,7 +100,7 @@ RULES:
         
         try:
             response = await openai.ChatCompletion.acreate(
-                model="gpt-4",
+                model="gpt-4o",
                 messages=messages,
                 temperature=0.8,
                 max_tokens=150,
@@ -141,7 +141,7 @@ Return JSON format:
         
         try:
             analysis_response = await openai.ChatCompletion.acreate(
-                model="gpt-3.5-turbo",
+                model="gpt-4o",
                 messages=[{"role": "user", "content": analysis_prompt}],
                 temperature=0.3,
                 max_tokens=200

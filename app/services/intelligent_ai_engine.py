@@ -99,7 +99,7 @@ RESPONSE STYLE:
         ]
         
         response = await openai.ChatCompletion.acreate(
-            model="gpt-4",
+            model="gpt-4o",
             messages=messages,
             temperature=0.9,
             max_tokens=80,
@@ -132,7 +132,7 @@ Extract and return JSON with:
 Be intelligent about implications - if they say "I love Zelda" that implies they like adventure/exploration games."""
         
         response = await openai.ChatCompletion.acreate(
-            model="gpt-4",
+            model="gpt-4o",
             messages=[{"role": "user", "content": analysis_prompt}],
             temperature=0.3,
             max_tokens=200
@@ -164,7 +164,7 @@ Generate a natural recommendation that:
 Make it feel personal and intelligent, not generic."""
         
         response = await openai.ChatCompletion.acreate(
-            model="gpt-4",
+            model="gpt-4o",
             messages=[{"role": "user", "content": recommendation_prompt}],
             temperature=0.8,
             max_tokens=100

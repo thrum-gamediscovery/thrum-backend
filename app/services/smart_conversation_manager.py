@@ -117,7 +117,7 @@ Generate a warm, natural conclusion that:
         
         import openai
         response = await openai.ChatCompletion.acreate(
-            model="gpt-4",
+            model="gpt-4o",
             messages=[{"role": "user", "content": conclusion_prompt}],
             temperature=0.8,
             max_tokens=60

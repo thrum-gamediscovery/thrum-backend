@@ -34,12 +34,19 @@ async def send_whatsapp_message(phone_number: str, message: str, sent_from_thrum
         async with httpx.AsyncClient() as client:
             response = await client.post(url, data=payload, auth=(account_sid, auth_token))
             
+            print(f"🔍 Twilio Response Status: {response.status_code}")
+            print(f"🔍 Twilio Response Body: {response.text}")
+            
             if response.status_code == 201:
                 print(f"✅ Sent WhatsApp message to {phone_number}")
+                return True
             elif response.status_code == 429:
                 print(f"⚠️ Rate limit exceeded - Twilio daily message limit reached")
+                return False
             else:
-                print(f"❌ Failed to send message: {response.status_code}")
+                print(f"❌ Failed to send message: {response.status_code} - {response.text}")
+                return False
                 
     except Exception as e:
         print(f"❌ WhatsApp send error: {e}")
+        return False
