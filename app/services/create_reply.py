@@ -165,6 +165,11 @@ async def _handle_unusual_or_negative_input(db, user, session, user_input: str, 
     """Handle unusual, random, or negative responses naturally"""
     input_lower = user_input.lower().strip()
     
+    # Handle sarcastic responses
+    sarcastic_patterns = ['sure buddy', 'yeah right', 'lmao', 'seriously', 'really', 'are you kidding', 'joke']
+    if any(pattern in input_lower for pattern in sarcastic_patterns):
+        return await _handle_sarcastic_response(db, user, session, user_input)
+    
     # Handle negative responses
     negative_patterns = ['no', 'nah', 'not really', 'not interested', 'boring', 'whatever', 'meh', 'idk', 'dunno']
     if any(pattern in input_lower for pattern in negative_patterns):
@@ -246,6 +251,17 @@ async def _handle_off_topic_questions(db, user, session, user_input: str) -> str
     
     return random.choice(responses)
 
+async def _handle_sarcastic_response(db, user, session, user_input: str) -> str:
+    """Handle sarcastic or testing responses with humor"""
+    responses = [
+        "Haha alright, you're testing me! Fair enough. But seriously, I'm pretty good at this game matching thing. Want to see? 😏",
+        "I get it, I get it – another bot making big promises 🙄 But I'm actually different. Give me one chance to prove it?",
+        "Ha! I like the skepticism. Tell you what – give me literally any mood or vibe and I'll find something that'll surprise you 🎯",
+        "Lol ok I walked into that one 😅 But for real, I've got some good stuff. What's the weirdest game genre you've ever enjoyed?",
+        "Alright alright, you got me 😂 But I'm genuinely curious now – what would actually impress you in a game rec?"
+    ]
+    return random.choice(responses)
+
 async def _handle_discovery_conversation(db, user, session, user_input: str, classification: dict) -> str:
     """Handle general discovery conversation"""
     
@@ -317,22 +333,34 @@ def _handle_opt_out() -> str:
     
     return random.choice(responses)
 
-def _is_providing_preferences(classification: dict) -> bool:
+def _is_providing_preferences(classification) -> bool:
     """Check if user is providing preference information"""
+    if not isinstance(classification, dict):
+        return False
+    
     return any([
-        classification.get('mood') and classification.get('mood') != 'None',
-        classification.get('platform_pref') and classification.get('platform_pref') != 'None',
-        classification.get('genre') and classification.get('genre') != 'None',
-        classification.get('name') and classification.get('name') != 'None'
+        classification.get('mood') and str(classification.get('mood')).strip() not in ['None', ''],
+        classification.get('platform_pref') and str(classification.get('platform_pref')).strip() not in ['None', ''],
+        classification.get('genre') and str(classification.get('genre')).strip() not in ['None', ''],
+        classification.get('name') and str(classification.get('name')).strip() not in ['None', '']
     ])
 
-async def _update_user_profile(db, user, session, classification: dict):
+async def _update_user_profile(db, user, session, classification):
     """Update user profile with classified information"""
+    # Handle string classification (error case)
+    if isinstance(classification, str):
+        print(f"Warning: classification is string: {classification}")
+        return
+    
+    if not isinstance(classification, dict):
+        print(f"Warning: invalid classification type: {type(classification)}")
+        return
+    
     today = datetime.utcnow().date().isoformat()
     
     # Update mood
-    if classification.get('mood') and classification.get('mood') != 'None':
-        mood = classification.get('mood')
+    mood = classification.get('mood')
+    if mood and mood != 'None' and mood.strip():
         if not user.mood_tags:
             user.mood_tags = {}
         user.mood_tags[today] = mood
@@ -340,8 +368,8 @@ async def _update_user_profile(db, user, session, classification: dict):
         flag_modified(user, 'mood_tags')
     
     # Update platform preference
-    if classification.get('platform_pref') and classification.get('platform_pref') != 'None':
-        platform = classification.get('platform_pref')
+    platform = classification.get('platform_pref')
+    if platform and platform != 'None' and platform.strip():
         if not user.platform_prefs:
             user.platform_prefs = {}
         user.platform_prefs.setdefault(today, []).append(platform)
@@ -349,15 +377,16 @@ async def _update_user_profile(db, user, session, classification: dict):
         flag_modified(user, 'platform_prefs')
     
     # Update genre preference
-    if classification.get('genre') and classification.get('genre') != 'None':
-        genre = classification.get('genre')
+    genre = classification.get('genre')
+    if genre and genre != 'None' and genre.strip():
         if not user.genre_prefs:
             user.genre_prefs = {}
         user.genre_prefs.setdefault(today, []).append(genre)
         flag_modified(user, 'genre_prefs')
     
     # Update name
-    if classification.get('name') and classification.get('name') != 'None':
-        user.name = classification.get('name')
+    name = classification.get('name')
+    if name and name != 'None' and name.strip():
+        user.name = name
     
     db.commit()
