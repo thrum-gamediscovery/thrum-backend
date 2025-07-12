@@ -14,6 +14,17 @@ import numpy as np
 
 model = SentenceTransformer("all-MiniLM-L12-v2")
 
+def get_game_platform_link(game_id, preferred_platform, db_session):
+    # Query the game_platform table for the specific game_id and platform
+    platform_entry = db_session.query(GamePlatform).filter_by(
+        game_id=game_id,
+        platform=preferred_platform
+    ).first()
+    if platform_entry and platform_entry.link:
+        return platform_entry.link
+    else:
+        return None  # or return a message/link for a default/fallback
+    
 async def game_recommendation(db: Session, user, session):
     today = datetime.utcnow().date().isoformat()
     print(f"--> session : {session}")
@@ -137,12 +148,9 @@ async def game_recommendation(db: Session, user, session):
     # Step 5: Progressive soft filters
     filter_levels = [
         {"genre": True, "platform": True, "cluster": True, "story": True},
-        {"genre": True, "platform": True, "cluster": False, "story": True},
         {"genre": True, "platform": True, "cluster": True, "story": False},
-        {"genre": True, "platform": False, "cluster": True, "story": True},
-        {"genre": True, "platform": False, "cluster": False, "story": True},
+        {"genre": True, "platform": True, "cluster": False, "story": True},
         {"genre": True, "platform": True, "cluster": False, "story": False},
-        {"genre": True, "platform": False, "cluster": False, "story": False},
     ]
 
     def genre_filter_loop(base_games, genres_to_use):
@@ -235,6 +243,8 @@ async def game_recommendation(db: Session, user, session):
         GamePlatform.game_id == top_game.game_id
     ).all()
 
+    link = get_game_platform_link(top_game.game_id, platform, db)
+
     # Step 9: Save recommendation
     game_rec = GameRecommendation(
         session_id=session.session_id,
@@ -244,17 +254,20 @@ async def game_recommendation(db: Session, user, session):
         mood_tag=mood,
         accepted=None
     )
+    
     db.add(game_rec)
     db.commit()
     session.phase = PhaseEnum.FOLLOWUP
     session.followup_triggered = True
+
     return {
         "title": top_game.title,
-        "description": top_game.description[:200] if top_game.description else None,
+        "description": top_game.description if top_game.description else None,
         "genre": top_game.genre,
         "game_vibes": top_game.game_vibes,
         "mechanics": top_game.mechanics,
         "visual_style": top_game.visual_style,
         "has_story": top_game.has_story,
-        "platforms": [p[0] for p in platforms]
+        "platforms": [p[0] for p in platforms],
+        "link":link
     }, age_ask_required

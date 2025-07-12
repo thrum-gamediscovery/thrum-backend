@@ -39,6 +39,10 @@ async def handle_discovery(db, session, user, classification, user_input):
         session.discovery_questions_asked = 0
 
         game, _ = await game_recommendation(db=db, session=session, user=user)
+        platfrom_link = None
+        description = None
+        platfrom_link = game.get("link", None)
+        description = game.get("description",None)
         if not game:
             print("################################################################")
             user_prompt =(
@@ -72,14 +76,16 @@ async def handle_discovery(db, session, user, classification, user_input):
 
         # 🧠 User Prompt (fresh rec after rejection, warm tone, 20–25 words)
         user_prompt = (
-            f"{memory_context_str}\n" 
+            f"{memory_context_str}\n"
+            f"platform link :{platfrom_link}"
             f"The user just rejected the last recommended game so add compensation message for that like apologized or something like that.dont use sorry that didnt click always.\n"
             f"the user input is negative so add emotion so user felt noticed that he didnt like that game, ask for apologise too if needed\n"
             f"Suggest a new one: **{game['title']}**.\n"
-            f"Write a full reply (20–25 words max) that includes:\n"
+            f"Write a full reply (25-30 words max) that includes:\n"
             f"– it must include The game title in bold using Markdown: **{game['title']}**\n"
-            f"– A confident reason why this one might resonate better (based on genre, vibe, mechanics, or story)\n"
+            f"– A confident reason of 15-17 words about why this one might resonate better using game description:{description} also must use (based on genre, vibe, mechanics, or story)\n"
             f"– A natural platform mention at the end(dont ever just paste this as it is do modification and make this note interesting): {platform_note}\n"
+            f"if platfrom_link is not None,Then it must be naturally included link(not like in brackets or like [here])where they can find this game in message: {platfrom_link}\n"
             f"Match the user's known preferences (from user_context), but avoid repeating previous tone or style.\n"
             f"Don’t mention the last game or say 'maybe'. Use warm, fresh energy."
             f"must suggest game with reason that why it fits to user with mirror effect."
@@ -107,6 +113,10 @@ async def handle_user_info(db, user, classification, session, user_input):
         session.discovery_questions_asked = 0
 
         game, _ = await game_recommendation(db=db, user=user, session=session)
+        platfrom_link = None
+        description = None
+        platfrom_link = game.get("link", None)
+        description = game.get("description",None)
         if not game:
             print("################################################################")
             user_prompt =( 
@@ -141,12 +151,13 @@ async def handle_user_info(db, user, classification, session, user_input):
         # Final user prompt for GPT
         user_prompt = (
             f"{memory_context_str}\n"
-            f"Suggest the game **{game['title']}** to the user.\n"
-            f"In one short line (20–22 words), explain why this game fits them —\n"
+            f"always use tone referecing to the user's current tone.\n"
+            f"Suggest the game **{game['title']}** to the user, you can put title between the message, no restriction for formatting.\n"
             f"– it must include The game title in bold using Markdown: **{game['title']}**\n"
-            f"based on its genre, vibe, story, or mechanics.\n"
+            f"– A confident reason of 15-17 words about why this one might resonate better using game description:{description} also must use (based on genre, vibe, mechanics, or story)\n"
             f"Use user context from the system prompt (e.g., story_preference, genre, platform_preference).\n"
             f"– A natural platform mention at the end(dont ever just paste this as it is do modification and make this note interesting): {platform_note}\n"
+            f"if platfrom_link is not None,Then it must be naturally included link(not like in brackets or like [here])where they can find this game in message: {platfrom_link}\n"
             f"Tone should be confident, warm, and very human. Never say 'maybe' or 'you might like'."
             f"must suggest game with reason that why it fits to user"
         )

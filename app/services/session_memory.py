@@ -203,6 +203,11 @@ async def deliver_game_immediately(db: Session, user, session) -> str:
 
     game, _ = await game_recommendation(db=db, user=user, session=session)
 
+    platfrom_link = None
+    description = None
+    platfrom_link = game.get("link", None)
+    description = game.get("description",None)
+
     if not game:
         print("-----------------------------------------------------------")
         user_prompt =(  f"{memory_context_str}\n"
@@ -239,12 +244,14 @@ async def deliver_game_immediately(db: Session, user, session) -> str:
         # 🧠 Final Prompt
         user_prompt = (
             f"{memory_context_str}\n"
+            f"platform link :{platfrom_link}"
             f"The user clearly asked for a game right away — no questions, no delay.\n"
             f"Recommend: **{game['title']}**\n"
-            f"Write a complete message (max 25 words) with:\n"
+            f"Write a complete message (max 30 words) with:\n"
             f"– it must include The game title in bold using Markdown: **{game['title']}**\n"
-            f"– A confident, punchy reason why this fits (based on genre, mechanics, story, or vibe)\n"
+            f"– A confident reason of 15-20 words about why this one might resonate better using game description:{description} also must use (based on genre, vibe, mechanics, or story)\n"
             f"– A natural mention of platform(dont ever just paste this as it is do modification and make this note interesting): {platform_note}\n"
+            f"if platfrom_link is not None,Then it must be naturally included link(not like in brackets or like [here])where they can find this game in message: {platfrom_link}\n"
             f"Use user_context if helpful, but don’t ask anything or recap.\n"
             f"Sound smooth, human, and excited — this is a 'just drop it' moment."
             f"must suggest game with reason that why it fits to user"
