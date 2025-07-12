@@ -7,7 +7,7 @@ from app.services.session_memory import SessionMemory
 openai.api_key = os.getenv("OPENAI_API_KEY")
 model= os.getenv("GPT_MODEL")
 
-client = openai.OpenAI()
+client = openai.AsyncOpenAI()
 
 async def format_reply(session, user_input, user_prompt):
     if isinstance(user_prompt, types.CoroutineType):

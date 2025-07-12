@@ -16,7 +16,7 @@ from app.services.session_memory import SessionMemory
 
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
-client = openai.OpenAI()
+client = openai.AsyncOpenAI()
 
 async def handle_followup(db, session, user, user_input,classification):
     override_reply = await check_intent_override(db=db, user_input=user_input, user=user, session=session, classification=classification)

@@ -12,7 +12,7 @@ from app.services.session_memory import SessionMemory
 openai.api_key = os.getenv("OPENAI_API_KEY")
 model= os.getenv("GPT_MODEL")
 
-client = openai.OpenAI()
+client = openai.AsyncOpenAI()
 
 # Define updated intents
 intents = [
