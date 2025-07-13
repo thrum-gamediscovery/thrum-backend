@@ -43,6 +43,7 @@ async def format_reply(session, user_input, user_prompt):
         "story_preference": session.story_preference if session.story_preference is not None else None
     }
 
+    print('session............................1', session.user.name)
     session_memory = SessionMemory(session)
     print('session............................1', session)
     print('session_memory............................11', session_memory)
