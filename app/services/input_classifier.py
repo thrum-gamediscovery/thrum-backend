@@ -424,9 +424,9 @@ Do NOT include any text before or after the JSON object.
 Your response must be pure JSON, not wrapped in any formatting.
 If you add backticks, markdown, or any extra text, it is a mistake.
 Example of correct output:
-{
+{{
   "intent": "dont_want_another"
-}
+}}
 """
 
     response = await client.chat.completions.create(
