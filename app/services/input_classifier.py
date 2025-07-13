@@ -40,13 +40,13 @@ async def classify_user_intent(user_input: str, session):
     memory_context_str = session_memory.to_prompt()
 
     user_prompt = f"""
-    {memory_context_str}
+{memory_context_str}
 User message: "{user_input}"
 You are a classification engine for a conversational game assistant.
-last thrum reply: {last_thrum_reply} (This is the reply that Thrum gave to the user's last message) """
+last thrum reply: {last_thrum_reply} (This is the reply that Thrum gave to the user's last message)
+"""
     
     system_prompt = """
-
 Your task is to classify the user's message into one or more of the following intents based on:
 
 1. Thrum’s last reply
@@ -61,9 +61,9 @@ Carefully consider the context of the conversation and the specific tone or dire
 - Ensure that you distinguish between **intent requests** (like game suggestions or profile updates) and **actions** (like opting out or confirming a suggestion).
 
 ### Here are the intents to classify:
-- **Greet**: Triggered when the user greets the bot . This intent is ** must not triggered** if Thrum’s last message was already a greeting.
+- **Greet**: Triggered when the user greets the bot. This intent is **must not be triggered** if Thrum’s last message was already a greeting.
 
-- **Phase_Discovery**: - Triggered  only if Thrum's last reply is greeting message, and the user gives a positive response (e.g., affirmatives like "yeah", "cool", "okay", "let's go", "yup"). This intent indicates that the user is ready to proceed to the discovery phase(in which we are going to ask question) without needing any further prompting.
+- **Phase_Discovery**: Triggered only if Thrum's last reply is a greeting message, and the user gives a positive response (e.g., affirmatives like "yeah", "cool", "okay", "let's go", "yup"). This intent indicates that the user is ready to proceed to the discovery phase (in which we are going to ask questions) without needing any further prompting.
 
 - **Request_Quick_Recommendation**: Triggered when the user explicitly asks for a game suggestion at that time, without mentioning the previous game recommendation. This intent is activated when the user requests a new game recommendation directly, such as saying "give me a game" or similar phrases.
 
@@ -77,7 +77,7 @@ Carefully consider the context of the conversation and the specific tone or dire
 
 - **Opt_Out**: Triggered when the user opts out or indicates they no longer wish to continue the conversation. This intent is activated when phrases like "I'm done," "Stop," "Not interested," or "Leave me alone" are used to end or discontinue the conversation.
 
-- **Other_Question**: Triggered when the user asks any question related to the themselves or about the thrum(for eg. "what do you do?","How are you?","what make you powerful" or any kind of general question) or any kind of general question then it must get true.
+- **Other_Question**: Triggered when the user asks any question related to themselves or about Thrum (for example, "what do you do?", "How are you?", "what makes you powerful" or any kind of general question).
 
 - **Confirm_Game**: Triggered when the user confirms their interest in a game that was previously recommended. The confirmation could be something like "Yes, I want that one," or "I like that game." This is explicitly confirming the previous game suggestion, meaning that the user is showing interest in the exact game Thrum recommended.
 
