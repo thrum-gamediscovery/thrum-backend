@@ -55,11 +55,10 @@ async def detect_user_is_cold(session, db) -> bool:
             res = await client.chat.completions.create(
                 model=model,
                 messages=[{"role": "user", "content": prompt}],
-                temperature=0
+                temperature=0,
+                max_tokens=5
             )
             label = res["choices"][0]["message"]["content"].strip().lower()
-
-            
 
             if label in allowed_labels:
                 if label in ["dry", "closed", "neutral"]:

@@ -127,7 +127,8 @@ OUTPUT FORMAT (Strict JSON) strictly deny to add another text:
                 {"role": "system", "content": system_prompt.strip()},
                 {"role": "user", "content": user_prompt.strip()}
             ],
-            temperature=0
+            temperature=0,
+            max_tokens=100
         )
 
         # Try parsing the LLM output into JSON
@@ -332,7 +333,8 @@ Now classify into the format below.
                 {"role": "system", "content": system_prompt.strip()},
                 {"role": "user", "content": user_prompt.strip()}
             ],
-            temperature=0
+            temperature=0,
+            max_tokens=120,
         )
 
         # Try parsing the LLM output into JSON
@@ -406,6 +408,7 @@ Do not add any extra text, comments, or keys. Only output the JSON block.
     response = await client.chat.completions.create(
         model=model,
         temperature=0.7,
+        max_tokens=10,
         messages=[{"role": "system", "content": prompt}]
     )
     return response.choices[0].message.content.strip()

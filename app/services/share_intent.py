@@ -22,7 +22,7 @@ Examples of sharing intent:
 If the user clearly wants to share, reply only: `true`  
 Otherwise, reply only: `false`
 
-User message: "{user_input}"
+User message: ```{user_input}```
 Return only `true` or `false`. No explanation.
     """
 

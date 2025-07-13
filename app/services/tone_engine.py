@@ -40,12 +40,16 @@ TONE_STYLE_MAP = {
 
 # 🔥 Gen-Z Slang Generator
 async def generate_genz_slang_line(base_reply: str) -> str:
+    if not base_reply or not base_reply.strip():
+        return ""
+    
     prompt = f"""
-You are a Gen-Z slang generator helping a game recommender sound witty and relatable.
-Given this response: "{base_reply}", add a short Gen-Z-style phrase at the end.
-It should sound playful or confident, like "this one slaps" or "bet".
-Return only the phrase. No emojis. Max 5 words.
-"""
+        You are a Gen-Z slang generator helping a game recommender sound witty and relatable.
+        Given this response: "{base_reply}",
+        Add a short Gen-Z-style phrase at the end, as if replying to a friend.
+        It should sound playful or confident, like "this one slaps" or "bet".
+        Return only the phrase. No emojis. No punctuation or explanation. Max 5 words.
+        """
     try:
         response = await client.chat.completions.create(
             model=model,
@@ -112,31 +116,48 @@ async def get_response_style(tone: str, reply: str) -> str:
 
 # 🧠 GPT-Based Tone Detection
 async def detect_tone_cluster(user_input: str) -> str:
+    allowed_tags = {
+        "genz", "chaotic", "sincere", "ironic", "casual", "neutral", "warm", "open", "closed",
+        "funny", "defiant", "excited", "frustrated", "bored", "angry", "satisfied", "confused", "sad"
+    }
+
     prompt = f"""
-Classify the tone of this user message based on both emotion and style.
+        Classify the tone of this user message based on both emotion and style.
 
-Choose ONE or a COMBINATION (max 2) from:
-[genz, chaotic, sincere, ironic, casual, neutral, warm, open, closed, funny, defiant, excited, frustrated, bored, angry, satisfied, confused, sad]
+        Choose ONE or a COMBINATION (max 2) from:
+        [genz, chaotic, sincere, ironic, casual, neutral, warm, open, closed, funny, defiant, excited, frustrated, bored, angry, satisfied, confused, sad]
 
-Rules:
-- If slang, emojis, or hype → tag genz
-- If tone is frustrated *and* genz → return "genz frustrated"
-- If tone is unsure or irritated → tag confused or frustrated
-- If short, dry replies like "ok", "fine", or "hello?" → bored or frustrated
-- If joyful or thankful → satisfied or excited
-- If style is unclear → return neutral
+        Rules:
+        - If slang, emojis, or hype → tag genz
+        - If tone is frustrated *and* genz → return "genz frustrated"
+        - If tone is unsure or irritated → tag confused or frustrated
+        - If short, dry replies like "ok", "fine", or "hello?" → bored or frustrated
+        - If joyful or thankful → satisfied or excited
+        - If style is unclear → return neutral
 
-Message: "{user_input}"
+        Message: "{user_input}"
 
-Only return ONE or TWO words (space-separated). No punctuation.
-"""
+        Only return ONE or TWO words (space-separated). No punctuation.
+        """
     try:
         response = await client.chat.completions.create(
             model=model,
             messages=[{"role": "user", "content": prompt}],
             temperature=0,
+            max_tokens=6
         )
-        tone = response.choices[0].message.content.strip()
+        
+        tone = response.choices[0].message.content.strip().lower()
+        tone = tone.replace(".", "").replace(",", "")  # Remove any punctuation
+
+        words = [w for w in tone.split() if w in allowed_tags]
+        if not words:
+            tone = "neutral"
+        elif len(words) > 2:
+            tone = " ".join(words[:2])
+        else:
+            tone = " ".join(words)
+        
         print(f"🎯 Detected tone cluster: {tone}")
     except Exception as e:
         print(f"⚠️ Tone detection failed: {e}")

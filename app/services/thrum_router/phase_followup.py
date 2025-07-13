@@ -18,6 +18,8 @@ openai.api_key = os.getenv("OPENAI_API_KEY")
 
 client = openai.AsyncOpenAI()
 
+model= os.getenv("GPT_MODEL")
+
 async def handle_followup(db, session, user, user_input,classification):
     override_reply = await check_intent_override(db=db, user_input=user_input, user=user, session=session, classification=classification)
     if override_reply:
@@ -31,31 +33,32 @@ async def ask_followup_que(session) -> str:
 
     game_title = session.last_recommended_game or "that game"
     prompt = f"""
-    {memory_context_str}
-You are Thrum — an emotionally aware, tone-matching gaming companion.
+        {memory_context_str}
+        You are Thrum — an emotionally aware, tone-matching gaming companion.
 
-The user was just recommended a game.
+        The user was just recommended a game.
 
-Now, write ONE short, natural follow-up to check:
-– if the game sounds good to them  
-– OR if they’d like another game
+        Now, write ONE short, natural follow-up to check:
+        – if the game sounds good to them  
+        – OR if they’d like another game
 
-Your response must:
-- Reflect the user’s tone: {last_user_tone} (e.g., chill, genz, hype, unsure, etc.)
-- Use fresh and varied phrasing every time — never repeat past follow-up styles
-- Be no more than 15 words
-- Do not mention or summarize the game.
-- Do not use robotic phrases like “Did that one hit the mark?”
-- Avoid any fixed templates or repeated phrasing
+        Your response must:
+        - Reflect the user’s tone: {last_user_tone} (e.g., chill, genz, hype, unsure, etc.)
+        - Use fresh and varied phrasing every time — never repeat past follow-up styles
+        - Be no more than 15 words. If you reach 15 words, stop immediately.
+        - Do not mention or summarize the game or use the word "recommendation".
+        - Do not use robotic phrases like “Did that one hit the mark?”
+        - Avoid any fixed templates or repeated phrasing
 
-Tone must feel warm, casual, playful, or witty — depending on the user’s tone.
+        Tone must feel warm, casual, playful, or witty — depending on the user’s tone.
 
-Only output one emotionally intelligent follow-up. Nothing else.
-"""
+        Only output one emotionally intelligent follow-up. Nothing else.
+        """
 
     response = await client.chat.completions.create(
-        model="gpt-4",
+        model=model,
         temperature=0.5,
+        max_tokens=32,
         messages=[
             {"role": "user", "content": prompt.strip()}
         ]
