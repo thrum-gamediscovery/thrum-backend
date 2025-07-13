@@ -136,9 +136,6 @@ OUTPUT FORMAT (Strict JSON) strictly deny to add another text:
 """
 
     if user_prompt:
-
-        print('system_prompt...................', system_prompt)
-        print('user_prompt...................', user_prompt)
         response = await client.chat.completions.create(
             model=model,
             messages=[
