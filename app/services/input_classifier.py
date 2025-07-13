@@ -119,6 +119,11 @@ Carefully consider the context of the conversation and the specific tone or dire
 
 **Strict Output Format:**
 Your reply must be a valid JSON object with only the key-value structure shown above — with **no preamble**, **no labels**, **no explanation**, and **no extra text**. Do not add any “content:” or any description around it. The response must be the raw JSON block only.
+Return only a valid JSON object with the required keys.
+Do NOT use triple backticks, code fences, or any markdown formatting.
+Do NOT include any text before or after the JSON object.
+Your response must be pure JSON, not wrapped in any formatting.
+If you add backticks, markdown, or any extra text, it is a mistake.
 
 OUTPUT FORMAT (Strict JSON) strictly deny to add another text:
 {
