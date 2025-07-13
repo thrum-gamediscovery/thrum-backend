@@ -134,7 +134,7 @@ async def recommend_game():
         delay = timedelta(seconds=10)
         if now - s.last_thrum_timestamp > delay:
             user_prompt = await get_recommend(db=db, session=s, user=user)
-            user_interactions = [i for i in str.interactions if i.sender == SenderEnum.User]
+            user_interactions = [i for i in s.interactions if i.sender == SenderEnum.User]
             user_input = user_interactions[-1].content if user_interactions else ""
             reply = await format_reply(session=s, user_input=user_input, user_prompt=user_prompt)
             await send_whatsapp_message(user.phone_number, reply)
