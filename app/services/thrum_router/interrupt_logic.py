@@ -131,6 +131,11 @@ async def check_intent_override(db, user_input, user, session, classification):
     # Handle cases where user input doesn't match any predefined intent
     elif classification_intent.get("Other") or classification_intent.get("Other_Question"):
         return await handle_other_input(db, user, session, user_input)
+    
+    elif classification_intent.get("Bot_Error_Mentioned"):
+        response = (
+            "Sorry, I seem to have lost track—want to try again?"
+        )
 
     # Default handling if no specific intent is detected
     return None

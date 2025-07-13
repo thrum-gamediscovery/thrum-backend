@@ -26,7 +26,8 @@ intents = [
     "Opt_Out", 
     "Other_Question", 
     "Confirm_Game",
-    "Other"
+    "Other",
+    "Bot_Error_Mentioned"
 ]
 
 async def classify_user_intent(user_input: str, session):
@@ -46,8 +47,9 @@ last thrum reply: {last_thrum_reply} (This is the reply that Thrum gave to the u
 
 Your task is to classify the user's message into one or more of the following intents based on:
 
-1. **Thrum's last reply** and
-2. **The user's response** to that last reply.
+1. Thrum’s last reply
+2. The user's response (including their tone, vibe, or emotional shift)
+3. The memory/context of the current session
 
 Carefully consider the context of the conversation and the specific tone or direction of the user's input in relation to Thrum’s previous reply. Each intent corresponds to specific patterns and expected actions based on the flow of conversation. Only set one variable to `true` which is most relevant based on the user input and context.
 
@@ -79,13 +81,26 @@ Carefully consider the context of the conversation and the specific tone or dire
 
 - **Other**: Triggered for any input that doesn’t match the above categories. This could include irrelevant or non-conversational responses, random input, or statements that do not fall within the intent framework.
 
+- **Bot_Error_Mentioned:** The user indicates the bot is lost, confused, or not understanding them ("you are lost", "you do not hear me", "you don’t know me", "why do you suggest if you don’t know who I am", etc.).
+
+---
+
+**Guidelines:**
+- Focus on the **current context and user emotion**—is the user happy, confused, annoyed, or giving feedback? Reflect that in the intent.
+- Classify negative feedback about the bot as `Bot_Error_Mentioned` to enable better handling and recovery.
+- Use `Other_Question` only for meta-questions about user or bot.
+- Use `Other` **only** for irrelevant or off-topic input.
+- **Only one intent can be true per turn.** All others must be false.
+
+---
+
 ### Steps for classification:
 1. **Look at Thrum’s last response** and consider the context — did Thrum greet the user, recommend a game, or ask for more information?
 2. **Identify the user’s intent** based on their response, matching it with the most relevant intent category.
 3. **Check for continuity** — If Thrum’s last message was a greeting, do not classify the user’s greeting as a "Greet". If Thrum gave a recommendation, check if the user confirms or rejects it.
 4. **Ensure exclusivity** — Set only one intent to true based on the user's response in the given context. The user may express multiple intents, but the classification should strictly match the most relevant one.
 
-### Output Format:
+**Strict Output Format:**
 Your reply must be a valid JSON object with only the key-value structure shown above — with **no preamble**, **no labels**, **no explanation**, and **no extra text**. Do not add any “content:” or any description around it. The response must be the raw JSON block only.
 
 OUTPUT FORMAT (Strict JSON) strictly deny to add another text:
@@ -100,7 +115,8 @@ OUTPUT FORMAT (Strict JSON) strictly deny to add another text:
     "Opt_Out": true/false,
     "Other_Question": true/false,
     "Confirm_Game": true/false,
-    "Other": true/false
+    "Other": true/false,
+    "Bot_Error_Mentioned": true/false
 }
 """
 
