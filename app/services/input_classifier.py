@@ -147,7 +147,7 @@ OUTPUT FORMAT (Strict JSON) strictly deny to add another text:
             ],
             temperature=0,
         )
-
+        print('test.........................................q', response)
         # Try parsing the LLM output into JSON
         try:
             result = json.loads(response.choices[0].message.content)
