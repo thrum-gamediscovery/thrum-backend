@@ -56,7 +56,11 @@ class SessionMemory:
             out.append(f"Last game suggested: {self.last_game}")
         if self.last_intent:
             out.append(f"Last intent: {self.last_intent}")
-        # Optionally add recent interaction snippets
+        if self.history:
+            last_few = self.history[-1000:]
+            hist_str = " | ".join([f"{s}: {c}" for s, c in last_few])
+            out.append(f"Recent chat: {hist_str}")
+
         return " | ".join(out)
 
 # 🎮 Optional: Emojis for visual flavor (keep platform names raw)

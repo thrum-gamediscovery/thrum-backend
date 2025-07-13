@@ -13,7 +13,7 @@ from app.services.mood_engine import detect_mood_from_text
 from app.services.session_manager import update_or_create_session_mood
 from app.utils.genre import get_best_genre_match 
 from app.utils.platform_utils import get_best_platform_match, get_default_platform
-
+from app.services.session_memory import SessionMemory
 
 # ✅ Update user profile with parsed classification fields
 async def update_game_feedback_from_json(db, user_id: UUID, session,feedback_data: list) -> None:
@@ -329,3 +329,6 @@ async def update_user_from_classification(db: Session, user, classification: dic
 
     db.commit()
     await update_game_feedback_from_json(db=db, user_id=user.user_id, session=session, feedback_data=game_feedback)
+
+    session_memory = SessionMemory(session)
+    session_memory.update(**classification)
