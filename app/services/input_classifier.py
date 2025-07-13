@@ -418,7 +418,15 @@ Return only a valid JSON object with one key "intent":
   "intent": "want_another" | "dont_want_another"
 }}
 
-Do not add any extra text, comments, or keys. Only output the JSON block.
+Return only a valid JSON object with the required keys.
+Do NOT use triple backticks, code fences, or any markdown formatting.
+Do NOT include any text before or after the JSON object.
+Your response must be pure JSON, not wrapped in any formatting.
+If you add backticks, markdown, or any extra text, it is a mistake.
+Example of correct output:
+{
+  "intent": "dont_want_another"
+}
 """
 
     response = await client.chat.completions.create(
