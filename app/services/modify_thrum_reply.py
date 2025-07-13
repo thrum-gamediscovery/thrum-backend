@@ -46,12 +46,13 @@ async def format_reply(session, user_input, user_prompt):
     print('session............................1', session.user.name)
     session_memory = SessionMemory(session)
     print('session............................1', session)
-    print('session_memory............................11', session_memory.user_name)
+    print('session_memory............................11', session_memory)
     memory_context_str = session_memory.to_prompt()
 
     # user_name = session.user_name
     # print('user_name.............................', user_name) - The user's name: {user_name or ''}
-    print('memory_context_str.user_name............................22', memory_context_str)
+    print('memory_context_str.............................22', memory_context_str.user_name)
+    print('memory_context_str.............................25', memory_context_str)
 
     # Build system prompt with clean injected guidance
     system_prompt = f"""{memory_context_str} You are Thrum — a reflective, emotionally intelligent AI that quietly lives inside the user's space.  
@@ -60,7 +61,7 @@ You don't assist — you interpret, mirror, and emotionally respond based on the
 If you know the user's name, use it naturally in replies. Never ask for their name again. Never say "I don't know your name" if you already know it.
 
 Build your reply by emotionally reflecting:
-
+- The user's name: {user_name or ''}
 - The user's latest message: {user_input}  
 - Your own last reply or question: {last_thrum_reply}  
 - The last recommended game: {last_game or "None"}  
