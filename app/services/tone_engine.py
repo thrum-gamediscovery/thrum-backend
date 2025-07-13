@@ -49,12 +49,6 @@ async def generate_genz_slang_line(base_reply: str) -> str:
         Add a short Gen-Z-style phrase at the end, as if replying to a friend.
         It should sound playful or confident, like "this one slaps" or "bet".
         Return only the phrase. No emojis. No punctuation or explanation. Max 5 words.
-
-        Return only a valid JSON object with the required keys.
-        Do NOT use triple backticks, code fences, or any markdown formatting.
-        Do NOT include any text before or after the JSON object.
-        Your response must be pure JSON, not wrapped in any formatting.
-        If you add backticks, markdown, or any extra text, it is a mistake.
         """
     try:
         response = await client.chat.completions.create(
@@ -143,12 +137,6 @@ async def detect_tone_cluster(user_input: str) -> str:
         Message: "{user_input}"
 
         Only return ONE or TWO words (space-separated). No punctuation.
-
-        Return only a valid JSON object with the required keys.
-        Do NOT use triple backticks, code fences, or any markdown formatting.
-        Do NOT include any text before or after the JSON object.
-        Your response must be pure JSON, not wrapped in any formatting.
-        If you add backticks, markdown, or any extra text, it is a mistake.
         """
     try:
         response = await client.chat.completions.create(
