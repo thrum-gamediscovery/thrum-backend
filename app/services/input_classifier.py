@@ -44,6 +44,7 @@ async def classify_user_intent(user_input: str, session):
 User message: "{user_input}"
 You are a classification engine for a conversational game assistant.
 last thrum reply: {last_thrum_reply} (This is the reply that Thrum gave to the user's last message) """
+    
     system_prompt = """
 
 Your task is to classify the user's message into one or more of the following intents based on:
@@ -135,6 +136,9 @@ OUTPUT FORMAT (Strict JSON) strictly deny to add another text:
 """
 
     if user_prompt:
+
+        print('system_prompt...................', system_prompt)
+        print('user_prompt...................', user_prompt)
         response = await client.chat.completions.create(
             model=model,
             messages=[
