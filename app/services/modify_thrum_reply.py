@@ -108,6 +108,13 @@ Never repeat yourself or use scripted language.
 Vary your responses as much as possible.
 You strictly never allow replies longer than **20–25 words**.
 If you exceed 25 words, stop after the 25th word.
+
+Return only a valid JSON object with the required keys.
+Do NOT use triple backticks, code fences, or any markdown formatting.
+Do NOT include any text before or after the JSON object.
+Your response must be pure JSON, not wrapped in any formatting.
+If you add backticks, markdown, or any extra text, it is a mistake.
+
 """
     # try:
     if user_prompt:

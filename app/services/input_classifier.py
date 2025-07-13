@@ -331,6 +331,11 @@ You must infer from both keywords and tone—even if the user is casual, brief, 
 - Never guess or fill in with placeholders. If not sure, use "None", [], or null.
 - DO NOT include any explanation.
 - Do NOT add extra text or explanation — just return the clean JSON.
+- Return only a valid JSON object with the required keys.
+- Do NOT use triple backticks, code fences, or any markdown formatting.
+- Do NOT include any text before or after the JSON object.
+- Your response must be pure JSON, not wrapped in any formatting.
+- If you add backticks, markdown, or any extra text, it is a mistake.
 '''
 
     # Compose user prompt
