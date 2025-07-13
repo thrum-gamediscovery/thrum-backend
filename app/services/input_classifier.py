@@ -27,7 +27,8 @@ intents = [
     "Other_Question", 
     "Confirm_Game",
     "Other",
-    "Bot_Error_Mentioned"
+    "Bot_Error_Mentioned",
+    "About_FAQ"
 ]
 
 async def classify_user_intent(user_input: str, session):
@@ -83,6 +84,18 @@ Carefully consider the context of the conversation and the specific tone or dire
 
 - **Bot_Error_Mentioned:** The user indicates the bot is lost, confused, or not understanding them ("you are lost", "you do not hear me", "you don’t know me", "why do you suggest if you don’t know who I am", etc.).
 
+- **About_FAQ**: Triggered when the user asks about what Thrum does, how it works, who you are, or any general FAQ about the service. Examples:
+    - "how does it work?"
+    - "what can you do?"
+    - "who are you?"
+    - "what is this?"
+    - "tell me about yourself"
+    - "explain"
+    - "are you a bot?"
+    - "what's your job?"
+    - "how does Thrum find games?"
+  Only set to true if the question is about Thrum or the game recommendation process itself.
+
 ---
 
 **Guidelines:**
@@ -116,7 +129,8 @@ OUTPUT FORMAT (Strict JSON) strictly deny to add another text:
     "Other_Question": true/false,
     "Confirm_Game": true/false,
     "Other": true/false,
-    "Bot_Error_Mentioned": true/false
+    "Bot_Error_Mentioned": true/false,
+    "About_FAQ": true/false
 }
 """
 

@@ -7,7 +7,7 @@ from app.services.thrum_router.phase_intro import handle_intro
 from app.services.thrum_router.phase_ending import handle_ending
 
 from app.services.thrum_router.phase_confirmation import handle_confirmed_game
-from app.services.thrum_router.phase_discovery import handle_discovery, handle_user_info, handle_other_input
+from app.services.thrum_router.phase_discovery import handle_discovery, dynamic_faq_gpt, handle_other_input
 from app.services.session_memory import SessionMemory
 
 async def check_intent_override(db, user_input, user, session, classification):
@@ -18,10 +18,7 @@ async def check_intent_override(db, user_input, user, session, classification):
 
     # Handle FAQ
     classification_intent = await classify_user_intent(user_input=user_input, session=session)
-
-    # if classification_intent.get("About_FAQ"):
-    #     return await dynamic_faq_gpt(session, user_input)
-
+    
     if classification_intent.get("Phase_Discovery"):
         return handle_discovery(db=db, session=session, classification=classification, user=user, user_input=user_input)
     
@@ -136,6 +133,10 @@ async def check_intent_override(db, user_input, user, session, classification):
         response = (
             "Sorry, I seem to have lost track—want to try again?"
         )
+        return response
+    
+    elif classification_intent.get("About_FAQ"):
+        return await dynamic_faq_gpt(db, user, session, user_input)
 
     # Default handling if no specific intent is detected
     return None
