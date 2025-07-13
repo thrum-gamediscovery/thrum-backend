@@ -48,6 +48,8 @@ async def format_reply(session, user_input, user_prompt):
     print('session............................1', session)
     print('session_memory............................11', session_memory)
     memory_context_str = session_memory.to_prompt()
+    if not memory_context_str.strip():
+        memory_context_str = ""
 
     # user_name = session.user_name
     # print('user_name.............................', user_name) - The user's name: {user_name or ''}
