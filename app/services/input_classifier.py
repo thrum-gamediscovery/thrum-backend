@@ -53,6 +53,9 @@ Your task is to classify the user's message into one or more of the following in
 2. The user's response (including their tone, vibe, or emotional shift)
 3. The memory/context of the current session
 
+**Special Rule:**  
+If the user's message is a greeting (e.g., "hi", "hello", "hey") and there is no previous Thrum reply, classify as Greet.
+
 Carefully consider the context of the conversation and the specific tone or direction of the user's input in relation to Thrum’s previous reply. Each intent corresponds to specific patterns and expected actions based on the flow of conversation. Only set one variable to `true` which is most relevant based on the user input and context.
 
 ### General Guidelines for Classification:
