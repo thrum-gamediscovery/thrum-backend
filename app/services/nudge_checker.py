@@ -56,7 +56,6 @@ async def detect_user_is_cold(session, db) -> bool:
                 model=model,
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0,
-                max_tokens=5
             )
             label = res["choices"][0]["message"]["content"].strip().lower()
 

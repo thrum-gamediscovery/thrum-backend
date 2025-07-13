@@ -166,7 +166,6 @@ Just 3 bold, confident lines.
         response = await client.chat.completions.create(
             model=model,
             temperature=0.4,
-            max_tokens=40,
             messages=[{"role": "user", "content": prompt.strip()}]
         )
         reply = response["choices"][0]["message"]["content"].strip()

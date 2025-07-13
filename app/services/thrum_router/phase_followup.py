@@ -58,7 +58,6 @@ async def ask_followup_que(session) -> str:
     response = await client.chat.completions.create(
         model=model,
         temperature=0.5,
-        max_tokens=32,
         messages=[
             {"role": "user", "content": prompt.strip()}
         ]

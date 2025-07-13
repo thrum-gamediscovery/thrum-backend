@@ -102,7 +102,6 @@ If you exceed 25 words, stop after the 25th word.
         response = await client.chat.completions.create(
             model=model,
             temperature=0.5,
-            max_tokens=60,
             messages=[
                 {"role": "system", "content": system_prompt.strip()},
                 {"role": "user", "content": user_prompt},

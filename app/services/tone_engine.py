@@ -55,7 +55,6 @@ async def generate_genz_slang_line(base_reply: str) -> str:
             model=model,
             messages=[{"role": "user", "content": prompt}],
             temperature=0.9,
-            max_tokens=12,
         )
         return response["choices"][0]["message"]["content"].strip()
     except Exception as e:
@@ -144,7 +143,6 @@ async def detect_tone_cluster(user_input: str) -> str:
             model=model,
             messages=[{"role": "user", "content": prompt}],
             temperature=0,
-            max_tokens=6
         )
         
         tone = response.choices[0].message.content.strip().lower()

@@ -29,7 +29,6 @@ Return only `true` or `false`. No explanation.
     response = await client.chat.completions.create(
         model=model,  # or model if you're using that
         temperature=0,
-        max_tokens=5,
         messages=[
             {"role": "user", "content": prompt.strip()}
         ]
