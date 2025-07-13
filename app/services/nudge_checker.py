@@ -18,19 +18,39 @@ client = AsyncOpenAI()
 
 # 🧠 GPT-based tone detection
 async def detect_user_is_cold(session, db) -> bool:
+    """
+    Returns True if the user has been 'cold' (dry, closed, or neutral) in at least 2 of their last 3 messages.
+    Uses LLM to classify each message's tone from a fixed set of allowed labels.
+    """
+    
     user_msgs = [i for i in session.interactions if i.sender == SenderEnum.User][-3:]
     if len(user_msgs) < 2:
         return False
 
     dry_like_count = 0
+    allowed_labels = [
+        "chill",
+        "chaotic",
+        "dry",
+        "genz",
+        "formal",
+        "emotional",
+        "closed",
+        "neutral"
+    ]
+
     for i in user_msgs:
         prompt = f"""
-You are a tone detector. Classify the tone of this message into one of:
-[chill, chaotic, dry, genz, formal, emotional, closed, neutral]
+            Classify the tone of this message into one of the following (respond with only one word from the list, all lowercase):
 
-Message: "{i.content}"
-Respond with one word only.
-"""
+            [chill, chaotic, dry, genz, formal, emotional, closed, neutral]
+
+            Message: "{i.content}"
+
+            Only use a word from this list. If you’re unsure, pick the closest match.
+            Do not add any explanation. Example output: dry
+            """
+        
         try:
             res = await client.chat.completions.create(
                 model=model,
@@ -38,8 +58,15 @@ Respond with one word only.
                 temperature=0
             )
             label = res["choices"][0]["message"]["content"].strip().lower()
-            if label in ["dry", "closed", "neutral"]:
-                dry_like_count += 1
+
+            
+
+            if label in allowed_labels:
+                if label in ["dry", "closed", "neutral"]:
+                    dry_like_count += 1
+            else:
+                # log error, default to neutral, etc.
+                label = "neutral"
         except:
             continue
 
