@@ -17,7 +17,7 @@ model= os.getenv("GPT_MODEL")
 class SessionMemory:
     def __init__(self, session):
         # Initialize from DB session object; can expand as needed
-        self.user_name = getattr(session, "user", None).name if hasattr(session, "user") and session.user else None
+        self.user_name = getattr(session, "user", None).user.name if hasattr(session, "user") and session.user.name else None
         self.mood = getattr(session, "exit_mood", None)
         self.genre = session.genre[-1] if session.genre else None
         self.platform = session.platform_preference[-1] if session.platform_preference else None
