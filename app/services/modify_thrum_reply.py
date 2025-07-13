@@ -46,12 +46,12 @@ async def format_reply(session, user_input, user_prompt):
     print('session............................1', session.user.name)
     session_memory = SessionMemory(session)
     print('session............................1', session)
-    print('session_memory............................11', session_memory)
+    print('session_memory............................11', session_memory.user_name)
     memory_context_str = session_memory.to_prompt()
 
     # user_name = session.user_name
     # print('user_name.............................', user_name) - The user's name: {user_name or ''}
-    print('memory_context_str.user_name............................22', memory_context_str.user_name)
+    print('memory_context_str.user_name............................22', memory_context_str)
 
     # Build system prompt with clean injected guidance
     system_prompt = f"""{memory_context_str} You are Thrum — a reflective, emotionally intelligent AI that quietly lives inside the user's space.  
