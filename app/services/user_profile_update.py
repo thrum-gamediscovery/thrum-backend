@@ -106,7 +106,7 @@ async def update_user_from_classification(db: Session, user, classification: dic
     age = classification.get("age")
     story_pref = classification.get("story_pref")
     playtime = classification.get("playtime_pref")
-    reject_tags = classification.get("regect_tag", [])
+    reject_tags = classification.get("reject_tags", [])
     game_feedback = classification.get("game_feedback", [])
     find_game_title = classification.get("find_game")
 

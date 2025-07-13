@@ -172,7 +172,7 @@ async def classify_user_input(session, user_input: str) -> dict | str:
 You are a classification engine inside a mood-based game recommendation bot.
 
 Your job is to extract and return the following user profile fields based on the user's input message.  
-You must infer from both keywords and tone — even if the user is casual, brief, or vague. Extract even subtle clues.
+You must infer from both keywords and tone—even if the user is casual, brief, or vague. Extract even subtle clues.
 
 ---
 
@@ -189,10 +189,12 @@ You must infer from both keywords and tone — even if the user is casual, brief
 
 3. game_vibe (string)  
    → How the game should feel: relaxing, intense, wholesome, adventurous, spooky, cheerful, emotional, mysterious, dark, fast-paced, thoughtful.
+   → If not mentioned, return "None".
 
 4. genre (string)  
    → e.g., puzzle, horror, racing, shooter, strategy, farming, simulation, narrative, platformer.  
    → Accept synonyms like “scary” = horror, “farming sim” = farming.
+   → If not mentioned, return "None".
 
 5. platform_pref (string)
    → Use platform **exactly as provided** if it matches one of these:
@@ -206,15 +208,18 @@ You must infer from both keywords and tone — even if the user is casual, brief
      If user says "mobile", return "mobile"
      If user says "console", return "console"
    → Do NOT map or infer platforms from phrases like “on my couch” or “on the train” — only extract explicit matches.
+   → If not mentioned, return "None".
 
 6. region (string)  
    → Location like India, US, UK, etc.  
    → Phrases like “I'm in Canada” → "Canada", “I'm from the UK” → "UK".
+   → If not mentioned, return "None".
 
 7. age (string)  
    → extract age as single number not a range. like 18, 25, 30, 50, etc.
    → from input e.g., "teen", "18-25", "30s", "50+".  
    → If mentioned or implied (e.g., “my kids” = likely 30s+), extract.
+   → If not mentioned or cannot be inferred, return "None".
 
 8. story_pref (boolean)  
    → True if they like games with story. False if they avoid it.  
@@ -231,13 +236,15 @@ You must infer from both keywords and tone — even if the user is casual, brief
      - “Weekend gamer” → "weekends"  
      - “On the train” → "commute"  
      - “Before bed” → "night"
+   → If not mentioned, return "None".
 
-10. regect_tag (list of strings)  
+10. reject_tags (list of strings)  
    → What they dislike. Genres, moods, mechanics, or platforms.  
    → e.g., ["horror", "mobile", "realistic"]  
    → Hints: “I don't like shooters”, “not into mobile games”, “too realistic”.
-   → add anthing in regected_tag when user say i dont like this never when user talk like this is not in game.
-   → only add anything in regected_tag if it is sure otherwise not
+   → add anthing in reject_tag when user say i dont like this never when user talk like this is not in game.
+   → only add anything in reject_tag if it is sure otherwise not
+   → If not mentioned, return [].
 
 11. game_feedback (list of dicts)  (** strict rule**)
    → if from the user input it is concluded that user does not like the recommended game (just for an example. if user input is "i don't like that" and you infere they actually don't like that game)then in game put the title from the last recommended game, accepted as False, and reason as the reason why they do not like it.
@@ -257,16 +264,19 @@ You must infer from both keywords and tone — even if the user is casual, brief
        "reason": "emotional and relaxing"
      }}
    ]
+   → Can be empty list if no feedback.
 
 12. find_game(title of the game)
-   →if user is specifying that find me game by giving the title of the game then put that game in find_game variable
-   →if user want specific game and give name or title for recommend (if user i saying something like"i don't like xyz game" then dont add that in this, only add when you find user want this specific game or want to know about this game)
-   →if user do not specify game title but looking like user is inquiry about ame or check avilability of any then return last recommend game's title.
-   →return just one title of that game which user specify for recommend not list
+   → if user is specifying that find me game by giving the title of the game then put that game in find_game variable
+   → if user want specific game and give name or title for recommend (if user i saying something like"i don't like xyz game" then dont add that in this, only add when you find user want this specific game or want to know about this game)
+   → if user do not specify game title but looking like user is inquiry about ame or check avilability of any then return last recommend game's title.
+   → return just one title of that game which user specify for recommend not list
+   → If not, return "None".
 ---
 
 🧠 RULES:
 - If a field cannot be inferred, return "None" (or [] for lists, null for booleans).
+- Never guess or fill in with placeholders. If not sure, use "None".
 - DO NOT include any explanation.
 - Always return strictly valid JSON.
 
@@ -280,9 +290,9 @@ You must infer from both keywords and tone — even if the user is casual, brief
   "platform_pref": "...",
   "region": "...",
   "age": "...",
-  "story_pref": true/false,
+  "story_pref": true/false/null,
   "playtime_pref": "...",
-  "regect_tag": ["..."],
+  "reject_tags": ["..."],
   "game_feedback": [
     {{
       "game": "...",
@@ -295,6 +305,8 @@ You must infer from both keywords and tone — even if the user is casual, brief
 
 🧠 HINTS:
 - If a field is not mentioned or cannot be inferred, return "None" (or [] for lists).
+- Never guess or fill in with placeholders. If not sure, use "None", [], or null.
+- DO NOT include any explanation.
 - Do NOT add extra text or explanation — just return the clean JSON.
 '''
 
@@ -337,7 +349,7 @@ Now classify into the format below.
                 "age": "None",
                 "story_pref": None,
                 "playtime_pref": "None",
-                "regect_tag": [],
+                "reject_tags": [],
                 "game_feedback": [],
                 "find_game":"None"
             }
@@ -365,14 +377,17 @@ The user was recommended the game: *{game_title}*
 last thrum question : {last_thrum_reply}
 user reply : "{user_reply}"
 
-Your task is to classify whether user is satisfied with that game or not, if you find that input is sounds like user want other game and then return "want_another" 
-and if the user input is like they like the recommended game or they are satisfy with that game and it is not sounds like they want other game then return "dont_want_another" as intent.
-and the most important thing is that you must infere user input by referencing the last thrum question.
-Return only a valid JSON object like this:
+Your task is to classify whether the user is satisfied with that game or not, by considering both their reply and the last Thrum question.
 
-{{
-  "intent": "want_another" | "dont_want_another"
-}}
+If you find the input sounds like the user wants another game, return "want_another".
+If the user input sounds like they like the recommended game or are satisfied with it (and it does NOT sound like they want another game), return "dont_want_another" as intent.
+If the user is vague, silent, or unclear, default to "dont_want_another".
+
+**Examples:**
+- User: "nah, show me something else" → {{ "intent": "want_another" }}
+- User: "not really my thing" → {{ "intent": "want_another" }}
+- User: "perfect, this is what I was looking for" → {{ "intent": "dont_want_another" }}
+- User: "okay" → {{ "intent": "dont_want_another" }}
 
 Rules:
 - If they liked it and want another → "want_another"
@@ -380,7 +395,12 @@ Rules:
 - If they disliked it or said no → "want_another"
 - If they’re vague, silent, or unsure → "dont_want_another"
 
-Only return valid JSON. No explanation.
+Return only a valid JSON object with one key "intent":
+{{
+  "intent": "want_another" | "dont_want_another"
+}}
+
+Do not add any extra text, comments, or keys. Only output the JSON block.
 """
 
     response = await client.chat.completions.create(
@@ -406,7 +426,7 @@ async def have_to_recommend(db: Session, user, classification: dict, session) ->
     user_genre = classification.get('genre', None)
     user_mood = classification.get('mood', None)
     user_platform = classification.get('platform_pref', None)
-    user_reject_tags = classification.get('regect_tag', [])
+    user_reject_tags = classification.get('reject_tags', [])
     user_game_feedback = classification.get("game_feedback", [])
 
     # Extract the preferences of the last recommended game
