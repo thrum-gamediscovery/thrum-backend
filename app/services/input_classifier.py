@@ -146,7 +146,6 @@ OUTPUT FORMAT (Strict JSON) strictly deny to add another text:
                 {"role": "user", "content": user_prompt.strip()}
             ],
             temperature=0,
-            max_tokens=100
         )
 
         # Try parsing the LLM output into JSON
