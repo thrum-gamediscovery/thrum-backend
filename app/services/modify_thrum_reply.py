@@ -44,9 +44,11 @@ async def format_reply(session, user_input, user_prompt):
     }
 
     session_memory = SessionMemory(session)
+    print('session............................1', session)
+    print('session_memory............................11', session_memory)
     memory_context_str = session_memory.to_prompt()
 
-    user_name = session.user_name
+    # user_name = session.user_name
     print('user_name.............................', user_name)
     print('memory_context_str............................22', memory_context_str)
 
