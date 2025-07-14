@@ -44,7 +44,8 @@ async def check_intent_override(db, user_input, user, session, classification):
                 if not game:
                     print("################################################################")
                     user_prompt =( 
-                        f"{memory_context_str}\n"
+                        f"USER MEMORY & RECENT CHAT:\n"
+                        f"{memory_context_str if memory_context_str else 'No prior user memory or recent chat.'}\n\n"
                         f"Use this prompt only when no games are available for the user’s chosen genre and platform.\n"
                         f"never repeat the same sentence every time do change that always.\n"
                         f"you must warmly inform the user there’s no match for that combination — robotic.\n"
@@ -77,7 +78,8 @@ async def check_intent_override(db, user_input, user, session, classification):
 
                 # Final user prompt for GPT
                 user_prompt = (
-                    f"{memory_context_str}\n"
+                    f"USER MEMORY & RECENT CHAT:\n"
+                    f"{memory_context_str if memory_context_str else 'No prior user memory or recent chat.'}\n\n"
                     f"platform link :{platfrom_link}"
                     f"Suggest a second game after the user rejected the previous one.The whole msg should no more than 25-30 words.\n"
                     f"The game must be **{game['title']}** (use bold Markdown: **{game['title']}**).\n"

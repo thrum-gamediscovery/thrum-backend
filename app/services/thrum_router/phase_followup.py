@@ -33,24 +33,26 @@ async def ask_followup_que(session) -> str:
 
     game_title = session.last_recommended_game or "that game"
     prompt = f"""
-        {memory_context_str}
+        USER MEMORY & RECENT CHAT:
+        {memory_context_str if memory_context_str else "No prior user memory or recent chat."}
+
         You are Thrum — an emotionally aware, tone-matching gaming companion.
 
         The user was just recommended a game.
 
         Now, write ONE short, natural follow-up to check:
-        – if the game sounds good to them  
-        – OR if they’d like another game
+        - if the game sounds good to them  
+        - OR if they'd like another game
 
         Your response must:
-        - Reflect the user’s tone: {last_user_tone} (e.g., chill, genz, hype, unsure, etc.)
+        - Reflect the user's tone: {last_user_tone} (e.g., chill, genz, hype, unsure, etc.)
         - Use fresh and varied phrasing every time — never repeat past follow-up styles
         - Be no more than 15 words. If you reach 15 words, stop immediately.
         - Do not mention or summarize the game or use the word "recommendation".
         - Do not use robotic phrases like “Did that one hit the mark?”
         - Avoid any fixed templates or repeated phrasing
 
-        Tone must feel warm, casual, playful, or witty — depending on the user’s tone.
+        Tone must feel warm, casual, playful, or witty — depending on the user's tone.
 
         Only output one emotionally intelligent follow-up. Nothing else.
         """
@@ -134,7 +136,9 @@ async def handle_game_inquiry(db: Session, user, session, user_input: str) -> st
         db.commit()
 
         return f"""
-        {memory_context_str}
+USER MEMORY & RECENT CHAT:
+{memory_context_str if memory_context_str else "No prior user memory or recent chat."}
+
 The user was already recommended the game **{game_info['title']}**, but now they have some follow-up questions.
 
 Here are the game details to help you respond naturally:

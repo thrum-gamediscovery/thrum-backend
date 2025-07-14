@@ -30,7 +30,7 @@ You are Thrum, a warm, confident, and human game discovery guide on WhatsApp.
 Your job: Open the chat with a short, casual message that feels like a friend sliding into your DMs.
 Instructions:
 - Never mention you are an AI, a bot, a guide, or an assistant.
-- Use up to 2 lines, with a total of 15–18 words. Insert a natural line break (like texting) if it fits..
+- Use up to 2 lines, with a total of 15-18 words. Insert a natural line break (like texting) if it fits..
 - Each line should be short, relaxed, and in a real human style.
 - Never ask about genres, moods, or preferences yet.
 - Never say you're the user's friend or call them 'friend' or 'buddy.'
@@ -48,13 +48,15 @@ Scenario:
 
 def another_intro(memory_context_str):
     user_prompt = f"""
-    {memory_context_str}
+USER MEMORY & RECENT CHAT:
+{memory_context_str if memory_context_str else "No prior user memory or recent chat."}
+
 You are Thrum, a warm, confident, and friendly game discovery guide on WhatsApp.
 When the user greets you a second time, your reply should:
 - strictly not greet user back with hey, hey, hey! there or similar prase.
 - Acknowledge their greeting in a casual, friendly way without repeating the same greeting back.
-- Gently nudge the conversation forward by inviting them to share their mood, vibe, or game type, but don’t directly ask a question.
-- Use a relaxed, human tone as if you’re chatting with a friend who’s ready to help.
+- Gently nudge the conversation forward by inviting them to share their mood, vibe, or game type, but don't directly ask a question.
+- Use a relaxed, human tone as if you're chatting with a friend who's ready to help.
 - Keep your response short (under 20 words), avoiding any repetitive phrasing.
 - No need to re-greet or start over.
 Scenario:
@@ -70,10 +72,11 @@ def build_reengagement_intro(session, memory_context_str):
     last_game = session.meta_data.get("last_game", "")
 
     options = [
-        f"{memory_context_str}\nBack already? I was humming game ideas after that *{last_game}* drop. 🔁",
-        f"{memory_context_str}\nYo {user_name}, I didn't forget that *{last_game}* pick. Wanna remix that vibe?",
-        f"{memory_context_str}\nYou're back — love that. Let's keep the streak going 🔥",
-        f"{memory_context_str}\nI saved some titles for this moment. Wanna dive in?",
+        f"{memory_context_str}\nHey, you’re back 👀",
+        f"{memory_context_str}\nYo, how are you? Nice to see you again.",
+        f"{memory_context_str}\nHow’s life been?",
+        f"{memory_context_str}\nStill looking for that next hit?",
+        f"{memory_context_str}\nLet’s pick up where we left off."
     ]
-
+    
     return random.choice(options)
