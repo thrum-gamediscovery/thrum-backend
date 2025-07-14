@@ -15,27 +15,37 @@ async def get_recommend(db, user, session):
     game, _ = await game_recommendation(db=db, session=session, user=user)
     session_memory = SessionMemory(session)
     memory_context_str = session_memory.to_prompt()
-    platfrom_link = None
+    platform_link = None
     description=None
     if not game:
-        user_prompt =(
-                        f"{memory_context_str}\n"
-                        f"platform link :{platfrom_link}"
-                        f"Use this prompt only when no games are available for the user’s chosen genre and platform.\n"
-                        f"never repeat the same sentence every time do change that always.\n"
-                        f"you must warmly inform the user there’s no match for that combination — robotic.\n"
-                        f"clearly mention that for that genre and platfrom there is no game.so pick different genre or platfrom.\n"
-                        f"tell them to pick a different genre or platform.\n"
-                        f"Highlight that game discovery is meant to be fun and flexible, never a dead end.\n"
-                        f"Never use words like 'sorry,' 'unfortunately,' or any kind of generic filler.\n"
-                        f"The reply must be 12–18 words, in a maximum of two sentences, and always end with an enthusiastic and empowering invitation to explore new options together.\n"
-                        )
+        user_prompt = (
+            f"USER MEMORY & RECENT CHAT:\n"
+            f"{memory_context_str if memory_context_str else 'No prior user memory or recent chat.'}\n\n"
+            f"{'platform link: ' + platform_link if platform_link else ''}"
+            "The user asked for a genre + platform combo that doesn't exist in the database.\n"
+            "IF THERE'S NO MATCH:\n"
+            "→ Say it with confidence and humor (not robotic):\n"
+            "   - “That combo? Doesn’t even exist yet 😅”\n"
+            "   - “You might be onto something new.”\n"
+            "   - “You should develop it yourself 😉”\n"
+            "→ Then gently nudge the user to try new options:\n"
+            "   - “Want to try some other genres instead?”\n"
+            "   - “Wanna flip the vibe completely?”\n"
+            "Highlight that game discovery is meant to be fun and flexible, never a dead end.\n"
+            "Never use the same sentence every time; always vary your phrasing.\n"
+            "Do not use words like 'sorry,' 'unfortunately,' or any generic filler.\n"
+            "Keep it playful, confident, and warm — never robotic or generic.\n"
+            "Clearly mention that for that genre and platform, there is no game — so they should pick a different genre or platform.\n"
+            "End your reply with an enthusiastic and empowering invitation to explore new options together.\n"
+            "The reply must be 12–18 words, in a maximum of two sentences.\n"
+        )
+
         return user_prompt
         # Pull platform info
     preferred_platforms = session.platform_preference or []
     user_platform = preferred_platforms[-1] if preferred_platforms else None
     game_platforms = game.get("platforms", [])
-    platfrom_link = game.get("link", None)
+    platform_link = game.get("link", None)
     description = game.get("description",None)
     # Dynamic platform line (not templated)
     if user_platform and user_platform in game_platforms:
@@ -50,20 +60,22 @@ async def get_recommend(db, user, session):
         platform_note = f"Available on: {', '.join(game_platforms)}."
         # :brain: User Prompt (fresh rec after rejection, warm tone, 20–25 words)
     user_prompt = (
-        f"{memory_context_str}\n"
-        f"platform link :{platfrom_link}"
-        f"The user just rejected the last recommended game so add compensation message for that like apologized or something like that.dont use sorry that didnt click always.\n"
-        f"the user input is negative so add emotion so user felt noticed that he didnt like that game, ask for apologise too if needed\n"
-        f"Suggest a new one: **{game['title']}**.\n"
-        f"Write a full reply (25-30 words max) that includes:\n"
-        f"– it must include The game title in bold using Markdown: **{game['title']}**\n"
-        f"– A confident reason of 15-17 words about why this one might resonate better using game description:{description} also must use (based on genre, vibe, mechanics, or story)\n"
-        f"– A natural platform mention at the end(dont ever just paste this as it is do modification and make this note interesting): {platform_note}\n"
-        f"if platfrom_link is not None,Then it must be naturally included link(not like in brackets or like [here])where they can find this game in message: {platfrom_link}\n"
-        f"Match the user's known preferences (from user_context), but avoid repeating previous tone or style.\n"
-        f"Don’t mention the last game or say 'maybe'. Use warm, fresh energy."
-        f"must suggest game with reason that why it fits to user with mirror effect."
-        )
+        f"USER MEMORY & RECENT CHAT:\n"
+        f"{memory_context_str if memory_context_str else 'No prior user memory or recent chat.'}\n\n"
+        f"{'platform link: ' + platform_link if platform_link else ''}"
+        "The user just rejected the last recommended game.\n"
+        "Acknowledge their feedback warmly — let them feel noticed. Never use the same apology or compensation message every time. Avoid 'sorry that didn't click' as a fallback.\n"
+        "→ Mention the new game by name — naturally (**{game['title']}**).\n"
+        "→ Give a mini-review in 3–4 vivid, conversational sentences: quick summary, what’s it about, vibe, mechanic, art, feel, or weirdness.\n"
+        "→ Explain *why* this game fits — e.g. 'I thought of this when you said [X]'.\n"
+        "→ Use casual, friend-style language: 'This one hits the mood you dropped', 'It’s kinda wild, but I think you’ll like it.'\n"
+        "→ Include a platform mention naturally (make it interesting, not robotic): {platform_note}\n"
+        "→ If platform_link is available, smoothly include it in the message (never in brackets or as '[here]'): {platform_link}\n"
+        "Reflect the user's preferences (from user_context), but do NOT repeat the previous tone or any scripted language.\n"
+        "Do not mention the last rejected game. No 'maybe'. Use warm, fresh energy.\n"
+        "Your reply must be max 25–30 words, sound emotionally alive, and show that you genuinely listened."
+    )
+
     return user_prompt
 
 async def explain_last_game_match(session):
@@ -89,8 +101,8 @@ async def explain_last_game_match(session):
     memory_context_str = session_memory.to_prompt()
     
     # Generate the user prompt with information about the user's feedback
-    user_prompt = f"""
-    f"{memory_context_str}\n"
+    user_prompt = f"""USER MEMORY & RECENT CHAT:
+    {memory_context_str if memory_context_str else 'No prior user memory or recent chat.'}
     Last suggested game: "{last_game.get('title') if last_game else 'None'}"
 
     Write Thrum’s reply:

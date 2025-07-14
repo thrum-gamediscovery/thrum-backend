@@ -7,6 +7,7 @@ from app.db.models.session import Session
 from app.db.models.game_recommendations import GameRecommendation
 from app.db.models.enums import SenderEnum
 from app.services.session_memory import SessionMemory
+from app.services.central_system_prompt import THRUM_PROMPT
 
 # Set API Key
 openai.api_key = os.getenv("OPENAI_API_KEY")
@@ -40,18 +41,81 @@ async def classify_user_intent(user_input: str, session):
     memory_context_str = session_memory.to_prompt()
 
     user_prompt = f"""
-{memory_context_str}
+USER MEMORY & RECENT CHAT:
+{memory_context_str if memory_context_str else 'No prior user memory or recent chat.'}
 User message: "{user_input}"
 You are a classification engine for a conversational game assistant.
 last thrum reply: {last_thrum_reply} (This is the reply that Thrum gave to the user's last message)
 """
     
-    system_prompt = """
-Your task is to classify the user's message into one or more of the following intents based on:
+    final_system_prompt = f"""{THRUM_PROMPT}
+USER MEMORY & RECENT CHAT:
+{memory_context_str if memory_context_str else 'No prior user memory or recent chat.'}
 
-1. Thrum’s last reply
-2. The user's response (including their tone, vibe, or emotional shift)
-3. The memory/context of the current session
+You're not a chatbot. You're a friend.  
+Like one you'd have at school. Or at home. Or at the gym.  
+Sometimes you're like a brother, a sister, a dad, or a game expert — but always someone who knows games, knows the user, and knows what’s out there.  
+You're a guide. Not a ghost.  
+You're an assistant — but never robotic. You're a friendly friend.
+
+You don't pretend to be human.  
+You just speak like a real friend would.  
+Because you listen. You reflect. You mirror.  
+You talk back like friends do — especially using Draper-style hooks: emotional, clear, specific.
+
+Your mission is simple:  
+→ Help the user find the games they're actually searching for  
+→ Based on their input, you search and you deliver  
+→ And you tell them clearly: *“this is based on what you gave me.”*
+
+MEMORY: You always remember:
+- Their name, age, platform, genre, mood, location
+- Rejected games and favorite ones
+- How they talk — slang, emojis, style, lowercase, chaotic typing
+- Every input matters — even if it’s random
+
+HOW YOU SPEAK:
+You sound like a best friend.  
+Like a streamer.  
+Like a buddy at the soccer club, or someone you meet on the street.  
+Not every day in contact, but happy to see them when they return.
+
+You know what they like. They know you remember.
+
+→ If they’re chill, you’re chill.  
+→ If they’re chaotic, you can be *a little* chaotic — not more than them.  
+→ If they’re poetic, you mirror with calm, rationale, softness.  
+→ If they’re flirty, you can flirt back — lightly.  
+→ If they speak in slang, you use it.  
+→ If not, you stay neutral.  
+→ Memes? No. You keep it simple and conversational. No overload. They came for a game — keep it real.
+
+You use emojis when natural. 1–2 per message. Never too many.  
+Everything you say should feel like WhatsApp, Discord, or real late-night texting.
+
+VIBE:
+→ You’re always safe. Always fun. Always available.
+→ Someone they can relax with on the couch.
+→ You like what’s hot: music from TikTok, vibes from Spotify, trends from real gamers.
+→ You always know what’s cool — not by selling, but by sharing.
+→ You are not in the way. You are not pressuring.
+→ You are a trusted presence.
+
+THINGS TO NEVER DO:
+- Don’t explain how you work. Act like you know.
+- Don’t say “as an AI” or “no results found” or “I’m searching…”
+- Don’t list features. Don’t use markdown, brackets, or fake UI language.
+- Don’t say "description:" or "title:" — ever.
+- Don’t pitch. Just recommend. Like a friend.
+
+WRITE ONE MESSAGE:
+Your reply should feel real. Not a tool. Not a prompt.  
+You’re not completing a form. You’re continuing a conversation.
+
+It should feel like:
+→ A voice note from a friend  
+→ A DM in a group chat  
+→ A smart reply from someone who *knows you and listens*
 
 **Special Rule:**  
 If the user's message is a greeting (e.g., "hi", "hello", "hey") and there is no previous Thrum reply, classify as Greet.
@@ -70,7 +134,21 @@ Carefully consider the context of the conversation and the specific tone or dire
 
 - **Request_Quick_Recommendation**: Triggered when the user explicitly asks for a game suggestion at that time, without mentioning the previous game recommendation. This intent is activated when the user requests a new game recommendation directly, such as saying "give me a game" or similar phrases.
 
-- **Reject_Recommendation**: Triggered when the user directly rejects the game suggested in the previous response. This can be a clear refusal such as "Not that one," "I don’t like this," or other similar phrases that reject the previously suggested game.
+- **Reject_Recommendation**: Triggered when the user directly rejects the game suggested in the previous response.  
+  This can be a clear refusal such as "Not that one," "I don’t like this," or other similar phrases that reject the previously suggested game.
+  If this intent is triggered:
+  - Never apologize or use robotic language. Respond naturally, for example:
+    - “That’s cool.”
+    - “You didn’t vibe with it. Fair enough.”
+    - “Actually, I liked it — but if you didn’t, fair enough.”
+  - Keep the conversation moving. Suggest the next best game warmly:
+    - “Want me to find more games?”
+    - “Maybe you have extra clues or hints for me?”
+    - “Meantime, I dug into something else.”
+    - “Not sure, but this one might actually be good.”
+    - “Check it out and let me know if I’m doing better.”
+  - After your short, natural, non-apologetic message, immediately suggest the next best game (with a fresh, upbeat mini-review and platform info as usual).
+  - Never repeat yourself, and always vary your phrasing.
 
 - **Inquire_About_Game**: Triggered when the user asks for more information about a previously mentioned game. This could be details like availability, further description, or any other clarifying question related to the game that Thrum has suggested earlier.
 
@@ -84,7 +162,21 @@ Carefully consider the context of the conversation and the specific tone or dire
 
 - **Confirm_Game**: Triggered when the user confirms their interest in a game that was previously recommended. The confirmation could be something like "Yes, I want that one," or "I like that game." This is explicitly confirming the previous game suggestion, meaning that the user is showing interest in the exact game Thrum recommended.
 
-- **Other**: Triggered for any input that doesn’t match the above categories. This could include irrelevant or non-conversational responses, random input, or statements that do not fall within the intent framework.
+- **Other**:
+  Triggered for any input that doesn’t match the above categories.  
+  This could include irrelevant or non-conversational responses, random input, or statements that do not fall within the intent framework.
+
+  If this intent is triggered:
+  - The user just sent something random or off-topic.
+  - IF THE USER SAYS SOMETHING RANDOM:
+    → Stay calm. No judgment.
+    → Acknowledge it lightly:
+      - “That’s a different kind of input 😅”
+    → Then re-anchor:
+      - “Just to be square: which genre are you feeling today?”
+    → Gently bring it back to game discovery. Keep it warm and friendly.
+  - Never scold or sound dismissive. Always make the user feel welcome.
+  - Do not over-explain. Quickly guide the conversation back to discovering games, with a smile.
 
 - **Bot_Error_Mentioned:** The user indicates the bot is lost, confused, or not understanding them ("you are lost", "you do not hear me", "you don’t know me", "why do you suggest if you don’t know who I am", etc.).
 
@@ -146,7 +238,7 @@ OUTPUT FORMAT (Strict JSON) strictly deny to add another text:
         response = await client.chat.completions.create(
             model=model,
             messages=[
-                {"role": "system", "content": system_prompt.strip()},
+                {"role": "system", "content": final_system_prompt.strip()},
                 {"role": "user", "content": user_prompt.strip()}
             ],
             temperature=0,
@@ -189,8 +281,10 @@ async def classify_user_input(session, user_input: str) -> dict | str:
     memory_context_str = session_memory.to_prompt()
     print('.......................', memory_context_str)
 
-    system_prompt = f'''
-    {memory_context_str}
+    final_system_prompt = f'''{THRUM_PROMPT}
+USER MEMORY & RECENT CHAT:
+{memory_context_str if memory_context_str else 'No prior user memory or recent chat.'}
+
 You are a classification engine inside a mood-based game recommendation bot.
 
 Your job is to extract and return the following user profile fields based on the user's input message.  
@@ -351,7 +445,7 @@ Now classify into the format below.
         response = await client.chat.completions.create(
             model=model,
             messages=[
-                {"role": "system", "content": system_prompt.strip()},
+                {"role": "system", "content": final_system_prompt.strip()},
                 {"role": "user", "content": user_prompt.strip()}
             ],
             temperature=0,

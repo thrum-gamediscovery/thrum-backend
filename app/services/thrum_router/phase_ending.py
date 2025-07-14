@@ -14,7 +14,8 @@ async def handle_ending(session):
     memory_context_str = session_memory.to_prompt()
 
     user_prompt = (
-    f"{memory_context_str}\n"
+    f"USER MEMORY & RECENT CHAT:\n"
+    f"{memory_context_str if memory_context_str else 'No prior user memory or recent chat.'}\n\n"
     "The user has either gone silent, declined more games, or seems to be disengaging.\n"
     "Write a warm, friendly farewell message to end the session gracefully.\n"
     "Keep it short — no more than 10–15 words.\n"

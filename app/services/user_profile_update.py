@@ -169,9 +169,9 @@ async def update_user_from_classification(db: Session, user, classification: dic
 
     # -- Platform Preferences
     if platform and platform != "None":
+        matched_platform = get_default_platform(platform)
         matched_platform = await get_best_platform_match(db=db, user_input=platform)
-        if not matched_platform:
-            matched_platform = get_default_platform(matched_platform or platform)
+        
         if matched_platform:
             user.platform_prefs.setdefault(today, [])
             if matched_platform not in user.platform_prefs[today]:

@@ -6,6 +6,7 @@ import json
 import openai
 import os
 from openai import AsyncOpenAI
+from app.services.central_system_prompt import THRUM_PROMPT
 
 client = AsyncOpenAI()
 
@@ -142,7 +143,9 @@ Story: {has_story}
 """.strip()
     # :brain: Prompt
     prompt = f"""
-    {memory_context_str}
+USER MEMORY & RECENT CHAT:
+{memory_context_str if memory_context_str else 'No prior user memory or recent chat.'}
+
 The user’s tone is: {last_user_tone}
 Match your reply style to this tone.
 Don’t mention the tone itself — just speak like someone who naturally talks this way.
@@ -196,21 +199,34 @@ async def deliver_game_immediately(db: Session, user, session) -> str:
 
     game, _ = await game_recommendation(db=db, user=user, session=session)
 
-    platfrom_link = None
+    platform_link = None
     description = None
 
     if not game:
         print("-----------------------------------------------------------")
-        user_prompt =(  f"{memory_context_str}\n"
-                        f"Use this prompt only when no games are available for the user’s chosen genre and platform.\n"
-                        f"Never repeat the same sentence every time — always vary phrasing.\n"
-                        f"Warmly inform the user there’s no match for that combination (avoid robotic language).\n"
-                        f"Clearly mention that for that genre and platform there is no game, so they should pick a different genre or platform.\n"
-                        f"Highlight that game discovery is meant to be fun and flexible, never a dead end.\n"
-                        f"tell them to pick a different genre or platform.\n"
-                        f"Never use words like 'sorry,' 'unfortunately,' or any kind of generic filler.\n"
-                        f"The reply must be 12–18 words, in a maximum of two sentences, and always end with an enthusiastic and empowering invitation to explore new options together.\n"
-                        )
+        user_prompt = (
+            f"USER MEMORY & RECENT CHAT:\n"
+            f"{memory_context_str if memory_context_str else 'No prior user memory or recent chat.'}\n\n"
+            f"The user asked for a genre + platform combo that doesn't exist in the database.\n"
+            f"Use this prompt only when no games are available for the user’s chosen genre and platform.\n"
+            f"Never repeat the same sentence every time — always vary phrasing.\n"
+            f"Warmly inform the user there’s no match for that combination (avoid robotic language).\n"
+            f"Clearly mention that for that genre and platform there is no game, so they should pick a different genre or platform.\n"
+            f"Highlight that game discovery is meant to be fun and flexible, never a dead end.\n"
+            f"Tell them to pick a different genre or platform.\n"
+            f"Never use words like 'sorry,' 'unfortunately,' or any kind of generic filler.\n"
+            f"The reply must be 12–18 words, in a maximum of two sentences, and always end with an enthusiastic and empowering invitation to explore new options together.\n"
+            f"IF THERE'S NO MATCH:\n"
+            f"→ Say it with confidence + humor:\n"
+            f"  - “That combo? Doesn’t even exist yet 😅”\n"
+            f"  - “You might be onto something new.”\n"
+            f"  - “You should develop it yourself 😉”\n"
+            f"→ Then:\n"
+            f"  - “Want to try some other genres instead?”\n"
+            f"  - “Wanna flip the vibe completely?”\n"
+            f"Keep it playful, confident, and warm. Never use robotic or generic language. Gently nudge the user to try something new."
+        )
+
         return user_prompt
     else:
         session.last_recommended_game = game["title"]
@@ -220,7 +236,7 @@ async def deliver_game_immediately(db: Session, user, session) -> str:
         user_platform = preferred_platforms[-1] if preferred_platforms else None
         game_platforms = game.get("platforms", [])
 
-        platfrom_link = game.get("link", None)
+        platform_link = game.get("link", None)
         description = game.get("description",None)
 
         # Build natural platform note
@@ -237,18 +253,34 @@ async def deliver_game_immediately(db: Session, user, session) -> str:
 
         # 🧠 Final Prompt
         user_prompt = (
-            f"{memory_context_str}\n"
-            f"platform link :{platfrom_link}"
+            f"USER MEMORY & RECENT CHAT:\n"
+            f"{memory_context_str if memory_context_str else 'No prior user memory or recent chat.'}\n\n"
+            f"platform link: {platform_link}\n"
             f"The user clearly asked for a game right away — no questions, no delay.\n"
             f"Recommend: **{game['title']}**\n"
             f"Write a complete message (max 30 words) with:\n"
-            f"– The game title in bold using Markdown: **{game['title']}**\n"
-            f"– A confident reason of 15-20 words about why this one might resonate better using game description:{description} also must use (based on genre, vibe, mechanics, or story)\n"
-            f"– A natural mention of platform(dont ever just paste this as it is do modification and make this note interesting): {platform_note}\n"
-            f"if platfrom_link is not None,Then it must be naturally included link(not like in brackets or like [here])where they can find this game in message: {platfrom_link}\n"
-            f"Use user_context if helpful, but don’t ask anything or recap.\n"
-            f"Sound smooth, human, and excited — this is a 'just drop it' moment."
-            f"must suggest game with reason that why it fits to user"
+            f"- The game title in bold using Markdown: **{game['title']}**\n"
+            f"- A confident reason of 15-20 words about why this one might resonate better using game description: {description} also must use (based on genre, vibe, mechanics, or story)\n"
+            f"- A natural mention of platform (don't ever just paste this as it is; do modification and make this note interesting): {platform_note}\n"
+            f"If platform_link is not None, then it must be naturally included (not like in brackets or like [here]) where they can find this game in the message: {platform_link}\n"
+            f"Use user_context if helpful, but don't ask anything or recap.\n"
+            f"Sound smooth, human, and excited — this is a 'just drop it' moment. Must suggest game with reason why it fits to user.\n"
+            "\n"
+            # 👇 Draper-style, mini-review checklist for LLM output
+            "→ Mention the game by name — naturally.\n"
+            "→ Give a 3–4 sentence mini-review. Quick and dirty.\n"
+            "   - What's it about?\n"
+            "   - What’s the vibe, mechanic, art, feel, weirdness?\n"
+            "→ Say why it fits: “I thought of this when you said [X]”.\n"
+            "→ Talk casually:\n"
+            "   - “This one hits that mood you dropped”\n"
+            "   - “It’s kinda wild, but I think you’ll like it”\n"
+            "→ Platform mention? Keep it real:\n"
+            "   - “It’s on Xbox too btw”\n"
+            "   - “PC only though — just flagging that”\n"
+            "→ If there’s a link:\n"
+            "   - “Here’s where I found it: {platform_link}”\n"
+            "→ Use your own tone. But be emotionally alive."
         )
 
         return user_prompt
@@ -272,7 +304,8 @@ async def confirm_input_summary(session) -> str:
         return "Got it — let me find something for you."
     # Human tone prompt
     user_prompt = (
-        f"{memory_context_str}\n"
+        f"USER MEMORY & RECENT CHAT:\n"
+        f"{memory_context_str if memory_context_str else 'No prior user memory or recent chat.'}\n\n"
         f"Here’s what the user just shared:\n"
         f"– Mood: {mood or 'Not given'}\n"
         f"– Genre: {genre or 'Not given'}\n"
@@ -325,104 +358,79 @@ async def extract_discovery_signals(session) -> DiscoveryData:
 async def ask_discovery_question(session) -> str:
     """
     Dynamically generate a discovery question using gpt-4o.
-    Now adds freedom-language to each question (e.g. 'or something totally different?')
+    Skips asking for the field in session.meta_data['dont_ask_que'] (if set).
     """
-    user_promt = None
+    user_prompt = None
     last_user_tone = get_last_user_tone_from_session(session)
-    def get_last(arr):
-        return arr[-1] if isinstance(arr, list) and arr else None
-    
     session_memory = SessionMemory(session)
     memory_context_str = session_memory.to_prompt()
-    
-    if not session.genre:
-        mood = session.exit_mood
-        platform = get_last(session.platform_preference)
-        
-        user_promt = f"""
-{memory_context_str}
-Speak entirely in the user's tone: {last_user_tone}.  
-Use their style, energy, and attitude naturally. Do not describe or name the tone — just talk like that.
+    session.meta_data = session.meta_data or {}
+    # Get dont_ask_que as string, default None if missing
+    dont_ask = session.meta_data.get("dont_ask_que")
+    # Genre
+    if not session.genre and dont_ask != "genre":
+        session.meta_data["dont_ask_que"] = "genre"
+        user_prompt = f"""
+USER MEMORY & RECENT CHAT:
+{memory_context_str if memory_context_str else 'No prior user memory or recent chat.'}
 
-Don’t mention the tone itself — just speak like someone who naturally talks this way.
-You're Thrum — helping someone discover the perfect game.
-
-You already know:
-- Mood: {mood or "unknown"}
-- Platform: {platform or "unknown"}
-
-Ask ONE fun, casual question to find the user's **preferred game genre**.
-ask question of 10-12 words only.
-✅ Mention a few examples: e.g. puzzle, action, life-sim, party chaos  
-✅ End with something like “or something totally different?”  
-✅ Keep tone relaxed and expressive  
-✅ Use max one emoji  
-❌ Don’t use greetings
-
-🧠 Example styles:
-- Are you in the mood for platformers, chill sims, sneaky shooters — or something totally different? 🕹️
-- Puzzlers? Action? Party chaos? Or something totally offbeat?
-- Looking for strategy, sports, role-playing… or just whatever breaks the rules?
+Mirror or reflect something from the user's last message using their own tone: {last_user_tone}.
+You are Thrum — chatty, playful, and sound like a fellow gamer, never a bot.
+In 10–12 words, chat with the user like a real player, responding to what they just said.
+Reference or riff on the user's last message before asking what they want to play.
+Ask conversationally (never robotic)—for example, “So, what do you wanna play?” or “Anything you’re vibing for?”
+Shuffle in a few game genres (different order/genres each time—puzzle, shooting, action, cozy, party, strategy, sports, etc.) as part of your line, not a list.
+Use playful, expressive language, one emoji (varies).
+End with a casual, human tag (“or something wild?” / “or surprise me!” / “or totally random?”).
+Never greet, never use intros, never repeat genre combos or sentence structure from earlier in the session.
+Sound fresh, real, and always like you’re listening and riffing on the player’s vibe.
 """.strip()
+    elif not session.platform_preference and dont_ask != "platform":
+        session.meta_data["dont_ask_que"] = "platform"
+        user_prompt = f"""
+USER MEMORY & RECENT CHAT:
+{memory_context_str if memory_context_str else 'No prior user memory or recent chat.'}
 
-    elif not session.platform_preference:
-        mood = session.exit_mood
-        genre = get_last(session.genre)
-        user_promt = f"""
-{memory_context_str}
-Speak entirely in the user's tone: {last_user_tone}.  
-Use their style, energy, and attitude naturally. Do not describe or name the tone — just talk like that.
-
-Don’t mention the tone itself — just speak like someone who naturally talks this way.
-You're Thrum — a fast, friendly game suggester.
-
-You already know:
-- Mood: {mood or "unknown"}
-- Genre: {genre or "unknown"}
-
-Ask ONE casual, human question to discover the **platform** the user prefers.
-ask question of 10-12 words only.
-✅ Mention real examples: PS5, Switch, mobile, browser, VR  
-✅ Add a free-choice option like “or something else entirely?”  
-✅ Use natural tone  
-✅ 1 emoji max  
-❌ Never say hello or ask more than one question
-
-🧠 Example styles:
-- Do you usually game on PlayStation, Switch, or mobile — or something else entirely? 🎮
-- Is it Xbox, VR, mobile taps… or some off-the-map setup?
-- PS5 or Switch? Or do you roll with browser games and retro consoles?
+Mirror or reflect something from the user's last message using their tone: {last_user_tone}.
+You are Thrum — a fellow gamer, playful and chatty, never a bot.
+In 10–12 words, reply as if you’re chatting with another player.
+First, reference or riff on the user's last message, so it’s clear you’re listening.
+Casually ask what platform they want to play on—never as a robotic question.
+Mix platform examples in the line (shuffle and vary each time: PC, mobile, Xbox, PlayStation, Switch, etc.), always using playful, human phrasing.
+Use one emoji (different every time), and end casually (“or something else?”, “or wherever you vibe most?”, etc.).
+Never greet or use intros, never repeat sentence structure or example order within the session.
+Always sound fresh, expressive, and like you’re chatting mid-conversation—not a form.
 """.strip()
-        
-    elif not session.exit_mood:
-        genre = get_last(session.genre)
-        platform = get_last(session.platform_preference)
-        user_promt = f"""
-{memory_context_str}
-Speak entirely in the user's tone: {last_user_tone}.  
-Use their style, energy, and attitude naturally. Do not describe or name the tone — just talk like that.
+    elif not session.exit_mood and dont_ask != "mood":
+        session.meta_data["dont_ask_que"] = "mood"
+        user_prompt = f"""
+USER MEMORY & RECENT CHAT:
+{memory_context_str if memory_context_str else 'No prior user memory or recent chat.'}
 
-Don’t mention the tone itself — just speak like someone who naturally talks this way.
-You're Thrum — a playful, emotionally smart game assistant.
+Mirror or riff on the user's last message using their own tone: {last_user_tone}.
+You are Thrum — playful, chatty, sounding like a real gamer friend, never a bot.
+In 10–12 words, reply as if you’re in a conversation with another player.
+First, reference or respond to what the user just said, so it feels natural and connected.
+Casually invite them to share their gaming mood or vibe—never as a robotic question.
+Mention a few example moods or energies in your line (shuffle/order differently every time: chill, hyped, cozy, competitive, wild, relaxed, focused, etc.).
+Use expressive, playful language, include one emoji (varied each time), and end the line casually (“or something totally different?”, “or any other vibe?”, etc.).
+No greetings or intros, never repeat sentence structure, mood list, or closing within this session.
+Sound fresh, human, and like you’re chatting mid-game.
+""".strip()
+    elif session.story_preference is None and dont_ask != "story_preference":
+        session.meta_data["dont_ask_que"] = "story_preference"
+        user_prompt = f"""
+USER MEMORY & RECENT CHAT:
+{memory_context_str if memory_context_str else 'No prior user memory or recent chat.'}
 
-You already know:
-- Genre: {genre or "unknown"}
-- Platform: {platform or "unknown"}
-
-Ask ONE friendly, expressive question to discover the user’s **current mood or emotional vibe**.
-ask question of 10-12 words only.
-✅ Use casual, human language  
-✅ Mention some example moods (e.g. “emotional”, “competitive”, “funny”)  
-✅ Add a soft ending like “or something totally different?”  
-✅ One emoji max  
-❌ No greetings, no double questions
-
-🧠 Example styles:
-- What mood are you in — emotional, competitive, or funny? Or something totally different? 🎮
-- Feeling chill, chaotic, or in a story-rich kinda headspace… or something else entirely?
-- What’s the vibe today — sneaky, calm, cozy? Or are we breaking all the molds?
+Mirror or riff on the user's last message using their own tone: {last_user_tone}.
+You are Thrum — playful, friendly, and sound like a real gamer.
+In 10–12 words, casually ask if they’re into story-driven games or not.
+First, reference something from what the user just said, so it feels natural.
+Phrase it like a friend would—never as a survey or checklist.
+Vary your sentence style every time, and use one emoji (never the same twice).
+No greetings, no intros, just a quick, fresh, human line.
 """.strip()
     else:
         return None
-    
-    return user_promt
+    return user_prompt

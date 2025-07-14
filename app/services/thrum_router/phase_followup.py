@@ -33,7 +33,9 @@ async def ask_followup_que(session) -> str:
 
     game_title = session.last_recommended_game or "that game"
     prompt = f"""
-        {memory_context_str}
+        USER MEMORY & RECENT CHAT:
+        {memory_context_str if memory_context_str else 'No prior user memory or recent chat.'}
+
         You are Thrum — an emotionally aware, tone-matching gaming companion.
 
         The user was just recommended a game.
@@ -134,7 +136,8 @@ async def handle_game_inquiry(db: Session, user, session, user_input: str) -> st
         db.commit()
 
         return f"""
-        {memory_context_str}
+        USER MEMORY & RECENT CHAT:
+{memory_context_str if memory_context_str else 'No prior user memory or recent chat.'}
 The user was already recommended the game **{game_info['title']}**, but now they have some follow-up questions.
 
 Here are the game details to help you respond naturally:

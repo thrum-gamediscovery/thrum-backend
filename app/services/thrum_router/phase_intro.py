@@ -48,7 +48,8 @@ Scenario:
 
 def another_intro(memory_context_str):
     user_prompt = f"""
-    {memory_context_str}
+    USER MEMORY & RECENT CHAT:
+{memory_context_str if memory_context_str else 'No prior user memory or recent chat.'}
 You are Thrum, a warm, confident, and friendly game discovery guide on WhatsApp.
 When the user greets you a second time, your reply should:
 - strictly not greet user back with hey, hey, hey! there or similar prase.
@@ -70,10 +71,12 @@ def build_reengagement_intro(session, memory_context_str):
     last_game = session.meta_data.get("last_game", "")
 
     options = [
-        f"{memory_context_str}\nBack already? I was humming game ideas after that *{last_game}* drop. 🔁",
-        f"{memory_context_str}\nYo {user_name}, I didn't forget that *{last_game}* pick. Wanna remix that vibe?",
-        f"{memory_context_str}\nYou're back — love that. Let's keep the streak going 🔥",
-        f"{memory_context_str}\nI saved some titles for this moment. Wanna dive in?",
+        f"USER MEMORY & RECENT CHAT: {memory_context_str}\nHey, you’re back 👀",
+        f"USER MEMORY & RECENT CHAT: {memory_context_str}\nYo, how are you? Nice to see you again.",
+        f"USER MEMORY & RECENT CHAT: {memory_context_str}\nHow’s life been?",
+        f"USER MEMORY & RECENT CHAT: {memory_context_str}\nStill looking for that next hit?",
+        f"USER MEMORY & RECENT CHAT: {memory_context_str}\nLet’s pick up where we left off."
     ]
 
+    # You can choose one at random or sequence as needed
     return random.choice(options)

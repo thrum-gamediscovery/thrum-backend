@@ -17,7 +17,8 @@ async def handle_confirmed_game(db, user, session):
     memory_context_str = session_memory.to_prompt()
 
     user_prompt = (
-        f"{memory_context_str}\n"
+        f"USER MEMORY & RECENT CHAT:\n"
+        f"{memory_context_str if memory_context_str else 'No prior user memory or recent chat.'}\n\n"
         "The user confirmed they liked the last recommended game.\n"
         "Use their input, your last reply, and the game title to reflect emotionally.\n"
         "Reply with a short, natural confirmation — no more than 10 words.\n"
@@ -56,7 +57,8 @@ async def ask_for_name_if_needed():
                 memory_context_str = session_memory.to_prompt()
 
                 response_prompt  = (
-                        f"{memory_context_str}\n"
+                        f"USER MEMORY & RECENT CHAT:\n"
+                        f"{memory_context_str if memory_context_str else 'No prior user memory or recent chat.'}\n\n"
                         "Generate a polite, natural message (max 10–12 words) asking the user for their name.\n"
                         "The tone should be friendly and casual, without being too formal or overly casual.\n"
                         "Ensure it doesn’t feel forced, just a simple request to know their name.\n"

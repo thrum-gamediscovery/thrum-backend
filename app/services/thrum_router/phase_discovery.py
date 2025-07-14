@@ -35,32 +35,43 @@ async def handle_discovery(db, session, user, classification, user_input):
         return await confirm_input_summary(session)
 
     elif session.discovery_questions_asked >= 2:
+        session.meta_data = session.meta_data or {}
+        session.meta_data["dont_ask_que"] = None
+        
         session.phase = PhaseEnum.DELIVERY
         session.discovery_questions_asked = 0
 
         game, _ = await game_recommendation(db=db, session=session, user=user)
-        platfrom_link = None
+        platform_link = None
         description = None
         
         if not game:
             print("################################################################")
-            user_prompt =(
-                        f"{memory_context_str}\n"
-                        f"Use this prompt only when no games are available for the user’s chosen genre and platform.\n"
-                        f"never repeat the same sentence every time do change that always.\n"
-                        f"you must warmly inform the user there’s no match for that combination — robotic.\n"
-                        f"clearly mention that for that genre and platfrom there is no game.so pick different genre or platfrom.\n"
-                        f"tell them to pick a different genre or platform.\n"
-                        f"Highlight that game discovery is meant to be fun and flexible, never a dead end.\n"
-                        f"Never use words like 'sorry,' 'unfortunately,' or any kind of generic filler.\n"
-                        f"The reply must be 12–18 words, in a maximum of two sentences, and always end with an enthusiastic and empowering invitation to explore new options together.\n"
-                        )
+            user_prompt = (
+                f"USER MEMORY & RECENT CHAT:\n"
+                f"{memory_context_str if memory_context_str else 'No prior user memory or recent chat.'}\n\n"
+                "The user asked for a genre + platform combo that doesn't exist in the database.\n"
+                "IF THERE'S NO MATCH:\n"
+                "→ Say it with confidence and humor (never robotic):\n"
+                "  - 'That combo? Doesn’t even exist yet 😅'\n"
+                "  - 'You might be onto something new.'\n"
+                "  - 'You should develop it yourself 😉'\n"
+                "→ Then:\n"
+                "  - 'Want to try some other genres instead?'\n"
+                "  - 'Wanna flip the vibe completely?'\n"
+                "Highlight that game discovery is meant to be fun, flexible, and never a dead end.\n"
+                "Never use words like 'sorry,' 'unfortunately,' or any generic filler.\n"
+                "Do not repeat the same sentence every time — always vary your phrasing.\n"
+                "Your reply must be 12–18 words, in a maximum of two sentences, and always end with an enthusiastic, empowering invitation to explore new options together.\n"
+                "Keep it playful, confident, and warm. Gently nudge the user to try something new."
+            )
+
             return user_prompt
         # Pull platform info
         preferred_platforms = session.platform_preference or []
         user_platform = preferred_platforms[-1] if preferred_platforms else None
         game_platforms = game.get("platforms", [])
-        platfrom_link = game.get("link", None)
+        platform_link = game.get("link", None)
         description = game.get("description",None)
         # Dynamic platform line (not templated)
         if user_platform and user_platform in game_platforms:
@@ -76,20 +87,25 @@ async def handle_discovery(db, session, user, classification, user_input):
 
         # 🧠 User Prompt (fresh rec after rejection, warm tone, 20–25 words)
         user_prompt = (
-            f"{memory_context_str}\n"
-            f"platform link :{platfrom_link}"
-            f"The user just rejected the last recommended game so add compensation message for that like apologized or something like that.dont use sorry that didnt click always.\n"
-            f"the user input is negative so add emotion so user felt noticed that he didnt like that game, ask for apologise too if needed\n"
-            f"Suggest a new one: **{game['title']}**.\n"
-            f"Write a full reply (25-30 words max) that includes:\n"
-            f"– it must include The game title in bold using Markdown: **{game['title']}**\n"
-            f"– A confident reason of 15-17 words about why this one might resonate better using game description:{description} also must use (based on genre, vibe, mechanics, or story)\n"
-            f"– A natural platform mention at the end(dont ever just paste this as it is do modification and make this note interesting): {platform_note}\n"
-            f"if platfrom_link is not None,Then it must be naturally included link(not like in brackets or like [here])where they can find this game in message: {platfrom_link}\n"
-            f"Match the user's known preferences (from user_context), but avoid repeating previous tone or style.\n"
-            f"Don’t mention the last game or say 'maybe'. Use warm, fresh energy."
-            f"must suggest game with reason that why it fits to user with mirror effect."
+            f"USER MEMORY & RECENT CHAT:\n"
+            f"{memory_context_str if memory_context_str else 'No prior user memory or recent chat.'}\n\n"
+            f"The user just rejected the last recommended game — reflect this, show emotional intelligence, and don’t use a generic apology (never say 'sorry that didn’t click').\n"
+            f"Make the user feel heard; acknowledge their reaction in a natural, human way before suggesting another game.\n"
+            f"Now, suggest a new one: **{game['title']}**\n"
+            f"Write a message (25-30 words max) that must:\n"
+            f"- Bold the game title with Markdown: **{game['title']}**\n"
+            f"- Give a 3–4 sentence, Draper-style, mini-review. Quick and real:\n"
+            f"   - What's it about?\n"
+            f"   - What’s the vibe, mechanic, art, feel, or weirdness?\n"
+            f"- Say why it fits (e.g., 'I thought of this when you said [X]').\n"
+            f"- Talk casually: e.g., 'This one hits that mood you dropped' or 'It’s kinda wild, but I think you’ll like it.'\n"
+            f"- Platform mention: keep it real (e.g., 'It’s on Xbox too btw' or 'PC only though — just flagging that'): {platform_note}\n"
+            f"- If platform_link is not None, naturally include it in the message (never as brackets or [here]): {platform_link}\n"
+            f"- Mirror the user's known preferences (from user_context), but avoid repeating previous tone or style.\n"
+            f"- Do NOT mention the last game or say 'maybe.'\n"
+            f"- Use warm, fresh energy, and show why this pick might actually be a better fit."
         )
+
 
         return user_prompt
 
@@ -113,28 +129,37 @@ async def handle_user_info(db, user, classification, session, user_input):
         session.discovery_questions_asked = 0
 
         game, _ = await game_recommendation(db=db, user=user, session=session)
-        platfrom_link = None
+        platform_link = None
         description = None
         
         if not game:
             print("################################################################")
-            user_prompt =( 
-                        f"{memory_context_str}\n"
-                        f"Use this prompt only when no games are available for the user’s chosen genre and platform.\n"
-                        f"never repeat the same sentence every time do change that always.\n"
-                        f"you must warmly inform the user there’s no match for that combination — robotic.\n"
-                        f"clearly mention that for that genre and platfrom there is no game.so pick different genre or platfrom.\n"
-                        f"tell them to pick a different genre or platform.\n"
-                        f"Highlight that game discovery is meant to be fun and flexible, never a dead end.\n"
-                        f"Never use words like 'sorry,' 'unfortunately,' or any kind of generic filler.\n"
-                        f"The reply must be 12–18 words, in a maximum of two sentences, and always end with an enthusiastic and empowering invitation to explore new options together.\n"
-                        )
+            user_prompt = (
+                f"USER MEMORY & RECENT CHAT:\n"
+                f"{memory_context_str if memory_context_str else 'No prior user memory or recent chat.'}\n\n"
+                "The user asked for a genre + platform combo that doesn't exist in the database.\n"
+                "IF THERE'S NO MATCH:\n"
+                "→ Say it with confidence and humor:\n"
+                "  - “That combo? Doesn’t even exist yet 😅”\n"
+                "  - “You might be onto something new.”\n"
+                "  - “You should develop it yourself 😉”\n"
+                "→ Then:\n"
+                "  - “Want to try some other genres instead?”\n"
+                "  - “Wanna flip the vibe completely?”\n"
+                "Keep it playful, confident, and warm. Never use robotic or generic language.\n"
+                "Never repeat the same sentence — always vary phrasing for each user.\n"
+                "Clearly mention that there’s no game for that genre and platform; invite them to pick a different combo.\n"
+                "Highlight that game discovery is meant to be fun and flexible, never a dead end.\n"
+                "Never use words like 'sorry', 'unfortunately', or any generic filler.\n"
+                "Reply must be 12–18 words, max two sentences, and always end with an enthusiastic, empowering invitation to explore new options together."
+            )
+
             return user_prompt
         # Extract platform info
         preferred_platforms = session.platform_preference or []
         user_platform = preferred_platforms[-1] if preferred_platforms else None
         game_platforms = game.get("platforms", [])
-        platfrom_link = game.get("link", None)
+        platform_link = game.get("link", None)
         description = game.get("description",None)
         # Dynamic platform mention line (natural, not template)
         if user_platform and user_platform in game_platforms:
@@ -150,16 +175,24 @@ async def handle_user_info(db, user, classification, session, user_input):
 
         # Final user prompt for GPT
         user_prompt = (
-            f"{memory_context_str}\n"
-            f"always use tone referecing to the user's current tone.\n"
-            f"Suggest the game **{game['title']}** to the user, you can put title between the message, no restriction for formatting.\n"
-            f"– it must include The game title in bold using Markdown: **{game['title']}**\n"
-            f"– A confident reason of 15-17 words about why this one might resonate better using game description:{description} also must use (based on genre, vibe, mechanics, or story)\n"
-            f"Use user context from the system prompt (e.g., story_preference, genre, platform_preference).\n"
-            f"– A natural platform mention at the end(dont ever just paste this as it is do modification and make this note interesting): {platform_note}\n"
-            f"if platfrom_link is not None,Then it must be naturally included link(not like in brackets or like [here])where they can find this game in message: {platfrom_link}\n"
-            f"Tone should be confident, warm, and very human. Never say 'maybe' or 'you might like'."
-            f"must suggest game with reason that why it fits to user"
+            f"USER MEMORY & RECENT CHAT:\n"
+            f"{memory_context_str if memory_context_str else 'No prior user memory or recent chat.'}\n\n"
+            "→ Always reflect the user's current tone — keep it real and emotionally alive.\n"
+            f"Suggest the game **{game['title']}** to the user (title can appear anywhere in your message, no format restrictions).\n"
+            # Draper-style, mini-review checklist
+            "→ Mention the game by name — naturally.\n"
+            "→ Give a 3–4 sentence mini-review. Quick and dirty:\n"
+            "   - What's it about?\n"
+            "   - What’s the vibe, mechanic, art, feel, weirdness?\n"
+            f"→ Say why it fits: e.g. “I thought of this when you said [{description}]”.\n"
+            "→ Talk casually:\n"
+            "   - “This one hits that mood you dropped”\n"
+            "   - “It’s kinda wild, but I think you’ll like it”\n"
+            f"→ Always include a real platform note, naturally woven in: {platform_note}\n"
+            f"→ If there's a platform_link, include it naturally in your message (never as a bracketed or formal citation): {platform_link}\n"
+            "→ Use system prompt's user context (story_preference, genre, platform_preference) if it helps personalize — but don’t recap or ask.\n"
+            "→ Tone must be confident, warm, and human. Never use 'maybe', 'you might like', or robotic phrasing.\n"
+            "→ Your message must always explain *why* this game fits the user’s vibe, referencing their input."
         )
 
         return user_prompt
@@ -183,7 +216,8 @@ async def handle_other_input(db, user, session, user_input: str) -> str:
     memory_context_str = session_memory.to_prompt()
 
     user_prompt = (
-        f"{memory_context_str}\n"
+        f"USER MEMORY & RECENT CHAT:\n"
+        f"{memory_context_str if memory_context_str else 'No prior user memory or recent chat.'}\n\n"
         f"The user just said: “{user_input}”\n"
         f"Instructions for Thrum:\n"
         f"- Treat every input as valid — from direct questions (about games, platforms, Thrum itself, or life), to casual talk, jokes, doubts, or even random comments.\n"
@@ -209,7 +243,8 @@ async def dynamic_faq_gpt(session, user_input=None):
     memory_context_str = session_memory.to_prompt()
 
     user_prompt = (
-        f"{memory_context_str}\n"
+        f"USER MEMORY & RECENT CHAT:\n"
+        f"{memory_context_str if memory_context_str else 'No prior user memory or recent chat.'}\n\n"
         "You are Thrum, a warm, confident, and real-sounding game discovery sidekick. "
         "A user just asked a question about 'how you work' or 'what you do'.\n\n"
         "Your job:\n"

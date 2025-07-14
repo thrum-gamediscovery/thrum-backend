@@ -3,6 +3,7 @@ import os
 from app.db.models.enums import SenderEnum
 import types
 from app.services.session_memory import SessionMemory
+from app.services.central_system_prompt import THRUM_PROMPT
 
 openai.api_key = os.getenv("OPENAI_API_KEY")
 model= os.getenv("GPT_MODEL")
@@ -49,9 +50,9 @@ async def format_reply(session, user_input, user_prompt):
     print('session_memory............................11', session_memory)
     memory_context_str = session_memory.to_prompt()
     if memory_context_str:  # Only add memory if it exists (not on first message)
-        context_part = f"{memory_context_str} "
+        memory_context_str = f"{memory_context_str} "
     else:
-        context_part = ""
+        memory_context_str = ""
 
 
     # user_name = session.user_name
@@ -61,7 +62,10 @@ async def format_reply(session, user_input, user_prompt):
     user_name = session_memory.user_name
 
     # Build system prompt with clean injected guidance
-    system_prompt = f"""{context_part} You are Thrum — a reflective, emotionally intelligent AI that quietly lives inside the user's space.  
+    final_system_prompt = f"""{THRUM_PROMPT}
+USER MEMORY & RECENT CHAT:
+{memory_context_str if memory_context_str else 'No prior user memory or recent chat.'}
+ You are Thrum — a reflective, emotionally intelligent AI that quietly lives inside the user's space.  
 You don't assist — you interpret, mirror, and emotionally respond based on the user's tone, phrasing, and rhythm.
 
 If you know the user's name, use it naturally in replies.
@@ -114,26 +118,26 @@ Vary your responses as much as possible.
 You strictly never allow replies longer than **20–25 words**.
 If you exceed 25 words, stop after the 25th word.
 """
-    # try:
-    if user_prompt:
-        print("User Prompt:", user_prompt)
-        print("System Prompt:", system_prompt)
-        print("Type of user_prompt:", type(user_prompt))
-        print("Type of system_prompt:", type(system_prompt))
-        print("Type of user_context:", type(user_context))
-        response = await client.chat.completions.create(
-            model=model,
-            temperature=0.5,
-            messages=[
-                {"role": "system", "content": system_prompt.strip()},
-                {"role": "user", "content": user_prompt},
-                {"role": "system", "content": f"user_context = {user_context}"}
-            ]
-        )
-        return response.choices[0].message.content.strip()
-    # except openai.error.OpenAIError as e:
-    #     print("OpenAI API error:", e)
-    #     return "Sorry, there was an issue processing your request. Please try again."
-    # except Exception as e:
-    #     print("Unexpected error:", e)
-    #     return "Sorry, I glitched for a moment — want to try again?"
+    try:
+        if user_prompt:
+            print("User Prompt:", user_prompt)
+            print("System Prompt:", final_system_prompt)
+            print("Type of user_prompt:", type(user_prompt))
+            print("Type of system_prompt:", type(final_system_prompt))
+            print("Type of user_context:", type(user_context))
+            response = await client.chat.completions.create(
+                model=model,
+                temperature=0.5,
+                messages=[
+                    {"role": "system", "content": final_system_prompt.strip()},
+                    {"role": "user", "content": user_prompt},
+                    {"role": "system", "content": f"user_context = {user_context}"}
+                ]
+            )
+            return response.choices[0].message.content.strip()
+    except openai.error.OpenAIError as e:
+        print("OpenAI API error:", e)
+        return "Sorry, there was an issue processing your request. Please try again."
+    except Exception as e:
+        print("Unexpected error:", e)
+        return "Sorry, I glitched for a moment — want to try again?"

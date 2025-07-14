@@ -38,13 +38,14 @@ async def check_intent_override(db, user_input, user, session, classification):
             if should_recommend:
                 session.phase = PhaseEnum.DELIVERY
                 game,_ =  await game_recommendation(db=db, user=user, session=session)
-                platfrom_link = None
+                platform_link = None
                 description = None
                 
                 if not game:
                     print("################################################################")
                     user_prompt =( 
-                        f"{memory_context_str}\n"
+                        f"USER MEMORY & RECENT CHAT:\n"
+                        f"{memory_context_str if memory_context_str else 'No prior user memory or recent chat.'}\n\n"
                         f"Use this prompt only when no games are available for the user’s chosen genre and platform.\n"
                         f"never repeat the same sentence every time do change that always.\n"
                         f"you must warmly inform the user there’s no match for that combination — robotic.\n"
@@ -60,7 +61,7 @@ async def check_intent_override(db, user_input, user, session, classification):
                 user_platform = preferred_platforms[-1] if preferred_platforms else None
                 game_platforms = game.get("platforms", [])
 
-                platfrom_link = game.get("link", None)
+                platform_link = game.get("link", None)
                 description = game.get("description",None)
                 
                 # Dynamic platform mention line (natural, not template)
@@ -77,15 +78,16 @@ async def check_intent_override(db, user_input, user, session, classification):
 
                 # Final user prompt for GPT
                 user_prompt = (
-                    f"{memory_context_str}\n"
-                    f"platform link :{platfrom_link}"
+                    f"USER MEMORY & RECENT CHAT:\n"
+                    f"{memory_context_str if memory_context_str else 'No prior user memory or recent chat.'}\n\n"
+                    f"platform link :{platform_link}"
                     f"Suggest a second game after the user rejected the previous one.The whole msg should no more than 25-30 words.\n"
                     f"The game must be **{game['title']}** (use bold Markdown: **{game['title']}**).\n"
                     f"– A confident reason of 15-20 words about why this one might resonate better using game description:{description} also must use (based on genre, vibe, mechanics, or story)\n"
                     f"Mirror the user's reason for rejection in a warm, human way before suggesting the new game.\n"
                     f"Use user context from the system prompt (like genre, story_preference, platform_preference) to personalize.\n"
                     f"Then naturally include this platform note (rephrase it to sound friendly, do not paste as-is): {platform_note}\n"
-                    f"if platfrom_link is not None,Then it must be naturally included link(not like in brackets or like [here])where they can find this game in message: {platfrom_link}\n"
+                    f"if platform_link is not None,Then it must be naturally included link(not like in brackets or like [here])where they can find this game in message: {platform_link}\n"
                     f"Tone must be confident, warm, emotionally intelligent — never robotic.\n"
                     f"Never say 'maybe' or 'you might like'. Be sure the game feels tailored.\n"
                     f"If the user was only asking about availability and the game was unavailable, THEN and only then, offer a different suggestion that is available.\n"
