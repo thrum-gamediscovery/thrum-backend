@@ -135,9 +135,6 @@ If you exceed 25 words, stop after the 25th word.
                 ]
             )
             return response.choices[0].message.content.strip()
-    except openai.error.OpenAIError as e:
-        print("OpenAI API error:", e)
-        return "Sorry, there was an issue processing your request. Please try again."
     except Exception as e:
         print("Unexpected error:", e)
         return "Sorry, I glitched for a moment — want to try again?"
