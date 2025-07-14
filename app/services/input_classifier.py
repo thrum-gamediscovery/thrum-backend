@@ -233,6 +233,8 @@ OUTPUT FORMAT (Strict JSON) strictly deny to add another text:
     "About_FAQ": true/false
 }
 """
+    
+    print('final_system_prompt...................', final_system_prompt)
 
     if user_prompt:
         response = await client.chat.completions.create(
