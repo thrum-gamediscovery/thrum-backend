@@ -26,7 +26,7 @@ def get_session_state(last_active: datetime) -> SessionTypeEnum:
     elapsed = now - last_active
     if elapsed > timedelta(hours=48):
         return SessionTypeEnum.COLD
-    elif elapsed > timedelta(minutes=30): #elif elapsed > timedelta(hours=11):
+    elif elapsed > timedelta(hours=11): #elif elapsed > timedelta(hours=11):
         return SessionTypeEnum.PASSIVE
     else:
         return SessionTypeEnum.ACTIVE
