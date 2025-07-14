@@ -8,17 +8,18 @@ async def handle_intro(session):
     
     print(f"already_greet : {session.meta_data.get('already_greet')}")
     
+    # Check if user has any previous interactions (true onboarding)
+    if not session.interactions or len(session.interactions) == 0:
+        session.meta_data["already_greet"] = True
+        return build_first_time_intro()
+    
     # Check if the user is a returning user
     if session.meta_data.get("returning_user"):
         return build_reengagement_intro(session, memory_context_str)
     
-    # Ensure the 'already_greet' key exists in metadata and set it to False if it's missing
-    if session.meta_data.get("already_greet") is None:
-        session.meta_data["already_greet"] = False  # Initialize if not present
-    
-    # If the user has not been greeted, greet them for the first time
+    # If user has interactions but not marked as greeted
     if not session.meta_data.get("already_greet"):
-        session.meta_data["already_greet"] = True  # Mark as greeted
+        session.meta_data["already_greet"] = True
         return build_first_time_intro()
     
     # If the user has already been greeted, show another intro

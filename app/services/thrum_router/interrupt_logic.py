@@ -9,6 +9,8 @@ from app.services.thrum_router.phase_ending import handle_ending
 from app.services.thrum_router.phase_confirmation import handle_confirmed_game
 from app.services.thrum_router.phase_discovery import handle_discovery, dynamic_faq_gpt, handle_other_input
 from app.services.session_memory import SessionMemory
+from app.services.recommendation_validator import should_recommend_game, get_missing_context
+from app.services.context_validator import validate_user_context, should_ask_for_context, generate_context_request
 
 async def check_intent_override(db, user_input, user, session, classification):
     print('check_intent_override.........................')
@@ -97,6 +99,10 @@ async def check_intent_override(db, user_input, user, session, classification):
 
     # Handle request for quick game recommendation
     elif classification_intent.get("Request_Quick_Recommendation"):
+        if not should_recommend_game(session, user, classification):
+            missing = get_missing_context(session, classification)
+            session.phase = PhaseEnum.DISCOVERY
+            return f"I'd love to find you something perfect! Just need to know your {' and '.join(missing)} first. What's your vibe?"
         session.phase = PhaseEnum.DELIVERY
         return await deliver_game_immediately(db, user, session)
 
@@ -107,8 +113,14 @@ async def check_intent_override(db, user_input, user, session, classification):
 
     # Handle information provided by the user
     elif classification_intent.get("Give_Info"):
-        session.phase = PhaseEnum.DISCOVERY
-        return await handle_discovery(db=db, session=session, classification=classification, user=user, user_input=user_input)
+        context = validate_user_context(session, classification)
+        if should_ask_for_context(context):
+            session.phase = PhaseEnum.DISCOVERY
+            missing = [k for k, v in context.items() if not v or v == "None"]
+            return generate_context_request(missing, session)
+        else:
+            session.phase = PhaseEnum.DELIVERY
+            return await deliver_game_immediately(db, user, session)
 
     # Handle user opting out
     elif classification_intent.get("Opt_Out"):
