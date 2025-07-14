@@ -218,7 +218,7 @@ Your response must be pure JSON, not wrapped in any formatting.
 If you add backticks, markdown, or any extra text, it is a mistake.
 
 OUTPUT FORMAT (Strict JSON) strictly deny to add another text:
-{
+{{
     "Greet": true/false,
     "Phase_Discovery": true/false,
     "Request_Quick_Recommendation": true/false,
@@ -232,7 +232,7 @@ OUTPUT FORMAT (Strict JSON) strictly deny to add another text:
     "Other": true/false,
     "Bot_Error_Mentioned": true/false,
     "About_FAQ": true/false
-}
+}}
 """
     
     print('final_system_prompt...................', final_system_prompt)
