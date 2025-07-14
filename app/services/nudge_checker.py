@@ -85,17 +85,39 @@ async def check_for_nudge():
 
         if now - s.last_thrum_timestamp > delay:
             # 🎯 Soft nudge message
-            nudge = random.choice([
-                "Still there? 😊",
-                "Just drop a word, I’m here.",
-                "You can say anything — no pressure.",
-                "Take your time. I’m listening.",
-                "Feel free to toss in a mood or thought.",
-                "Whenever you’re ready, just type something.",
-                "No rush — I’m right here when you are.",
-                "Say anything — a vibe, a genre, a name.",
-                "Let’s keep this going when you’re ready!"
-            ])
+            # nudge = random.choice([
+            #     "Still there? 😊",
+            #     "Just drop a word, I’m here.",
+            #     "You can say anything — no pressure.",
+            #     "Take your time. I’m listening.",
+            #     "Feel free to toss in a mood or thought.",
+            #     "Whenever you’re ready, just type something.",
+            #     "No rush — I’m right here when you are.",
+            #     "Say anything — a vibe, a genre, a name.",
+            #     "Let’s keep this going when you’re ready!"
+            # ])
+
+            prompt = """
+                You're Thrum — a friendly, emotionally aware game companion.
+
+                The user hasn't replied in a while. Write a gentle, natural-sounding **nudge** to invite them to respond.
+
+                - Maximum 12 words  
+                - No greetings or intro  
+                - Don't repeat "Still there?" or "No rush"  
+                - Vary tone: warm, funny, expressive, playful  
+                - No explanation, no punctuation overuse
+
+                Write just one nudge. Don't add anything else.
+                """
+            
+            response = await client.chat.completions.create(
+                model=model,
+                temperature=0.7,
+                messages=[{"role": "user", "content": prompt.strip()}]
+            )
+            nudge = response.choices[0].message.content.strip()
+
             await send_whatsapp_message(user.phone_number, nudge)
 
             # 🧠 Track nudge + potential coldness

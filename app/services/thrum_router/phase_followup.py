@@ -168,13 +168,15 @@ Based on what the user asked: “{user_input}”, answer their query naturally �
     db.commit()
 
     # 10-12 words on why it fits (you can replace with AI-generated or rule-based)
-    reason_fit = f"{game_info['title']} is immersive, emotionally rich, and story-driven with strong vibes."
+    # reason_fit = f"{game_info['title']} is immersive, emotionally rich, and story-driven with strong vibes."
 
     return f"""
 The user asked about the game **{game_info['title']}**, which hasn’t been recommended yet. 
 They seem curious, so go ahead and suggest it confidently.
 
-Why it fits: {reason_fit}
+Describe in 10–12 words why this game fits someone curious about it.
+No greeting, no filler — just the sentence.
+Make it sound friendly, emotionally aware, and natural.
 
 This game is available on: {game_info['platforms']}
 
