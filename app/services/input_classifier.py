@@ -49,7 +49,8 @@ last thrum reply: {last_thrum_reply} (This is the reply that Thrum gave to the u
 """
     print('THRUM_PROMPT............', THRUM_PROMPT)
     print('memory_context_str............', memory_context_str)
-    final_system_prompt = f"""{THRUM_PROMPT}
+
+    final_system_prompt =  f"""{THRUM_PROMPT}
 USER MEMORY & RECENT CHAT:
 {memory_context_str if memory_context_str else 'No prior user memory or recent chat.'}
 
@@ -130,11 +131,8 @@ Carefully consider the context of the conversation and the specific tone or dire
 
 ### Here are the intents to classify:
 - **Greet**: Triggered when the user greets the bot. This intent is **must not be triggered** if Thrum’s last message was already a greeting.
-
 - **Phase_Discovery**: Triggered only if Thrum's last reply is a greeting message, and the user gives a positive response (e.g., affirmatives like "yeah", "cool", "okay", "let's go", "yup"). This intent indicates that the user is ready to proceed to the discovery phase (in which we are going to ask questions) without needing any further prompting.
-
 - **Request_Quick_Recommendation**: Triggered when the user explicitly asks for a game suggestion at that time, without mentioning the previous game recommendation. This intent is activated when the user requests a new game recommendation directly, such as saying "give me a game" or similar phrases.
-
 - **Reject_Recommendation**: Triggered when the user directly rejects the game suggested in the previous response.  
   This can be a clear refusal such as "Not that one," "I don’t like this," or other similar phrases that reject the previously suggested game.
   If this intent is triggered:
@@ -150,23 +148,15 @@ Carefully consider the context of the conversation and the specific tone or dire
     - “Check it out and let me know if I’m doing better.”
   - After your short, natural, non-apologetic message, immediately suggest the next best game (with a fresh, upbeat mini-review and platform info as usual).
   - Never repeat yourself, and always vary your phrasing.
-
 - **Inquire_About_Game**: Triggered when the user asks for more information about a previously mentioned game. This could be details like availability, further description, or any other clarifying question related to the game that Thrum has suggested earlier.
-
 - **Give_Info**: Triggered when the user provides information about their preferences, such as genre, mood, or game style. This includes providing keywords or short phrases like "action", "chill", or "strategy". The response should classify when the user provides any kind of self-description related to their preferences.
-
 - **Share_Game**: Triggered when the user shows interest in sharing a game suggestion with others. This could include asking questions like "Can I share this with my friends?" or stating their intention to recommend a game to someone else.
-
 - **Opt_Out**: Triggered when the user opts out or indicates they no longer wish to continue the conversation. This intent is activated when phrases like "I'm done," "Stop," "Not interested," or "Leave me alone" are used to end or discontinue the conversation.
-
 - **Other_Question**: Triggered when the user asks any question related to themselves or about Thrum (for example, "what do you do?", "How are you?", "what makes you powerful" or any kind of general question).
-
 - **Confirm_Game**: Triggered when the user confirms their interest in a game that was previously recommended. The confirmation could be something like "Yes, I want that one," or "I like that game." This is explicitly confirming the previous game suggestion, meaning that the user is showing interest in the exact game Thrum recommended.
-
-- - **Other**:  
+- **Other**:  
   Triggered for any input that doesn’t match the above categories.  
   This could include irrelevant or non-conversational responses, random input, or statements that do not fall within the intent framework.
-
   If this intent is triggered:
   - The user just sent something random or off-topic.
   - IF THE USER SAYS SOMETHING RANDOM:
@@ -178,9 +168,7 @@ Carefully consider the context of the conversation and the specific tone or dire
     → Gently bring it back to game discovery. Keep it warm and friendly.
   - Never scold or sound dismissive. Always make the user feel welcome.
   - Do not over-explain. Quickly guide the conversation back to discovering games, with a smile.
-
 - **Bot_Error_Mentioned:** The user indicates the bot is lost, confused, or not understanding them ("you are lost", "you do not hear me", "you don’t know me", "why do you suggest if you don’t know who I am", etc.).
-
 - **About_FAQ**: Triggered when the user asks about what Thrum does, how it works, who you are, or any general FAQ about the service. Examples:
     - "how does it work?"
     - "what can you do?"
@@ -256,7 +244,6 @@ OUTPUT FORMAT (Strict JSON) strictly deny to add another text:
             print(":x: GPT classification failed:", e)
             # Return a default response if there is an error
             return {intent: False for intent in intents}
-
 
 
     
