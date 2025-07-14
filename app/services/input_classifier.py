@@ -47,9 +47,7 @@ User message: "{user_input}"
 You are a classification engine for a conversational game assistant.
 last thrum reply: {last_thrum_reply} (This is the reply that Thrum gave to the user's last message)
 """
-    print('THRUM_PROMPT............', THRUM_PROMPT)
-    print('memory_context_str............', memory_context_str)
-
+    
     final_system_prompt =  f"""{THRUM_PROMPT}
 USER MEMORY & RECENT CHAT:
 {memory_context_str if memory_context_str else 'No prior user memory or recent chat.'}
@@ -223,8 +221,6 @@ OUTPUT FORMAT (Strict JSON) strictly deny to add another text:
 }}
 """
     
-    print('final_system_prompt...................', final_system_prompt)
-
     if user_prompt:
         response = await client.chat.completions.create(
             model=model,
