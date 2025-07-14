@@ -15,7 +15,7 @@ async def get_recommend(db, user, session):
     game, _ = await game_recommendation(db=db, session=session, user=user)
     session_memory = SessionMemory(session)
     memory_context_str = session_memory.to_prompt()
-    platfrom_link = None
+    platform_link = None
     description=None
     if not game:
         user_prompt = (
@@ -37,7 +37,7 @@ async def get_recommend(db, user, session):
     preferred_platforms = session.platform_preference or []
     user_platform = preferred_platforms[-1] if preferred_platforms else None
     game_platforms = game.get("platforms", [])
-    platfrom_link = game.get("link", None)
+    platform_link = game.get("link", None)
     description = game.get("description",None)
     # Dynamic platform line (not templated)
     if user_platform and user_platform in game_platforms:
@@ -65,7 +65,7 @@ async def get_recommend(db, user, session):
             f"   - “It’s on Xbox too btw”\n"
             f"   - “PC only though — just flagging that”\n"
             f"→ If there’s a link:\n"
-            f"   - “Here’s where I found it: {platfrom_link}”\n"
+            f"   - “Here’s where I found it: {platform_link}”\n"
             f"→ Use your own tone. But be emotionally alive."
         )
     return user_prompt

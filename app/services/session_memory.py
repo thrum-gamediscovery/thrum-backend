@@ -198,7 +198,7 @@ async def deliver_game_immediately(db: Session, user, session) -> str:
 
     game, _ = await game_recommendation(db=db, user=user, session=session)
 
-    platfrom_link = None
+    platform_link = None
     description = None
 
     if not game:
@@ -226,7 +226,7 @@ async def deliver_game_immediately(db: Session, user, session) -> str:
         user_platform = preferred_platforms[-1] if preferred_platforms else None
         game_platforms = game.get("platforms", [])
 
-        platfrom_link = game.get("link", None)
+        platform_link = game.get("link", None)
         description = game.get("description",None)
 
         # Build natural platform note
@@ -256,7 +256,7 @@ async def deliver_game_immediately(db: Session, user, session) -> str:
             f"   - “It’s on Xbox too btw”\n"
             f"   - “PC only though — just flagging that”\n"
             f"→ If there’s a link:\n"
-            f"   - “Here’s where I found it: {platfrom_link}”\n"
+            f"   - “Here’s where I found it: {platform_link}”\n"
             f"→ Use your own tone. But be emotionally alive."
         )
 

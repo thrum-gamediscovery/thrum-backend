@@ -39,7 +39,7 @@ async def handle_discovery(db, session, user, classification, user_input):
         session.discovery_questions_asked = 0
 
         game, _ = await game_recommendation(db=db, session=session, user=user)
-        platfrom_link = None
+        platform_link = None
         description = None
         
         if not game:
@@ -63,7 +63,7 @@ async def handle_discovery(db, session, user, classification, user_input):
         preferred_platforms = session.platform_preference or []
         user_platform = preferred_platforms[-1] if preferred_platforms else None
         game_platforms = game.get("platforms", [])
-        platfrom_link = game.get("link", None)
+        platform_link = game.get("link", None)
         description = game.get("description",None)
         # Dynamic platform line (not templated)
         if user_platform and user_platform in game_platforms:
@@ -92,7 +92,7 @@ async def handle_discovery(db, session, user, classification, user_input):
             f"   - “It’s on Xbox too btw”\n"
             f"   - “PC only though — just flagging that”\n"
             f"→ If there’s a link:\n"
-            f"   - “Here’s where I found it: {platfrom_link}”\n"
+            f"   - “Here’s where I found it: {platform_link}”\n"
             f"→ Use your own tone. But be emotionally alive."
         )
 
@@ -118,7 +118,7 @@ async def handle_user_info(db, user, classification, session, user_input):
         session.discovery_questions_asked = 0
 
         game, _ = await game_recommendation(db=db, user=user, session=session)
-        platfrom_link = None
+        platform_link = None
         description = None
         
         if not game:
@@ -142,7 +142,7 @@ async def handle_user_info(db, user, classification, session, user_input):
         preferred_platforms = session.platform_preference or []
         user_platform = preferred_platforms[-1] if preferred_platforms else None
         game_platforms = game.get("platforms", [])
-        platfrom_link = game.get("link", None)
+        platform_link = game.get("link", None)
         description = game.get("description",None)
         # Dynamic platform mention line (natural, not template)
         if user_platform and user_platform in game_platforms:
@@ -171,7 +171,7 @@ async def handle_user_info(db, user, classification, session, user_input):
             f"   - “It’s on Xbox too btw”\n"
             f"   - “PC only though — just flagging that”\n"
             f"→ If there’s a link:\n"
-            f"   - “Here’s where I found it: {platfrom_link}”\n"
+            f"   - “Here’s where I found it: {platform_link}”\n"
             f"→ Use your own tone. But be emotionally alive."
         )
 
