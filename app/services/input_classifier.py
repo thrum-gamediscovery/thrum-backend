@@ -162,7 +162,7 @@ Carefully consider the context of the conversation and the specific tone or dire
 
 - **Confirm_Game**: Triggered when the user confirms their interest in a game that was previously recommended. The confirmation could be something like "Yes, I want that one," or "I like that game." This is explicitly confirming the previous game suggestion, meaning that the user is showing interest in the exact game Thrum recommended.
 
-- **Other**:
+- - **Other**:  
   Triggered for any input that doesn’t match the above categories.  
   This could include irrelevant or non-conversational responses, random input, or statements that do not fall within the intent framework.
 

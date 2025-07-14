@@ -16,9 +16,6 @@ async def check_intent_override(db, user_input, user, session, classification):
     from app.services.thrum_router.phase_followup import handle_game_inquiry, handle_followup
     classification_intent = await classify_user_intent(user_input=user_input, session=session)
 
-    # Handle FAQ
-    classification_intent = await classify_user_intent(user_input=user_input, session=session)
-
     if classification_intent.get("Phase_Discovery"):
         return handle_discovery(db=db, session=session, classification=classification, user=user, user_input=user_input)
     
