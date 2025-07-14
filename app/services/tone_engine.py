@@ -32,6 +32,7 @@ TONE_STYLE_MAP = {
     "casual": "chill",
     "warm": "chill",
     "sincere": "chill",
+    "frustrated": "chill",
     "closed": "dry",
     "ironic": "dry",
     "neutral": "neutral",
