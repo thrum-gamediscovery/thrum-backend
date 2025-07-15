@@ -47,6 +47,8 @@ User message: "{user_input}"
 You are a classification engine for a conversational game assistant.
 last thrum reply: {last_thrum_reply} (This is the reply that Thrum gave to the user's last message)
 """
+  
+    print('THRUM_PROMPT.................:', THRUM_PROMPT)
     
     final_system_prompt =  f"""{THRUM_PROMPT}
 USER MEMORY & RECENT CHAT:
