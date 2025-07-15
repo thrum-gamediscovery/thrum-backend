@@ -193,16 +193,13 @@ async def update_user_from_classification(db: Session, user, classification: dic
             # ✅ Add to session.platform_preference
             if session:
                 session_platforms = session.platform_preference or []
-                if matched_platform not in session_platforms:
-                    session_platforms.append(matched_platform)
-                    session.platform_preference = session_platforms
-
-                    # ✅ Ensure SQLAlchemy detects the change
-                    flag_modified(session, "platform_preference")
-
-                    print(f"[✅ Platform added to session]: {session_platforms}")
-                else:
-                    print(f"[ℹ️ Platform already present]: {matched_platform}")
+                if matched_platform in session_platforms:
+                    session_platforms.remove(matched_platform)
+                session_platforms.append(matched_platform)
+                session.platform_preference = session_platforms
+                    # ✅ :white_check_mark: Ensure SQLAlchemy detects the change
+                flag_modified(session, "platform_preference")
+                print(f"[:✅ white_check_mark: Platform added to session]: {session_platforms}")
             else:
                 print("❌ Session object is missing or invalid.")
 
