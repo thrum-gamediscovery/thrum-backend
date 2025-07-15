@@ -400,6 +400,7 @@ You must infer from both keywords and tone—even if the user is casual, brief, 
    → if user want specific game and give name or title for recommend (if user i saying something like"i don't like xyz game" then dont add that in this, only add when you find user want this specific game or want to know about this game)
    → if user do not specify game title but looking like user is inquiry about ame or check avilability of any then return last recommend game's title.
    → return just one title of that game which user specify for recommend not list
+   → If user not specify about game or title then strictly take last game title.
    → If not, return "None".
 ---
 
