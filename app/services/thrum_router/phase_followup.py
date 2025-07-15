@@ -67,7 +67,6 @@ async def ask_followup_que(session) -> str:
     return response.choices[0].message.content.strip()
 
 async def get_followup():
-    print("------------------------------------------------------------------get 1")
     db = SessionLocal()
     now = datetime.utcnow()
 
@@ -80,15 +79,14 @@ async def get_followup():
         if not s.last_thrum_timestamp:
             continue
 
-        delay = timedelta(seconds=5)
-        print("------------------------------------------------------------------get 2")
+        delay = timedelta(seconds=3)
         if now - s.last_thrum_timestamp > delay:
-            print("------------------------------------------------------------------get 3")
+            s.followup_triggered = False
+            db.commit()
             reply = await ask_followup_que(s)
             await send_whatsapp_message(user.phone_number, reply)
             s.last_thrum_timestamp = now
             s.awaiting_reply = True
-            s.followup_triggered = False    
         db.commit()
     db.close()
 
@@ -96,26 +94,40 @@ async def handle_game_inquiry(db: Session, user, session, user_input: str) -> st
     game_id = session.meta_data.get("find_game")
     session_memory = SessionMemory(session)
     memory_context_str = session_memory.to_prompt()
-
     if not game_id:
-        return "⚠️ The user asked about a game, but no valid game was found in session metadata."
-
-    # Fetch game
+        prompt = """
+You are Thrum, the game discovery assistant. The user has asked about a specific game, but there is no information about that game in your catalog or data.
+Strict rule: Never make up, invent, or generate any information about a game you do not have real data for. If you don't have info on the requested game, do not suggest another game or pivot to a new recommendation.
+Politely and clearly let the user know you don’t have any info on that game. Do not mention 'database' or 'catalog'. Do not offer any other suggestions or ask any questions. Keep your response to one short, friendly, and supportive sentence, in a human tone.
+Reply format:
+- One short sentence: Clearly say you don’t have information on that game right now.
+"""
+        return prompt
     game = db.query(Game).filter_by(game_id=game_id).first()
-    if not game:
-        return f"⚠️ Couldn't find the game with ID {game_id} in the database."
-
     # Get platforms for the game
     platform_rows = db.query(GamePlatform.platform).filter_by(game_id=game_id).all()
     platform_list = [p[0] for p in platform_rows] if platform_rows else []
-
+    # Get user's preferred platform (last non-empty entry in the array)
+    platform_preference = None
+    if session.platform_preference:
+        non_empty = [p for p in session.platform_preference if p]
+        if non_empty:
+            platform_preference = non_empty[-1]
+    else:
+        gameplatform_row = db.query(GamePlatform).filter_by(game_id=game_id).first()
+        platform_preference = gameplatform_row.platform
+    # Fetch the platform link for that game and platform
+    platform_link = None
+    if platform_preference:
+        gp_row = db.query(GamePlatform).filter_by(game_id=game_id, platform=platform_preference).first()
+        if gp_row:
+            platform_link = gp_row.link  # This is the URL/link for the user's preferred platform
     # Check if already recommended
     recommended_ids = set(
         str(r[0]) for r in db.query(GameRecommendation.game_id).filter(
             GameRecommendation.session_id == session.session_id
         )
     )
-
     # Game fields
     game_info = {
         "title": game.title,
@@ -127,21 +139,18 @@ async def handle_game_inquiry(db: Session, user, session, user_input: str) -> st
         "story_focus": "has a strong story" if game.has_story else "is more gameplay-focused",
         "emotion": game.emotional_fit or "N/A",
         "mood_tags": ", ".join(game.mood_tags.keys()) if game.mood_tags else "N/A",
-        "platforms": ", ".join(platform_list) if platform_list else "Unknown"
+        "platforms": ", ".join(platform_list) if platform_list else "Unknown",
+        "platform_link": platform_link
     }
-
     # If already recommended → update phase and return query-resolution prompt
     if game_id in recommended_ids:
         session.phase = PhaseEnum.FOLLOWUP
         db.commit()
-
         return f"""
         USER MEMORY & RECENT CHAT:
 {memory_context_str if memory_context_str else 'No prior user memory or recent chat.'}
 The user was already recommended the game **{game_info['title']}**, but now they have some follow-up questions.
-
-Here are the game details to help you respond naturally:
-
+Here are the game details to help you respond naturally:(game details)
 - **Title**: {game_info['title']}
 - **Description**: {game_info['description']}
 - **Genre**: {game_info['genre']}
@@ -151,13 +160,19 @@ Here are the game details to help you respond naturally:
 - **Story Focus**: This game {game_info['story_focus']}.
 - **Emotional Fit**: {game_info['emotion']}
 - **Mood Tags**: {game_info['mood_tags']}
-
+- **available Platfrom**:{game_info['platforms']}
+- **Platfrom_link**:{game_info['platform_link']}
 Based on what the user asked: “{user_input}”, answer their query naturally — assume they already know the basics.
+# Instruction:
+only answer the user question from the game details do not add things on your own.
+Strictly provide only the information being asked by the user in their message.
+if platform link is none and it is asked in user input then just clearly tell them that there is no link we have for that game.
+If the user requests the link, give only the link for their preferred platform (shown below).
+If they ask about platforms, mention the available platforms (shown below).
+If the user does not ask about links or platforms, do not mention them.
 """.strip()
-
     # Else, it’s a new inquiry → recommend + save + followup
     session.last_recommended_game = game_info["title"]
-
     # Save recommendation
     game_rec = GameRecommendation(
         session_id=session.session_id,
@@ -169,22 +184,21 @@ Based on what the user asked: “{user_input}”, answer their query naturally �
     )
     db.add(game_rec)
     db.commit()
-
     # 10-12 words on why it fits (you can replace with AI-generated or rule-based)
     # reason_fit = f"{game_info['title']} is immersive, emotionally rich, and story-driven with strong vibes."
-
     return f"""
-The user asked about the game **{game_info['title']}**, which hasn’t been recommended yet. 
+    USER MEMORY & RECENT CHAT:
+{memory_context_str if memory_context_str else 'No prior user memory or recent chat.'}
+the overall message size should no more than 18-20 words.
+The user asked about the game **{game_info['title']}**, which hasn’t been recommended yet.
 They seem curious, so go ahead and suggest it confidently.
-
 Describe in 10–12 words why this game fits someone curious about it.
+if the platform link is None then do not mention that, and if there is link then it must be added in the message.
 No greeting, no filler — just the sentence.
 Make it sound friendly, emotionally aware, and natural.
-
 This game is available on: {game_info['platforms']}
-
 Details you can use to enrich your response:
-
+- **Title**: {game_info['title']}, game title must be bold.
 - **Description**: {game_info['description']}
 - **Genre**: {game_info['genre']}
 - **Vibes**: {game_info['vibes']}
@@ -193,6 +207,7 @@ Details you can use to enrich your response:
 - **Story Focus**: {game_info['story_focus']}
 - **Emotional Fit**: {game_info['emotion']}
 - **Mood Tags**: {game_info['mood_tags']}
-
+- **available Platfrom**:{game_info['platforms']}, just mention one or two platform.
+- **Platfrom_link**:{game_info['platform_link']}
 Now, answer the user’s message — “{user_input}” — and introduce this game like a friendly recommendation.
 """.strip()

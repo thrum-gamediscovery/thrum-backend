@@ -61,7 +61,7 @@ async def whatsapp_webhook(request: Request, From: str = Form(...), Body: str = 
     session.intent_override_triggered = False
     if session.awaiting_reply:
         now = datetime.utcnow()
-        if session.last_thrum_timestamp and now - session.last_thrum_timestamp < timedelta(seconds=60):
+        if session.last_thrum_timestamp and now - session.last_thrum_timestamp < timedelta(seconds=180):
             if session.user.silence_count <= 3: #  User replied promptly
                 session.user.silence_count = 0
         # Always stop waiting after any reply

@@ -104,7 +104,6 @@ async def format_game_output(session, game: dict, user_context: dict = None) -> 
     memory_context_str = session_memory.to_prompt()
 
     last_user_tone = get_last_user_tone_from_session(session)
-    print("-------------------", last_user_tone)
     title = game.get("title", "Unknown Game")
     description = game.get("description", "")
     genre = game.get("genre", "")
@@ -203,30 +202,23 @@ async def deliver_game_immediately(db: Session, user, session) -> str:
     description = None
 
     if not game:
-        print("-----------------------------------------------------------")
-        user_prompt = (
-            f"USER MEMORY & RECENT CHAT:\n"
-            f"{memory_context_str if memory_context_str else 'No prior user memory or recent chat.'}\n\n"
-            f"The user asked for a genre + platform combo that doesn't exist in the database.\n"
-            f"Use this prompt only when no games are available for the user’s chosen genre and platform.\n"
-            f"Never repeat the same sentence every time — always vary phrasing.\n"
-            f"Warmly inform the user there’s no match for that combination (avoid robotic language).\n"
-            f"Clearly mention that for that genre and platform there is no game, so they should pick a different genre or platform.\n"
-            f"Highlight that game discovery is meant to be fun and flexible, never a dead end.\n"
-            f"Tell them to pick a different genre or platform.\n"
-            f"Never use words like 'sorry,' 'unfortunately,' or any kind of generic filler.\n"
-            f"The reply must be 12–18 words, in a maximum of two sentences, and always end with an enthusiastic and empowering invitation to explore new options together.\n"
-            f"IF THERE'S NO MATCH:\n"
-            f"→ Say it with confidence + humor:\n"
-            f"  - “That combo? Doesn’t even exist yet 😅”\n"
-            f"  - “You might be onto something new.”\n"
-            f"  - “You should develop it yourself 😉”\n"
-            f"→ Then:\n"
-            f"  - “Want to try some other genres instead?”\n"
-            f"  - “Wanna flip the vibe completely?”\n"
-            f"Keep it playful, confident, and warm. Never use robotic or generic language. Gently nudge the user to try something new."
-        )
+        user_prompt = f"""
+            USER MEMORY & RECENT CHAT:
+            {memory_context_str if memory_context_str else 'No prior user memory or recent chat.'}
+            - Warmly acknowledge that there are thousands of games fitting their vibe, genre, or platform in the world.
+            - Never sound negative, technical, or apologetic.
+            - Never say “no games,” “not available,” “no data,”, “none,”or anything robotic.
+            - You  must have to say that Loads of chill sim games out there for user's preference.
+            - Instead, express enthusiasm about the abundance of options, but honestly reflect that you don’t have the *perfect* match in your list right now.
+            - Suggest trying a new genre, switching platform, or let Thrum surprise them.
+            - Keep the reply within 20–25 words.
+            - Always use a human, varied, emotionally intelligent tone. Never repeat the same phrasing.
+            - Do not start message with there are.
+            - Must feel user like you are user's human like (Just feel user dont say that you are frind)
 
+            Your reply should feel like:
+            “Thrum should mention that Loads of chill sim games out there for phone— I just don't have the perfect pick handy. Do You want to explore more.”
+        """
         return user_prompt
     else:
         session.last_recommended_game = game["title"]
@@ -262,7 +254,7 @@ async def deliver_game_immediately(db: Session, user, session) -> str:
             f"- The game title in bold using Markdown: **{game['title']}**\n"
             f"- A confident reason of 15-20 words about why this one might resonate better using game description: {description} also must use (based on genre, vibe, mechanics, or story)\n"
             f"- A natural mention of platform (don't ever just paste this as it is; do modification and make this note interesting): {platform_note}\n"
-            f"If platform_link is not None, then it must be naturally included (not like in brackets or like [here]) where they can find this game in the message: {platform_link}\n"
+            f"If platform_link is not None, then it must be naturally included (not like in brackets or like [here],not robotically or bot like) where they can find this game in the message: {platform_link}\n"
             f"Use user_context if helpful, but don't ask anything or recap.\n"
             f"Sound smooth, human, and excited — this is a 'just drop it' moment. Must suggest game with reason why it fits to user.\n"
             "\n"
@@ -279,7 +271,7 @@ async def deliver_game_immediately(db: Session, user, session) -> str:
             "   - “It’s on Xbox too btw”\n"
             "   - “PC only though — just flagging that”\n"
             "→ If there’s a link:\n"
-            "   - “Here’s where I found it: {platform_link}”\n"
+            f"   - “Here’s where I found it: {platform_link}”\n"
             "→ Use your own tone. But be emotionally alive."
         )
 
@@ -310,10 +302,11 @@ async def confirm_input_summary(session) -> str:
         f"– Mood: {mood or 'Not given'}\n"
         f"– Genre: {genre or 'Not given'}\n"
         f"– Platform: {platform or 'Not given'}\n\n"
-        f"Write a short, warm, and charming confirmation message, never more than 12 words (stop at 12).\n"
+        f"Write a short, warm, and charming confirmation message, strictly never more than 12 words (stop at 12).\n"
         f"Use the mood, genre, and platform above to reflect their vibe and make them feel heard.\n"
         f"Do NOT suggest a game. This is just a friendly check-in to say 'I see you.'\n"
         f"Tone should feel emotionally aware and warmly human — like a friend who gets them."
+        f"DO NOT message like thrum is asking something. Just confirm that user want this type of game."
     )
 
     return user_prompt

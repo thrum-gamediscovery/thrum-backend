@@ -81,7 +81,7 @@ async def check_for_nudge():
             continue
 
         # ⏱️ Adaptive delay based on silence count
-        delay = timedelta(seconds=60)
+        delay = timedelta(seconds=180)
 
         if now - s.last_thrum_timestamp > delay:
             # 🎯 Soft nudge message
@@ -97,19 +97,22 @@ async def check_for_nudge():
             #     "Let’s keep this going when you’re ready!"
             # ])
 
-            prompt = """
-                You're Thrum — a friendly, emotionally aware game companion.
+            if user.name:
+                user_name = user.name
+            else:
+                user_name = ""
 
-                The user hasn't replied in a while. Write a gentle, natural-sounding **nudge** to invite them to respond.
-
-                - Maximum 12 words  
-                - No greetings or intro  
-                - Don't repeat "Still there?" or "No rush"  
-                - Vary tone: warm, funny, expressive, playful  
-                - No explanation, no punctuation overuse
-
-                Write just one nudge. Don't add anything else.
-                """
+            prompt = f"""
+                You are Thrum, the game discovery buddy.
+                Write a short, playful message to gently check if the user is still around after a long pause.
+                - Always sound warm and like a real friend.
+                - Keep it under 14 words.
+                - Never mention inactivity, timeout, or waiting.
+                - Vary your reply every time—no repeats or patterns.
+                - do not give greeting message.
+                - Use the user's name : {user_name} if you know it, but make it natural.
+                - No pressure; just a gentle, friendly nudge.
+            """
             
             response = await client.chat.completions.create(
                 model=model,

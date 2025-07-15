@@ -44,10 +44,7 @@ async def format_reply(session, user_input, user_prompt):
         "story_preference": session.story_preference if session.story_preference is not None else None
     }
 
-    print('session............................1', session.user.name)
     session_memory = SessionMemory(session)
-    print('session............................1', session)
-    print('session_memory............................11', session_memory)
     memory_context_str = session_memory.to_prompt()
     if memory_context_str:  # Only add memory if it exists (not on first message)
         memory_context_str = f"{memory_context_str} "
@@ -55,10 +52,7 @@ async def format_reply(session, user_input, user_prompt):
         memory_context_str = ""
 
 
-    # user_name = session.user_name
-    # print('user_name.............................', user_name) - The user's name: {user_name or ''}
-    print('memory_context_str.............................22', memory_context_str)
-    
+    # user_name = session.user_name    
     user_name = session_memory.user_name
 
     # Build system prompt with clean injected guidance
@@ -90,7 +84,7 @@ Examples:
 - If `genre` is defined, avoid contradicting it.
 
 Important instruction:
-If the user wants another game and none is available for their chosen genre and platform, tell them there is no game for that combination, and suggest changing platform or genre.
+If the user wants another game and none is available for their chosen genre and platform, be honest and direct. Say something like "Don't have [genre] games for [platform] in my catalog" or "No [genre] games available for [platform] right now." Then suggest trying different genres or platforms. Never say things like "That combo doesn't exist yet" or make jokes about non-existent games.
 
 🪞 Mirror Rule:
 If the user expresses dislike, confusion, disappointment, or frustration (explicit or implied), acknowledge it gently and naturally and must handle their disappointment or disliking by adding a warm message.  
@@ -120,8 +114,6 @@ If you exceed 25 words, stop after the 25th word.
 """
     try:
         if user_prompt:
-            print("User Prompt:", user_prompt)
-            print("System Prompt:", final_system_prompt)
             print("Type of user_prompt:", type(user_prompt))
             print("Type of system_prompt:", type(final_system_prompt))
             print("Type of user_context:", type(user_context))

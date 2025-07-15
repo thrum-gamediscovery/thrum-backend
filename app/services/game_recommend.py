@@ -27,12 +27,17 @@ def get_game_platform_link(game_id, preferred_platform, db_session):
     
 async def game_recommendation(db: Session, user, session):
     today = datetime.utcnow().date().isoformat()
-    print(f"--> session : {session}")
     # Step 1: Pull platform, genre, mood
-    platform = session.platform_preference[-1] if session.platform_preference else (
-        user.platform_prefs.get(today, [])[-1] if user.platform_prefs and today in user.platform_prefs and user.platform_prefs[today]
-        else next((p[-1] for p in reversed(user.platform_prefs.values()) if p), None) if user.platform_prefs else None
-    )
+    platform = None
+    if session.platform_preference:
+        platform = session.platform_preference[-1]
+    elif user.platform_prefs and today in user.platform_prefs and user.platform_prefs[today]:
+        platform = user.platform_prefs[today][-1]
+    elif user.platform_prefs:
+        for day_prefs in reversed(user.platform_prefs.values()):
+            if day_prefs:
+                platform = day_prefs[-1]
+                break
     genre = session.genre if session.genre else (
     user.genre_prefs.get(today, []) if user.genre_prefs and today in user.genre_prefs
         else next((g for g in reversed(user.genre_prefs.values()) if g), []) if user.genre_prefs else []
@@ -66,7 +71,6 @@ async def game_recommendation(db: Session, user, session):
         ]
         base_query = base_query.filter(~or_(*genre_filters))
     
-    print("💡 Input check:.......................................................", genre, platform)
 
     if genre:
         genre_filters = [Game.genre.any(func.lower(g.strip().lower())) for g in genre]
@@ -102,14 +106,10 @@ async def game_recommendation(db: Session, user, session):
     if not base_games:
         return None, None
         # Step 1.5: Cold start → recommend random safe game
-    print('test............................1')
-    print('platform............', platform)
-    print('platform............', genre)
-    print('platform............', mood)
+
     if not platform and not genre and not mood:
         print("[🧊] Cold start: returning a safe random game.")
         random_game = base_query.order_by(func.random()).first()
-        print('random_game...........', random_game)
         if not random_game:
             return None, None
 

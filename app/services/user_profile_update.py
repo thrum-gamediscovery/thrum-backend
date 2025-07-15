@@ -96,7 +96,7 @@ async def update_user_from_classification(db: Session, user, classification: dic
     if not isinstance(classification, dict):
         print(f"[BUG] update_user_from_classification: classification is not dict: {classification}")
         return
-    print('classification............', classification)
+    print('classification', classification)
 
     name = classification.get("name")
     mood = classification.get("mood")
@@ -169,8 +169,8 @@ async def update_user_from_classification(db: Session, user, classification: dic
 
     # -- Platform Preferences
     if platform and platform != "None":
-        matched_platform = get_default_platform(platform)
-        matched_platform = await get_best_platform_match(db=db, user_input=platform)
+        def_promt = get_default_platform(platform)
+        matched_platform = await get_best_platform_match(db=db, user_input=def_promt)
         
         if matched_platform:
             user.platform_prefs.setdefault(today, [])
@@ -193,16 +193,13 @@ async def update_user_from_classification(db: Session, user, classification: dic
             # ✅ Add to session.platform_preference
             if session:
                 session_platforms = session.platform_preference or []
-                if matched_platform not in session_platforms:
-                    session_platforms.append(matched_platform)
-                    session.platform_preference = session_platforms
-
-                    # ✅ Ensure SQLAlchemy detects the change
-                    flag_modified(session, "platform_preference")
-
-                    print(f"[✅ Platform added to session]: {session_platforms}")
-                else:
-                    print(f"[ℹ️ Platform already present]: {matched_platform}")
+                if matched_platform in session_platforms:
+                    session_platforms.remove(matched_platform)
+                session_platforms.append(matched_platform)
+                session.platform_preference = session_platforms
+                    # ✅ :white_check_mark: Ensure SQLAlchemy detects the change
+                flag_modified(session, "platform_preference")
+                print(f"[:✅ white_check_mark: Platform added to session]: {session_platforms}")
             else:
                 print("❌ Session object is missing or invalid.")
 
@@ -237,7 +234,7 @@ async def update_user_from_classification(db: Session, user, classification: dic
             # Load all game titles and IDs
             all_games = db.query(Game.game_id, Game.title).all()
             title_lookup = {g.title: g.game_id for g in all_games}
-            match = process.extractOne(find_game_title.strip(), title_lookup.keys(), score_cutoff=75)
+            match = process.extractOne(find_game_title.strip(), title_lookup.keys(), score_cutoff=90)
             if match:
                 matched_title = match[0]
                 matched_game_id = str(title_lookup[matched_title])  # Store as string
@@ -270,10 +267,8 @@ async def update_user_from_classification(db: Session, user, classification: dic
             tag_clean = tag.strip().lower()
 
             # ✅ Try platform match
-            matched_platform = await get_best_platform_match(user_input=tag_clean, db=db)
-            if not matched_platform:
-                matched_platform = get_default_platform(platform=tag_clean)
-            print(f" --------------------------- matched_platform : {matched_platform}")
+            def_promt = get_default_platform(tag_clean)
+            matched_platform = await get_best_platform_match(db=db, user_input=def_promt)
             if matched_platform or matched_platform is not None:
                 if matched_platform not in user.reject_tags["platform"]:
                     user.reject_tags["platform"].append(matched_platform)
