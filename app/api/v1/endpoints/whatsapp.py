@@ -4,6 +4,7 @@ from fastapi import APIRouter, Form, Depends, Request
 from fastapi.responses import PlainTextResponse
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta
+import hashlib
 from app.db.models.user_profile import UserProfile
 from app.db.deps import get_db
 from app.db.models.enums import PlatformEnum
@@ -16,6 +17,9 @@ from app.services.modify_thrum_reply import format_reply
 
 
 router = APIRouter()
+
+# In-memory cache for recent messages (phone_number -> {message_hash: timestamp})
+recent_messages = {}
 
 # 🔁 Handles session update and sends the bot reply to chat processor
 async def user_chat(request, db, user, Body):
@@ -39,6 +43,24 @@ async def bot_reply(request, db, user, reply):
 # 📲 Main WhatsApp webhook endpoint to process user messages
 @router.post("/webhook", response_class=PlainTextResponse)
 async def whatsapp_webhook(request: Request, From: str = Form(...), Body: str = Form(...), db: Session = Depends(get_db)):
+    # Create message hash for deduplication
+    message_hash = hashlib.md5(f"{From}:{Body}".encode()).hexdigest()
+    now = datetime.utcnow()
+    
+    # Check for duplicate message within last 10 seconds
+    if From in recent_messages:
+        if message_hash in recent_messages[From]:
+            if now - recent_messages[From][message_hash] < timedelta(seconds=10):
+                return "OK"  # Ignore duplicate
+        # Clean old messages (older than 30 seconds)
+        recent_messages[From] = {h: t for h, t in recent_messages[From].items() 
+                               if now - t < timedelta(seconds=30)}
+    else:
+        recent_messages[From] = {}
+    
+    # Store current message
+    recent_messages[From][message_hash] = now
+    
     user = db.query(UserProfile).filter(UserProfile.phone_number == From).first()
     user_input = Body
     
