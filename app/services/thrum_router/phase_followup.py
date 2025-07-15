@@ -67,7 +67,6 @@ async def ask_followup_que(session) -> str:
     return response.choices[0].message.content.strip()
 
 async def get_followup():
-    print("------------------------------------------------------------------get 1")
     db = SessionLocal()
     now = datetime.utcnow()
 
@@ -80,15 +79,14 @@ async def get_followup():
         if not s.last_thrum_timestamp:
             continue
 
-        delay = timedelta(seconds=5)
-        print("------------------------------------------------------------------get 2")
+        delay = timedelta(seconds=3)
         if now - s.last_thrum_timestamp > delay:
-            print("------------------------------------------------------------------get 3")
+            s.followup_triggered = False
+            db.commit()
             reply = await ask_followup_que(s)
             await send_whatsapp_message(user.phone_number, reply)
             s.last_thrum_timestamp = now
             s.awaiting_reply = True
-            s.followup_triggered = False    
         db.commit()
     db.close()
 

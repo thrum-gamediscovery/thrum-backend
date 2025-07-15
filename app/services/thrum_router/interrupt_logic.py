@@ -11,7 +11,6 @@ from app.services.thrum_router.phase_discovery import handle_discovery, dynamic_
 from app.services.session_memory import SessionMemory
 
 async def check_intent_override(db, user_input, user, session, classification):
-    print('check_intent_override.........................')
     # Classify the user's intent based on their input
     from app.services.thrum_router.phase_followup import handle_game_inquiry, handle_followup
     classification_intent = await classify_user_intent(user_input=user_input, session=session)
@@ -34,24 +33,28 @@ async def check_intent_override(db, user_input, user, session, classification):
             
             if should_recommend:
                 session.phase = PhaseEnum.DELIVERY
-                game,_ =  await game_recommendation(db=db, user=user, session=session)
+                game, _ =  await game_recommendation(db=db, user=user, session=session)
                 platform_link = None
                 description = None
                 
                 if not game:
-                    print("################################################################")
-                    user_prompt =( 
-                        f"USER MEMORY & RECENT CHAT:\n"
-                        f"{memory_context_str if memory_context_str else 'No prior user memory or recent chat.'}\n\n"
-                        f"Use this prompt only when no games are available for the user’s chosen genre and platform.\n"
-                        f"never repeat the same sentence every time do change that always.\n"
-                        f"you must warmly inform the user there’s no match for that combination — robotic.\n"
-                        f"clearly mention that for that genre and platfrom there is no game.so pick different genre or platfrom.\n"
-                        f"tell them to pick a different genre or platform.\n"
-                        f"Highlight that game discovery is meant to be fun and flexible, never a dead end.\n"
-                        f"Never use words like 'sorry,' 'unfortunately,' or any kind of generic filler.\n"
-                        f"The reply must be 12–18 words, in a maximum of two sentences, and always end with an enthusiastic and empowering invitation to explore new options together.\n"
-                        )
+                    user_prompt = f"""
+                        USER MEMORY & RECENT CHAT:
+                        {memory_context_str if memory_context_str else 'No prior user memory or recent chat.'}
+                        - Warmly acknowledge that there are thousands of games fitting their vibe, genre, or platform in the world.
+                        - Never sound negative, technical, or apologetic.
+                        - Never say “no games,” “not available,” “no data,”, “none,”or anything robotic.
+                        - You  must have to say that Loads of chill sim games out there for user's preference.
+                        - Instead, express enthusiasm about the abundance of options, but honestly reflect that you don’t have the *perfect* match in your list right now.
+                        - Suggest trying a new genre, switching platform, or let Thrum surprise them.
+                        - Keep the reply within 20–25 words.
+                        - Always use a human, varied, emotionally intelligent tone. Never repeat the same phrasing.
+                        - Do not start message with there are.
+                        - Must feel user like you are user's human like (Just feel user dont say that you are frind)
+
+                        Your reply should feel like:
+                        “Thrum should mention that Loads of chill sim games out there for phone— I just don't have the perfect pick handy. Do You want to explore more.”
+                    """
                     return user_prompt
                 # Extract platform info
                 preferred_platforms = session.platform_preference or []
@@ -84,7 +87,7 @@ async def check_intent_override(db, user_input, user, session, classification):
                     f"Mirror the user's reason for rejection in a warm, human way before suggesting the new game.\n"
                     f"Use user context from the system prompt (like genre, story_preference, platform_preference) to personalize.\n"
                     f"Then naturally include this platform note (rephrase it to sound friendly, do not paste as-is): {platform_note}\n"
-                    f"if platform_link is not None,Then it must be naturally included link(not like in brackets or like [here])where they can find this game in message: {platform_link}\n"
+                    f"If platform_link is not None, then it must be naturally included (not like in brackets or like [here],not robotically or bot like) where they can find this game in the message: {platform_link}\n"
                     f"Tone must be confident, warm, emotionally intelligent — never robotic.\n"
                     f"Never say 'maybe' or 'you might like'. Be sure the game feels tailored.\n"
                     f"If the user was only asking about availability and the game was unavailable, THEN and only then, offer a different suggestion that is available.\n"

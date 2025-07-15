@@ -1,6 +1,7 @@
 import openai
 import os
 import json
+import re
 from datetime import datetime
 from openai import OpenAIError
 from app.db.models.session import Session
@@ -33,7 +34,6 @@ intents = [
 ]
 
 async def classify_user_intent(user_input: str, session):
-    print('classify_user_intent...................1')
     thrum_interactions = [i for i in session.interactions if i.sender == SenderEnum.Thrum]
     last_thrum_reply = thrum_interactions[-1].content if thrum_interactions else ""
     
@@ -130,7 +130,15 @@ Carefully consider the context of the conversation and the specific tone or dire
 ### Here are the intents to classify:
 - **Greet**: Triggered when the user greets the bot. This intent is **must not be triggered** if Thrum’s last message was already a greeting.
 - **Phase_Discovery**: Triggered only if Thrum's last reply is a greeting message, and the user gives a positive response (e.g., affirmatives like "yeah", "cool", "okay", "let's go", "yup"). This intent indicates that the user is ready to proceed to the discovery phase (in which we are going to ask questions) without needing any further prompting.
-- **Request_Quick_Recommendation**: Triggered when the user explicitly asks for a game suggestion at that time, without mentioning the previous game recommendation. This intent is activated when the user requests a new game recommendation directly, such as saying "give me a game" or similar phrases.
+
+- **Request_Quick_Recommendation**: Triggered when the user explicitly asks for a game suggestion at that time, OR asks for a suggestion on a different platform than last recommended. For example: if Thrum just suggested a game for iPhone, and the user says "for mobile?", "on Android?", or "for PlayStation?", treat this as a direct request for a new recommendation — even if they don’t explicitly say “give me a game.”  
+This intent is activated for phrases like:
+    - "give me a game"
+    - "suggest one for me"
+    - "for mobile?" (when previous rec was not for mobile)
+    - "anything on PC?" (when previous rec was for console/mobile)
+    - etc.
+
 - **Reject_Recommendation**: Triggered when the user directly rejects the game suggested in the previous response.  
   This can be a clear refusal such as "Not that one," "I don’t like this," or other similar phrases that reject the previously suggested game.
   If this intent is triggered:
@@ -231,16 +239,31 @@ OUTPUT FORMAT (Strict JSON) strictly deny to add another text:
             ],
             temperature=0,
         )
-        print('test.........................................q', response)
         # Try parsing the LLM output into JSON
         try:
-            result = json.loads(response.choices[0].message.content)
-            print(f"---------------------------------------------------- intent : {result}")
+            res = response.choices[0].message.content
+            print(f"************** res :{res}")
+            result = json.loads(res)
+            print(f"intent : {result}")
             return result
         except Exception as e:
             print(":x: GPT classification failed:", e)
             # Return a default response if there is an error
-            return {intent: False for intent in intents}
+            return {
+    "Greet": False,
+    "Phase_Discovery": False,
+    "Request_Quick_Recommendation": False,
+    "Reject_Recommendation": False,
+    "Inquire_About_Game": False,
+    "Give_Info": False,
+    "Share_Game": False,
+    "Opt_Out": False,
+    "Other_Question": False,
+    "Confirm_Game": False,
+    "Other": True,
+    "Bot_Error_Mentioned": False,
+    "About_FAQ": False
+}
 
 
     
@@ -266,7 +289,6 @@ async def classify_user_input(session, user_input: str) -> dict | str:
 
     session_memory = SessionMemory(session)
     memory_context_str = session_memory.to_prompt()
-    print('.......................', memory_context_str)
 
     final_system_prompt = f'''{THRUM_PROMPT}
 USER MEMORY & RECENT CHAT:
@@ -428,6 +450,7 @@ last recommended game:
 - 
 Now classify into the format below.
 '''
+
     try:    
         response = await client.chat.completions.create(
             model=model,
@@ -440,7 +463,9 @@ Now classify into the format below.
 
         # Try parsing the LLM output into JSON
         try:
-            result = json.loads(response.choices[0].message.content)
+            res = response.choices[0].message.content
+            print(f"*************** ressssss : {res}")
+            result = json.loads(res)
         except Exception:
             result = {
                 "name": "None",
@@ -457,7 +482,7 @@ Now classify into the format below.
                 "find_game":"None"
             }
 
-        print(f"[🧠 Classification Result-------------]: {result}")
+        print(f"Classification Result: {result}")
         return result
 
     except OpenAIError as e:
@@ -520,13 +545,11 @@ Example of correct output:
     return response.choices[0].message.content.strip()
 
 async def have_to_recommend(db: Session, user, classification: dict, session) -> bool:
-    print(f"call have_to_recommend")
     # Retrieve the last game recommendation for the user in the current session
     last_rec = db.query(GameRecommendation).filter(
         GameRecommendation.user_id == user.user_id,
         GameRecommendation.session_id == session.session_id
     ).order_by(GameRecommendation.timestamp.desc()).first()
-    print(f"last_rec : {last_rec}")
     # If no previous recommendation exists, return True (new recommendation needed)
     if not last_rec:
         return True
@@ -556,7 +579,6 @@ async def have_to_recommend(db: Session, user, classification: dict, session) ->
     if user_genre:
         # Check if any genre in user_profile_genre matches the genres in last_rec_genre
         if user_profile_genre and not any(user_genre.lower() in genre.lower() for genre in last_rec_genre):
-            print(f"genre")
             last_rec.accepted = False
             last_rec.reason = f"likes specific {user_genre} games"
             db.commit()
@@ -566,7 +588,6 @@ async def have_to_recommend(db: Session, user, classification: dict, session) ->
     if user_mood:
         today = datetime.utcnow().date().isoformat()
         if user.mood_tags.get(today) != last_rec_mood:
-            print(f"mood")
             last_rec.accepted = False
             last_rec.reason = f"want game of specific {user_mood}"
             db.commit()
@@ -575,7 +596,6 @@ async def have_to_recommend(db: Session, user, classification: dict, session) ->
     # Check if the platform preference matches any of the platforms in last_rec_platforms
     if user_platform:
         if user_profile_platform and not any(p.lower() in [lp.lower() for lp in last_rec_platforms] for p in user_profile_platform):
-            print("user_platform")
             last_rec.accepted = False
             last_rec.reason = f"want {user_platform} games but this is not in that platform"
             db.commit()

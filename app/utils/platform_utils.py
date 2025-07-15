@@ -25,8 +25,8 @@ DEFAULT_PLATFORM_MAP = {
 }
 
 def get_default_platform(platform: str) -> str:
-    platform = DEFAULT_PLATFORM_MAP.get(platform.lower(), platform)
-    if platform is not None:
-        return platform
+    def_platform = DEFAULT_PLATFORM_MAP.get(platform.lower(), platform)
+    if def_platform is not None:
+        return def_platform
     else:
-        return None
+        return platform

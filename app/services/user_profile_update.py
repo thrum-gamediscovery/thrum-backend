@@ -96,7 +96,7 @@ async def update_user_from_classification(db: Session, user, classification: dic
     if not isinstance(classification, dict):
         print(f"[BUG] update_user_from_classification: classification is not dict: {classification}")
         return
-    print('classification............', classification)
+    print('classification', classification)
 
     name = classification.get("name")
     mood = classification.get("mood")
@@ -169,8 +169,8 @@ async def update_user_from_classification(db: Session, user, classification: dic
 
     # -- Platform Preferences
     if platform and platform != "None":
-        matched_platform = get_default_platform(platform)
-        matched_platform = await get_best_platform_match(db=db, user_input=platform)
+        def_promt = get_default_platform(platform)
+        matched_platform = await get_best_platform_match(db=db, user_input=def_promt)
         
         if matched_platform:
             user.platform_prefs.setdefault(today, [])
@@ -270,10 +270,8 @@ async def update_user_from_classification(db: Session, user, classification: dic
             tag_clean = tag.strip().lower()
 
             # ✅ Try platform match
-            matched_platform = await get_best_platform_match(user_input=tag_clean, db=db)
-            if not matched_platform:
-                matched_platform = get_default_platform(platform=tag_clean)
-            print(f" --------------------------- matched_platform : {matched_platform}")
+            def_promt = get_default_platform(tag_clean)
+            matched_platform = await get_best_platform_match(db=db, user_input=def_promt)
             if matched_platform or matched_platform is not None:
                 if matched_platform not in user.reject_tags["platform"]:
                     user.reject_tags["platform"].append(matched_platform)

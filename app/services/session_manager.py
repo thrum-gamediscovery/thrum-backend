@@ -75,7 +75,7 @@ async def update_or_create_session(db: DBSession, user):
     # 📝 Update session state
     if elapsed > timedelta(hours=48):
         last_session.state = SessionTypeEnum.COLD
-    elif elapsed > timedelta(minutes=30):
+    elif elapsed > timedelta(hours=11):
         last_session.state = SessionTypeEnum.PASSIVE
     else:
         last_session.state = SessionTypeEnum.ACTIVE

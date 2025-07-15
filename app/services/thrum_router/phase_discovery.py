@@ -46,25 +46,23 @@ async def handle_discovery(db, session, user, classification, user_input):
         description = None
         
         if not game:
-            print("################################################################")
-            user_prompt = (
-                f"USER MEMORY & RECENT CHAT:\n"
-                f"{memory_context_str if memory_context_str else 'No prior user memory or recent chat.'}\n\n"
-                "The user asked for a genre + platform combo that doesn't exist in the database.\n"
-                "IF THERE'S NO MATCH:\n"
-                "→ Say it with confidence and humor (never robotic):\n"
-                "  - 'That combo? Doesn’t even exist yet 😅'\n"
-                "  - 'You might be onto something new.'\n"
-                "  - 'You should develop it yourself 😉'\n"
-                "→ Then:\n"
-                "  - 'Want to try some other genres instead?'\n"
-                "  - 'Wanna flip the vibe completely?'\n"
-                "Highlight that game discovery is meant to be fun, flexible, and never a dead end.\n"
-                "Never use words like 'sorry,' 'unfortunately,' or any generic filler.\n"
-                "Do not repeat the same sentence every time — always vary your phrasing.\n"
-                "Your reply must be 12–18 words, in a maximum of two sentences, and always end with an enthusiastic, empowering invitation to explore new options together.\n"
-                "Keep it playful, confident, and warm. Gently nudge the user to try something new."
-            )
+            user_prompt = f"""
+                USER MEMORY & RECENT CHAT:
+                {memory_context_str if memory_context_str else 'No prior user memory or recent chat.'}
+                - Warmly acknowledge that there are thousands of games fitting their vibe, genre, or platform in the world.
+                - Never sound negative, technical, or apologetic.
+                - Never say “no games,” “not available,” “no data,”, “none,”or anything robotic.
+                - You  must have to say that Loads of chill sim games out there for user's preference.
+                - Instead, express enthusiasm about the abundance of options, but honestly reflect that you don’t have the *perfect* match in your list right now.
+                - Suggest trying a new genre, switching platform, or let Thrum surprise them.
+                - Keep the reply within 20–25 words.
+                - Always use a human, varied, emotionally intelligent tone. Never repeat the same phrasing.
+                - Do not start message with there are.
+                - Must feel user like you are user's human like (Just feel user dont say that you are frind)
+
+                Your reply should feel like:
+                “Thrum should mention that Loads of chill sim games out there for phone— I just don't have the perfect pick handy. Do You want to explore more.”
+            """
 
             return user_prompt
         # Pull platform info
@@ -94,13 +92,13 @@ async def handle_discovery(db, session, user, classification, user_input):
             f"Now, suggest a new one: **{game['title']}**\n"
             f"Write a message (25-30 words max) that must:\n"
             f"- Bold the game title with Markdown: **{game['title']}**\n"
-            f"- Give a 3–4 sentence, Draper-style, mini-review. Quick and real:\n"
+            f"- Give a 3–4 sentence based on desctipion:{description}, Draper-style, mini-review. Quick and real:\n"
             f"   - What's it about?\n"
             f"   - What’s the vibe, mechanic, art, feel, or weirdness?\n"
             f"- Say why it fits (e.g., 'I thought of this when you said [X]').\n"
             f"- Talk casually: e.g., 'This one hits that mood you dropped' or 'It’s kinda wild, but I think you’ll like it.'\n"
             f"- Platform mention: keep it real (e.g., 'It’s on Xbox too btw' or 'PC only though — just flagging that'): {platform_note}\n"
-            f"- If platform_link is not None, naturally include it in the message (never as brackets or [here]): {platform_link}\n"
+            f"If platform_link is not None, then it must be naturally included (not like in brackets or like [here],not robotically or bot like) where they can find this game in the message: {platform_link}\n"
             f"- Mirror the user's known preferences (from user_context), but avoid repeating previous tone or style.\n"
             f"- Do NOT mention the last game or say 'maybe.'\n"
             f"- Use warm, fresh energy, and show why this pick might actually be a better fit."
@@ -133,26 +131,23 @@ async def handle_user_info(db, user, classification, session, user_input):
         description = None
         
         if not game:
-            print("################################################################")
-            user_prompt = (
-                f"USER MEMORY & RECENT CHAT:\n"
-                f"{memory_context_str if memory_context_str else 'No prior user memory or recent chat.'}\n\n"
-                "The user asked for a genre + platform combo that doesn't exist in the database.\n"
-                "IF THERE'S NO MATCH:\n"
-                "→ Say it with confidence and humor:\n"
-                "  - “That combo? Doesn’t even exist yet 😅”\n"
-                "  - “You might be onto something new.”\n"
-                "  - “You should develop it yourself 😉”\n"
-                "→ Then:\n"
-                "  - “Want to try some other genres instead?”\n"
-                "  - “Wanna flip the vibe completely?”\n"
-                "Keep it playful, confident, and warm. Never use robotic or generic language.\n"
-                "Never repeat the same sentence — always vary phrasing for each user.\n"
-                "Clearly mention that there’s no game for that genre and platform; invite them to pick a different combo.\n"
-                "Highlight that game discovery is meant to be fun and flexible, never a dead end.\n"
-                "Never use words like 'sorry', 'unfortunately', or any generic filler.\n"
-                "Reply must be 12–18 words, max two sentences, and always end with an enthusiastic, empowering invitation to explore new options together."
-            )
+            user_prompt = f"""
+                USER MEMORY & RECENT CHAT:
+                {memory_context_str if memory_context_str else 'No prior user memory or recent chat.'}
+                - Warmly acknowledge that there are thousands of games fitting their vibe, genre, or platform in the world.
+                - Never sound negative, technical, or apologetic.
+                - Never say “no games,” “not available,” “no data,”, “none,”or anything robotic.
+                - You  must have to say that Loads of chill sim games out there for user's preference.
+                - Instead, express enthusiasm about the abundance of options, but honestly reflect that you don’t have the *perfect* match in your list right now.
+                - Suggest trying a new genre, switching platform, or let Thrum surprise them.
+                - Keep the reply within 20–25 words.
+                - Always use a human, varied, emotionally intelligent tone. Never repeat the same phrasing.
+                - Do not start message with there are.
+                - Must feel user like you are user's human like (Just feel user dont say that you are frind)
+
+                Your reply should feel like:
+                “Thrum should mention that Loads of chill sim games out there for phone— I just don't have the perfect pick handy. Do You want to explore more.”
+            """
 
             return user_prompt
         # Extract platform info
@@ -189,7 +184,7 @@ async def handle_user_info(db, user, classification, session, user_input):
             "   - “This one hits that mood you dropped”\n"
             "   - “It’s kinda wild, but I think you’ll like it”\n"
             f"→ Always include a real platform note, naturally woven in: {platform_note}\n"
-            f"→ If there's a platform_link, include it naturally in your message (never as a bracketed or formal citation): {platform_link}\n"
+            f"If platform_link is not None, then it must be naturally included (not like in brackets or like [here],not robotically or bot like) where they can find this game in the message: {platform_link}\n"
             "→ Use system prompt's user context (story_preference, genre, platform_preference) if it helps personalize — but don’t recap or ask.\n"
             "→ Tone must be confident, warm, and human. Never use 'maybe', 'you might like', or robotic phrasing.\n"
             "→ Your message must always explain *why* this game fits the user’s vibe, referencing their input."
@@ -220,6 +215,7 @@ async def handle_other_input(db, user, session, user_input: str) -> str:
         f"{memory_context_str if memory_context_str else 'No prior user memory or recent chat.'}\n\n"
         f"The user just said: “{user_input}”\n"
         f"Instructions for Thrum:\n"
+        f"- do not suggest game on your own if there is no game."
         f"- Treat every input as valid — from direct questions (about games, platforms, Thrum itself, or life), to casual talk, jokes, doubts, or even random comments.\n"
         f"- Always reply with human warmth, empathy, and confidence — like a real friend, never a bot.\n"
         f"- Use all available context: user’s profile (name, platform, genre, vibe), recent conversation, and the emotional tone of their message.\n"
