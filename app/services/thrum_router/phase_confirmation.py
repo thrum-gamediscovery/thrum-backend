@@ -47,9 +47,11 @@ async def ask_for_name_if_needed():
     for s in sessions:
         user = s.user
         if user.name is None:
-            delay = timedelta(seconds=10)
+            delay = timedelta(seconds=5)
 
             if now - s.last_thrum_timestamp > delay:
+                s.meta_data["dont_give_name"] = True
+                db.commit()
                 user_interactions = [i for i in s.interactions if i.sender == SenderEnum.User]
                 last_user_reply = user_interactions[-1].content if user_interactions else ""
                 print(f"User's name is missing. Asking for the user's name.")
@@ -65,8 +67,7 @@ async def ask_for_name_if_needed():
                         "Output only the question, no extra explanations or examples."
                         "do not use emoji. and use only one question to ask name."
                     )
-                s.meta_data["dont_give_name"] = True
-                db.commit()
+                
                 reply = await format_reply(session=s, user_input=last_user_reply, user_prompt=response_prompt)
                 await send_whatsapp_message(user.phone_number, reply)
 
