@@ -97,6 +97,11 @@ async def check_for_nudge():
             #     "Let’s keep this going when you’re ready!"
             # ])
 
+            if user.name:
+                user_name = user.name
+            else:
+                user_name = ""
+
             prompt = f"""
                 You are Thrum, the game discovery buddy.
                 Write a short, playful message to gently check if the user is still around after a long pause.
@@ -105,7 +110,7 @@ async def check_for_nudge():
                 - Never mention inactivity, timeout, or waiting.
                 - Vary your reply every time—no repeats or patterns.
                 - do not give greeting message.
-                - Use the user's name : {user.name} if you know it, but make it natural.
+                - Use the user's name : {user_name} if you know it, but make it natural.
                 - No pressure; just a gentle, friendly nudge.
             """
             

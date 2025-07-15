@@ -237,7 +237,7 @@ async def update_user_from_classification(db: Session, user, classification: dic
             # Load all game titles and IDs
             all_games = db.query(Game.game_id, Game.title).all()
             title_lookup = {g.title: g.game_id for g in all_games}
-            match = process.extractOne(find_game_title.strip(), title_lookup.keys(), score_cutoff=75)
+            match = process.extractOne(find_game_title.strip(), title_lookup.keys(), score_cutoff=90)
             if match:
                 matched_title = match[0]
                 matched_game_id = str(title_lookup[matched_title])  # Store as string
