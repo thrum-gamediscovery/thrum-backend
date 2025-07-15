@@ -6,11 +6,17 @@ from app.services.nudge_checker import detect_user_is_cold  # ✅ import smart t
 from app.db.models.enums import SenderEnum
 
 def update_returning_user_flag(session):
-    if session.meta_data.get("returning_user") is None:
-        if session.meta_data.get("last_interaction"):
-            session.meta_data["returning_user"] = True
-        else:
+    last_interaction_str = session.meta_data.get("last_interaction")
+    if last_interaction_str:
+        try:
+            last_interaction = datetime.fromisoformat(last_interaction_str)
+            idle_seconds = (datetime.utcnow() - last_interaction).total_seconds()
+            # Only set to True if idle > 30 min (1800 seconds)
+            session.meta_data["returning_user"] = idle_seconds > 1800
+        except Exception:
             session.meta_data["returning_user"] = False
+    else:
+        session.meta_data["returning_user"] = False
 
 def is_session_idle(session, idle_minutes=10):
     if not session.interactions:
@@ -26,7 +32,7 @@ def get_session_state(last_active: datetime) -> SessionTypeEnum:
     elapsed = now - last_active
     if elapsed > timedelta(hours=48):
         return SessionTypeEnum.COLD
-    elif elapsed > timedelta(hours=11): #elif elapsed > timedelta(hours=11):
+    elif elapsed > timedelta(hours=11):
         return SessionTypeEnum.PASSIVE
     else:
         return SessionTypeEnum.ACTIVE
