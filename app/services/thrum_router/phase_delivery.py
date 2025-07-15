@@ -139,8 +139,10 @@ async def recommend_game():
         user = s.user
         if not s.last_thrum_timestamp:
             continue
-        delay = timedelta(seconds=10)
+        delay = timedelta(seconds=3)
         if now - s.last_thrum_timestamp > delay:
+            s.intent_override_triggered = False
+            db.commit()
             user_prompt = await get_recommend(db=db, session=s, user=user)
             user_interactions = [i for i in s.interactions if i.sender == SenderEnum.User]
             user_input = user_interactions[-1].content if user_interactions else ""
@@ -149,6 +151,5 @@ async def recommend_game():
             s.phase = PhaseEnum.FOLLOWUP
             # :brain: Track nudge + potential coldness
             s.last_thrum_timestamp = now
-            s.intent_override_triggered = False
         db.commit()
     db.close()
