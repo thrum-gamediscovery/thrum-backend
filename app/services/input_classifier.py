@@ -244,6 +244,7 @@ OUTPUT FORMAT (Strict JSON) strictly deny to add another text:
             res = response.choices[0].message.content
             print(f"************** res :{res}")
             result = json.loads(res)
+            print("user_input: ", user_input)
             print(f"intent : {result}")
             return result
         except Exception as e:
