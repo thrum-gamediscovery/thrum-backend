@@ -302,10 +302,11 @@ async def confirm_input_summary(session) -> str:
         f"– Mood: {mood or 'Not given'}\n"
         f"– Genre: {genre or 'Not given'}\n"
         f"– Platform: {platform or 'Not given'}\n\n"
-        f"Write a short, warm, and charming confirmation message, never more than 12 words (stop at 12).\n"
+        f"Write a short, warm, and charming confirmation message, strictly never more than 12 words (stop at 12).\n"
         f"Use the mood, genre, and platform above to reflect their vibe and make them feel heard.\n"
         f"Do NOT suggest a game. This is just a friendly check-in to say 'I see you.'\n"
         f"Tone should feel emotionally aware and warmly human — like a friend who gets them."
+        f"DO NOT message like thrum is asking something. Just confirm that user want this type of game."
     )
 
     return user_prompt
