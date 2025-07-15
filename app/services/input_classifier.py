@@ -320,7 +320,6 @@ You must infer from both keywords and tone—even if the user is casual, brief, 
    → e.g., puzzle, horror, racing, shooter, strategy, farming, simulation, narrative, platformer.
    → select exactly one genre from this list only: action, adventure, driving, fighting, mmo, music, other, party, platform, puzzle, racing, "real-world game", role-playing, shooter, simulation, sports, strategy, "virtual life".
    → Accept and map common synonyms if there is message about genre(examples: “scary” = horror, “farming sim” = simulation, “story-based” = adventure, “battle” = fighting, “online” = mmo, “music” = music, “car” or “racing” = racing or driving, “sports”, “football”, or “basketball” = sports, “strategy” or “tactics” = strategy).
-   → **If the user says “card game” or requests any card game, always return "strategy" as the genre.**
    → If not mentioned, return "None".
    → Accept synonyms like “scary” = horror, “farming sim” = farming.
    → If not mentioned, return "None".
