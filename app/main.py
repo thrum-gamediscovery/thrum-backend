@@ -22,7 +22,7 @@ from fastapi import FastAPI
 from app.middleware.session_middleware import SessionIDMiddleware
 from app.api.v1.router import api_router
 from fastapi.middleware.cors import CORSMiddleware
-from app.utils.scheduler import start_scheduler
+from app.utils.scheduler import start_scheduler, stop_scheduler
 
 app = FastAPI(title="Thrum Backend")
 
@@ -41,5 +41,9 @@ app.add_middleware(
 app.include_router(api_router, prefix="/api/v1")
 
 @app.on_event("startup")
-async def startup_event():
+def on_startup():
     start_scheduler()
+
+@app.on_event("shutdown")
+def on_shutdown():
+    stop_scheduler()
