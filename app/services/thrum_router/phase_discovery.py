@@ -21,7 +21,7 @@ async def handle_discovery(db, session, user, classification, user_input):
     #     )
     
     intent_result = await classify_user_intent(user_input, session)
-    tone_tag = classify_tone(user_input)
+    tone_tag = await classify_tone(user_input)
     session_memory = SessionMemory(session)
     session_memory.update(last_intent=intent_result, tone=tone_tag)
     session.last_tone = tone_tag
