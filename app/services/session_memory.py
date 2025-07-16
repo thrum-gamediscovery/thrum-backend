@@ -222,6 +222,7 @@ async def deliver_game_immediately(db: Session, user, session) -> str:
         return user_prompt
     else:
         session.last_recommended_game = game["title"]
+        session_memory.last_game = game["title"]
 
         # Get user's preferred platform
         preferred_platforms = session.platform_preference or []

@@ -47,6 +47,8 @@ User message: "{user_input}"
 You are a classification engine for a conversational game assistant.
 last thrum reply: {last_thrum_reply} (This is the reply that Thrum gave to the user's last message)
 """
+  
+    print('memory_context_str.................:', memory_context_str)
     
     final_system_prompt =  f"""{THRUM_PROMPT}
 USER MEMORY & RECENT CHAT:
@@ -131,13 +133,13 @@ Carefully consider the context of the conversation and the specific tone or dire
 - **Greet**: Triggered when the user greets the bot. This intent is **must not be triggered** if Thrum’s last message was already a greeting.
 - **Phase_Discovery**: Triggered only if Thrum's last reply is a greeting message, and the user gives a positive response (e.g., affirmatives like "yeah", "cool", "okay", "let's go", "yup"). This intent indicates that the user is ready to proceed to the discovery phase (in which we are going to ask questions) without needing any further prompting.
 
-- **Request_Quick_Recommendation**: Triggered when the user explicitly asks for a game suggestion at that time, OR asks for a suggestion on a different platform than last recommended. For example: if Thrum just suggested a game for iPhone, and the user says "for mobile?", "on Android?", or "for PlayStation?", treat this as a direct request for a new recommendation — even if they don’t explicitly say “give me a game.”  
-This intent is activated for phrases like:
+- **Request_Quick_Recommendation**: Triggered when the user explicitly asks for a game suggestion at that time, OR asks for a suggestion on a different platform than last recommended, or asking for a game directly like "suggest a game","want a game", etc.
+- true ONLY when user clearly asks for a new game suggestion.
+- Do NOT trigger if user is just inquiring about platform availability or requesting a store/platform link for a specific game.
+- "for mobile?" or "on Android?" only triggers if it's an explicit request for a new rec, not just checking if a game is available.
+  This intent is activated for phrases like:
     - "give me a game"
     - "suggest one for me"
-    - "for mobile?" (when previous rec was not for mobile)
-    - "anything on PC?" (when previous rec was for console/mobile)
-    - etc.
 
 - **Reject_Recommendation**: Triggered when the user directly rejects the game suggested in the previous response.  
   This can be a clear refusal such as "Not that one," "I don’t like this," or other similar phrases that reject the previously suggested game.
@@ -155,7 +157,9 @@ This intent is activated for phrases like:
   - After your short, natural, non-apologetic message, immediately suggest the next best game (with a fresh, upbeat mini-review and platform info as usual).
   - Never repeat yourself, and always vary your phrasing.
   - Be especially strict and accurate in detecting when the user is rejecting a game. Do not miss it, even if the language is casual, short, or slang. Always classify these as Reject_Recommendation.
-- **Inquire_About_Game**: Triggered when the user asks for more information about a previously mentioned game. This could be details like availability, further description, or any other clarifying question related to the game that Thrum has suggested earlier.
+- **Inquire_About_Game**: must be set to true if:
+    1. The user message contains the title of a specific game (matching the game catalog), OR
+    2. The user asks for a link, platform, or store for any game, even if the main question is about the link.
 - **Give_Info**: Triggered when the user provides information about their preferences, such as genre, mood, or game style. This includes providing keywords or short phrases like "action", "chill", or "strategy". The response should classify when the user provides any kind of self-description related to their preferences.
 - **Share_Game**: Triggered when the user shows interest in sharing a game suggestion with others. This could include asking questions like "Can I share this with my friends?" or stating their intention to recommend a game to someone else.
 - **Opt_Out**: Triggered when the user opts out or indicates they no longer wish to continue the conversation. This intent is activated when phrases like "I'm done," "Stop," "Not interested," or "Leave me alone" are used to end or discontinue the conversation.

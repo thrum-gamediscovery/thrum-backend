@@ -72,11 +72,11 @@ def build_reengagement_intro(session, memory_context_str):
     last_game = session.meta_data.get("last_game", "")
 
     options = [
-        f"USER MEMORY & RECENT CHAT: {memory_context_str}\nHey, you’re back 👀",
-        f"USER MEMORY & RECENT CHAT: {memory_context_str}\nYo, how are you? Nice to see you again.",
-        f"USER MEMORY & RECENT CHAT: {memory_context_str}\nHow’s life been?",
-        f"USER MEMORY & RECENT CHAT: {memory_context_str}\nStill looking for that next hit?",
-        f"USER MEMORY & RECENT CHAT: {memory_context_str}\nLet’s pick up where we left off."
+        f"USER MEMORY & RECENT CHAT: {memory_context_str}\nHey {user_name}, you’re back 👀",
+        f"USER MEMORY & RECENT CHAT: {memory_context_str}\nYo {user_name}, how are you? Nice to see you again.",
+        f"USER MEMORY & RECENT CHAT: {memory_context_str}\n{user_name} How’s life been?",
+        f"USER MEMORY & RECENT CHAT: {memory_context_str}\n{user_name} Still looking for that next hit?",
+        f"USER MEMORY & RECENT CHAT: {memory_context_str}\n{user_name} Let’s pick up where we left off."
     ]
 
     # You can choose one at random or sequence as needed
