@@ -100,7 +100,7 @@ async def get_post_recommendation_reply(user_input: str, last_game_name: str, se
     Detect if the user is reacting to a game we just recommended.
     Log reaction and return soft follow-up.
     """
-    tone = classify_tone(user_input)
+    tone = await classify_tone(user_input)
     reply = None
 
     if tone == "cold":
