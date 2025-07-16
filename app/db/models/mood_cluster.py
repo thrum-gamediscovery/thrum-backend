@@ -10,3 +10,4 @@ class MoodCluster(Base):
     mood = Column(String, primary_key=True, index=True)
     game_tags = Column(ARRAY(String))  # fix: ARRAY needs type
     embedding = Column(Vector(384))
+    game_vibe = Column(ARRAY(String))  # fix: ARRAY needs type

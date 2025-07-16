@@ -37,25 +37,52 @@ def parse_game_tags(raw):
     # Clean and deduplicate
     return list({tag.strip().lower() for tag in tags if tag})
 
+def parse_game_vibe(raw):
+    if not isinstance(raw, str):
+        return []
+
+    # Remove enclosing braces if present
+    raw = raw.strip()
+    if raw.startswith("{") and raw.endswith("}"):
+        raw = raw[1:-1]
+
+    # Split by comma, handle quoted multi-word strings and split them
+    tags = []
+    for token in raw.split(','):
+        token = token.strip().strip('"').strip("'")
+        if ' ' in token:
+            tags.extend(token.split())  # split multi-word phrases
+        else:
+            tags.append(token)
+    
+    # Clean and deduplicate
+    return list({tag.strip().lower() for tag in tags if tag})
+
 # Step 3: Add data to DB
 for _, row in df.iterrows():
-    mood = row['mood']
+    mood = row.get('mood')
     
-    # Parse game_tags safely
-    if isinstance(row['game_tags'], str):
-        game_tags = parse_game_tags(row['game_tags'])
-    else:
-        game_tags = []
+    # Be sure to use the actual column names. Change 'game_tag' and 'game_vibe' as needed.
+    game_tag_raw = row.get('game_tag', '') or row.get('game_tags', '')  # fallback if needed
+    game_vibe_raw = row.get('game_vibe', '')
+
+    game_tags = parse_game_tags(game_tag_raw) if isinstance(game_tag_raw, str) else []
+    game_vibe = parse_game_vibe(game_vibe_raw) if isinstance(game_vibe_raw, str) else []
 
     # Parse embedding
     embedding = ast.literal_eval(row['embedding']) if isinstance(row['embedding'], str) else row['embedding']
 
-    # Create and add to session
-    cluster = MoodCluster(mood=mood, game_tags=game_tags, embedding=embedding)
-    session.merge(cluster)  # merge handles insert/update
+    # Adjust constructor if your MoodCluster has more/other fields
+    cluster = MoodCluster(
+        mood=mood,
+        game_tags=game_tags,
+        game_vibe=game_vibe,  # If your model accepts game_vibes
+        embedding=embedding
+    )
+    session.merge(cluster)  # merge handles upsert
     print(f"Added: {mood}")
-    print(game_tags)
+    print(f"Game Tags: {game_tags}")
+    print(f"Game Vibes: {game_vibe}")
 
-# Step 4: Commit
 session.commit()
 session.close()
