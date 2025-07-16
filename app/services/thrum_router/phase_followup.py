@@ -173,6 +173,7 @@ If the user does not ask about links or platforms, do not mention them.
 """.strip()
     # Else, it’s a new inquiry → recommend + save + followup
     session.last_recommended_game = game_info["title"]
+    session_memory.last_game = game["title"]
     # Save recommendation
     game_rec = GameRecommendation(
         session_id=session.session_id,
