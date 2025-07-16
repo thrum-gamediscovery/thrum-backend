@@ -5,6 +5,7 @@ from app.services.thrum_router.phase_delivery import recommend_game
 from app.services.thrum_router.phase_followup import get_followup
 from app.services.thrum_router.phase_confirmation import ask_for_name_if_needed
 
+scheduler = BackgroundScheduler()
 def async_wrapper(coro_func):
     def wrapped():
         try:
@@ -17,12 +18,10 @@ def async_wrapper(coro_func):
             asyncio.run(coro_func())
     return wrapped
 
-scheduler = BackgroundScheduler()
-
 def start_scheduler():
     scheduler.add_job(async_wrapper(check_for_nudge), 'interval', seconds=30, max_instances=1)
-    scheduler.add_job(async_wrapper(recommend_game), 'interval', seconds=5, max_instances=1)
-    scheduler.add_job(async_wrapper(get_followup), 'interval', seconds=10, max_instances=1)
+    scheduler.add_job(async_wrapper(recommend_game), 'interval', seconds=10, max_instances=1)
+    scheduler.add_job(async_wrapper(get_followup), 'interval', seconds=5, max_instances=1)
     scheduler.add_job(async_wrapper(ask_for_name_if_needed), 'interval', seconds=15, max_instances=1)
     scheduler.start()
 

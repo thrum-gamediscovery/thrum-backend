@@ -114,9 +114,6 @@ If you exceed 25 words, stop after the 25th word.
 """
     try:
         if user_prompt:
-            print("Type of user_prompt:", type(user_prompt))
-            print("Type of system_prompt:", type(final_system_prompt))
-            print("Type of user_context:", type(user_context))
             response = await client.chat.completions.create(
                 model=model,
                 temperature=0.5,

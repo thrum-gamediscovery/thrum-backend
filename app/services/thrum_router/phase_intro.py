@@ -5,9 +5,7 @@ from app.services.session_memory import SessionMemory
 async def handle_intro(session):
     session_memory = SessionMemory(session)
     memory_context_str = session_memory.to_prompt()
-    
-    print(f"already_greet : {session.meta_data.get('already_greet')}")
-    
+        
     # Check if the user is a returning user
     if session.meta_data.get("returning_user"):
         return build_reengagement_intro(session, memory_context_str)

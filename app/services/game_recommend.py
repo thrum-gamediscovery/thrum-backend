@@ -46,7 +46,13 @@ async def game_recommendation(db: Session, user, session):
         user.mood_tags.get(today) if user.mood_tags and today in user.mood_tags
         else next(reversed(user.mood_tags.values()), None) if user.mood_tags else None
     )
-    print(f"[🎯] Final values — platform: {platform}, genre: {genre}, mood: {mood}")
+    # Step 4: Mood cluster for soft filtering
+    cluster_tags = []
+    if mood:
+        mood_entry = db.query(MoodCluster).filter(MoodCluster.mood == mood).first()
+        if mood_entry and mood_entry.game_tags:
+            cluster_tags = mood_entry.game_tags
+            cluster_vibes = mood_entry.game_vibe
 
     # Step 2: Base query and rejection filters
     rejected_game_ids = set(session.rejected_games or [])
@@ -88,7 +94,15 @@ async def game_recommendation(db: Session, user, session):
         ).all()
         platform_game_ids = [g[0] for g in platform_game_ids]
         base_query = base_query.filter(Game.game_id.in_(platform_game_ids))
-
+    
+    if mood:
+        if cluster_tags:
+            base_query = base_query.filter(
+                Game.mood_tags.op('->>')('cluster').in_(cluster_tags)
+            )
+        elif cluster_vibes:
+            vibe_filters = [Game.game_vibes.any(v.lower()) for v in cluster_vibes]
+            base_query = base_query.filter(or_(*vibe_filters))
     # Step 3: Filter games above user age if user_age is known
     user_age = None
     if user.age_range:
@@ -142,19 +156,11 @@ async def game_recommendation(db: Session, user, session):
             "platforms": [p[0] for p in platforms]
         }, False
     
-    # Step 4: Mood cluster for soft filtering
-    cluster_tags = []
-    if mood:
-        mood_entry = db.query(MoodCluster).filter(MoodCluster.mood == mood).first()
-        if mood_entry and mood_entry.game_tags:
-            cluster_tags = mood_entry.game_tags
 
     # Step 5: Progressive soft filters
     filter_levels = [
         {"genre": True, "platform": True, "cluster": True, "story": True},
-        {"genre": True, "platform": True, "cluster": True, "story": False},
-        {"genre": True, "platform": True, "cluster": False, "story": True},
-        {"genre": True, "platform": True, "cluster": False, "story": False},
+        {"genre": True, "platform": True, "cluster": True, "story": False}
     ]
 
     def genre_filter_loop(base_games, genres_to_use):
@@ -170,15 +176,23 @@ async def game_recommendation(db: Session, user, session):
                     platform_rows = [p[0] for p in db.query(GamePlatform.platform).filter(GamePlatform.game_id == game.game_id)]
                     if platform.lower() not in [p.lower() for p in platform_rows]:
                         continue
-                if level["cluster"] and cluster_tags:
-                    cluster_val = game.mood_tags.get("cluster") if game.mood_tags else None
-                    if not cluster_val or cluster_val not in cluster_tags:
+                if level["cluster"]:
+                    match = True
+                    if cluster_tags:
+                        cluster_val = game.mood_tags.get("cluster") if game.mood_tags else None
+                        if not (cluster_val and cluster_val in cluster_tags):
+                            match = False
+                    elif cluster_vibes:
+                        game_vibes = game.game_vibes or []
+                        if not any(vibe.lower() in [gv.lower() for gv in game_vibes] for vibe in cluster_vibes):
+                            match = False
+                    if (cluster_tags or cluster_vibes) and not match:
                         continue
                 if level.get("story", False) and user.story_pref is not None:
                     if game.has_story != user.story_pref:
                         continue
                 current.append(game)
-            print(f"[🧪] Filter level: {level} (genres={genres_to_use}) → candidates: {len(current)}")
+            print(f"[🧪] Filter level: {level} (genres={genres_to_use}) → cluster={cluster_tags}) → candidates: {len(current)}")
             if current:
                 return current
         return []

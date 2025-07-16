@@ -100,6 +100,7 @@ async def update_user_from_classification(db: Session, user, classification: dic
 
     name = classification.get("name")
     mood = classification.get("mood")
+    game_vibe = classification.get("game_vibe")
     genre = classification.get("genre")
     platform = classification.get("platform_pref")
     region = classification.get("region")
@@ -127,8 +128,17 @@ async def update_user_from_classification(db: Session, user, classification: dic
         session.meta_data["mood"] = mood_result
         flag_modified(user, "mood_tags")
         user.last_updated["mood_tags"] = str(datetime.utcnow())
-        # update_or_create_session_mood(db, user, new_mood=mood_result)
-
+        
+    if game_vibe and game_vibe != "None":
+        vibe_result = await detect_mood_from_text(db, game_vibe)
+        user.mood_tags[today] = vibe_result
+        if not session.entry_mood:
+            session.entry_mood = vibe_result
+        session.exit_mood = vibe_result
+        session.meta_data["mood"] = vibe_result
+        flag_modified(user, "mood_tags")
+        user.last_updated["mood_tags"] = str(datetime.utcnow())
+    
     # -- Genre Preferences
     if genre and genre != "None":
         matched_genre = await get_best_genre_match(db=db, input_genre=genre)

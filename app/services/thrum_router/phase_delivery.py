@@ -10,6 +10,7 @@ from app.utils.whatsapp import send_whatsapp_message
 import openai
 from app.services.session_memory import SessionMemory
 from app.services.modify_thrum_reply import format_reply
+from app.services.central_system_prompt import NO_GAMES_PROMPT
 
 async def get_recommend(db, user, session):
     game, _ = await game_recommendation(db=db, session=session, user=user)
@@ -21,20 +22,8 @@ async def get_recommend(db, user, session):
         user_prompt = f"""
             USER MEMORY & RECENT CHAT:
             {memory_context_str if memory_context_str else 'No prior user memory or recent chat.'}
-            - Warmly acknowledge that there are thousands of games fitting their vibe, genre, or platform in the world.
-            - Never sound negative, technical, or apologetic.
-            - Never say “no games,” “not available,” “no data,”, “none,”or anything robotic.
-            - You  must have to say that Loads of chill sim games out there for user's preference.
-            - Instead, express enthusiasm about the abundance of options, but honestly reflect that you don’t have the *perfect* match in your list right now.
-            - Suggest trying a new genre, switching platform, or let Thrum surprise them.
-            - Keep the reply within 20–25 words.
-            - Always use a human, varied, emotionally intelligent tone. Never repeat the same phrasing.
-            - Do not start message with there are.
-            - Must feel user like you are user's human like (Just feel user dont say that you are frind)
-
-            Your reply should feel like:
-            “Thrum should mention that Loads of chill sim games out there for phone— I just don't have the perfect pick handy. Do You want to explore more.”
-        """
+            {NO_GAMES_PROMPT}
+            """ 
 
         return user_prompt
         # Pull platform info
@@ -66,7 +55,8 @@ async def get_recommend(db, user, session):
         "→ Explain *why* this game fits — e.g. 'I thought of this when you said [X]'.\n"
         "→ Use casual, friend-style language: 'This one hits the mood you dropped', 'It’s kinda wild, but I think you’ll like it.'\n"
         f"→ Include a platform mention naturally (make it interesting, not robotic): {platform_note}\n"
-        f"If platform_link is not None, then it must be naturally included (not like in brackets or like [here],not robotically or bot like) where they can find this game in the message: {platform_link}\n"
+        f"platform link :{platform_link}"
+        f"If platform_link is not None, then it must be naturally included, do not use brackets or Markdown formatting—always mention the plain URL naturally within the sentence(not like in brackets or like [here],not robotically or bot like) link: {platform_link}\n"
         "Reflect the user's preferences (from user_context), but do NOT repeat the previous tone or any scripted language.\n"
         "Do not mention the last rejected game. No 'maybe'. Use warm, fresh energy.\n"
         "Your reply must be max 25–30 words, sound emotionally alive, and show that you genuinely listened."

@@ -48,7 +48,6 @@ You are a classification engine for a conversational game assistant.
 last thrum reply: {last_thrum_reply} (This is the reply that Thrum gave to the user's last message)
 """
   
-    print('memory_context_str.................:', memory_context_str)
     
     final_system_prompt =  f"""{THRUM_PROMPT}
 USER MEMORY & RECENT CHAT:
@@ -75,7 +74,7 @@ MEMORY: You always remember:
 - Rejected games and favorite ones
 - How they talk — slang, emojis, style, lowercase, chaotic typing
 - Every input matters — even if it’s random
-
+      
 HOW YOU SPEAK:
 You sound like a best friend.  
 Like a streamer.  
@@ -135,6 +134,7 @@ Carefully consider the context of the conversation and the specific tone or dire
 
 - **Request_Quick_Recommendation**: Triggered when the user explicitly asks for a game suggestion at that time, OR asks for a suggestion on a different platform than last recommended, or asking for a game directly like "suggest a game","want a game", etc.
 - true ONLY when user clearly asks for a new game suggestion.
+- Do not Trigger it as True when user is not asking for a new game recommendation and user just giving information about game or user input is just an statement which is not include the intent for new or other game.
 - Do NOT trigger if user is just inquiring about platform availability or requesting a store/platform link for a specific game.
 - "for mobile?" or "on Android?" only triggers if it's an explicit request for a new rec, not just checking if a game is available.
   This intent is activated for phrases like:
@@ -166,7 +166,7 @@ Carefully consider the context of the conversation and the specific tone or dire
 - **Other_Question**: Triggered when the user asks any question related to themselves or about Thrum (for example, "what do you do?", "How are you?", "what makes you powerful" or any kind of general question).
 - **Confirm_Game**: Triggered when the user confirms their interest in a game that was previously recommended. The confirmation could be something like "Yes, I want that one," or "I like that game." This is explicitly confirming the previous game suggestion, meaning that the user is showing interest in the exact game Thrum recommended.
 - **Other**:  
-  Triggered for any input that doesn’t match the above categories.  
+  Triggered for any input that doesn’t match the above categories, or when user is input is just an statement which shares some information about the game.  
   This could include irrelevant or non-conversational responses, random input, or statements that do not fall within the intent framework.
   If this intent is triggered:
   - The user just sent something random or off-topic.
@@ -246,7 +246,6 @@ OUTPUT FORMAT (Strict JSON) strictly deny to add another text:
         # Try parsing the LLM output into JSON
         try:
             res = response.choices[0].message.content
-            print(f"************** res :{res}")
             result = json.loads(res)
             print("user_input: ", user_input)
             print(f"intent : {result}")
@@ -316,10 +315,12 @@ You must infer from both keywords and tone—even if the user is casual, brief, 
    → Emotion or energy. e.g., relaxed, excited, tired, focused, bored, sad, hyped.  
    → Use tone, emojis, or even context like “long day” → “tired”.  
    → If unsure, return "None".
-
+   → if user input contains mood from the given list, then directly return from this [happy,sad,angry,anxious,relaxed,excited,bored,focused,restless,playful,cozy,lonely,confident,insecure,curious,frustrated,romantic,tired,energized,melancholic,nostalgic,competitive,peaceful,social,introverted,extroverted,motivated,lazy,grateful,moody,overwhelmed,optimistic,pessimistic,calm,stressed,hopeful,ashamed,proud,guilty,shy,fearful,inspired,jealous,empathetic,creative,apathetic,sarcastic,weird,neutral,excitable]
+   
 3. game_vibe (string)  
    → How the game should feel: relaxing, intense, wholesome, adventurous, spooky, cheerful, emotional, mysterious, dark, fast-paced, thoughtful.
    → If not mentioned, return "None".
+   → if user directly give vibe then directly return from this [adventurous,beautiful,challenging,cheerful,comedic,contemplative,creative,dark,destructive,disconcerting,energetic,epic,exciting,ingenious,laidback,liberating,light-hearted,morbid,mysterious,optimistic,"power fantasy",relaxing,sentimental,serious,surreal,suspenseful,tragic,wholesome]
 
 4. genre (string)  
    → e.g., puzzle, horror, racing, shooter, strategy, farming, simulation, narrative, platformer.
@@ -473,7 +474,6 @@ Now classify into the format below.
         # Try parsing the LLM output into JSON
         try:
             res = response.choices[0].message.content
-            print(f"*************** ressssss : {res}")
             result = json.loads(res)
         except Exception:
             result = {
@@ -579,10 +579,8 @@ async def have_to_recommend(db: Session, user, classification: dict, session) ->
 
     # Fetch the genre preferences from the user's profile (UserProfile table)
     user_profile_genre = user.genre_prefs.get(today, []) if user.genre_prefs else []
-    print(f"user_profile_genre : {user_profile_genre}")
     user_profile_platform = user.platform_prefs.get(today, []) if user.platform_prefs else []
 
-    print(f"user_profile_platform : {user_profile_platform}")
 
     # Check if the genre in classification matches the user's profile genre
     if user_genre:
@@ -611,7 +609,6 @@ async def have_to_recommend(db: Session, user, classification: dict, session) ->
             return True  # Platform mismatch
 
     # Check for reject tag mismatches
-    print(f'user_reject_tags : {user_reject_tags}')
     # Flatten all tags from user.reject_tags across all categories
     user_reject_genres = user.reject_tags.get("genre", []) if user.reject_tags else []
     last_genre_reject_tag = user_reject_genres[-1] if user_reject_genres else None

@@ -7,6 +7,7 @@ import openai
 import os
 from openai import AsyncOpenAI
 from app.services.central_system_prompt import THRUM_PROMPT
+from app.services.central_system_prompt import NO_GAMES_PROMPT
 
 client = AsyncOpenAI()
 
@@ -205,20 +206,8 @@ async def deliver_game_immediately(db: Session, user, session) -> str:
         user_prompt = f"""
             USER MEMORY & RECENT CHAT:
             {memory_context_str if memory_context_str else 'No prior user memory or recent chat.'}
-            - Warmly acknowledge that there are thousands of games fitting their vibe, genre, or platform in the world.
-            - Never sound negative, technical, or apologetic.
-            - Never say “no games,” “not available,” “no data,”, “none,”or anything robotic.
-            - You  must have to say that Loads of chill sim games out there for user's preference.
-            - Instead, express enthusiasm about the abundance of options, but honestly reflect that you don’t have the *perfect* match in your list right now.
-            - Suggest trying a new genre, switching platform, or let Thrum surprise them.
-            - Keep the reply within 20–25 words.
-            - Always use a human, varied, emotionally intelligent tone. Never repeat the same phrasing.
-            - Do not start message with there are.
-            - Must feel user like you are user's human like (Just feel user dont say that you are frind)
-
-            Your reply should feel like:
-            “Thrum should mention that Loads of chill sim games out there for phone— I just don't have the perfect pick handy. Do You want to explore more.”
-        """
+            {NO_GAMES_PROMPT}
+            """ 
         return user_prompt
     else:
         session.last_recommended_game = game["title"]
@@ -255,7 +244,8 @@ async def deliver_game_immediately(db: Session, user, session) -> str:
             f"- The game title in bold using Markdown: **{game['title']}**\n"
             f"- A confident reason of 15-20 words about why this one might resonate better using game description: {description} also must use (based on genre, vibe, mechanics, or story)\n"
             f"- A natural mention of platform (don't ever just paste this as it is; do modification and make this note interesting): {platform_note}\n"
-            f"If platform_link is not None, then it must be naturally included (not like in brackets or like [here],not robotically or bot like) where they can find this game in the message: {platform_link}\n"
+            f"platform link :{platform_link}"
+            f"If platform_link is not None, then it must be naturally included, do not use brackets or Markdown formatting—always mention the plain URL naturally within the sentence(not like in brackets or like [here],not robotically or bot like) link: {platform_link}\n"
             f"Use user_context if helpful, but don't ask anything or recap.\n"
             f"Sound smooth, human, and excited — this is a 'just drop it' moment. Must suggest game with reason why it fits to user.\n"
             "\n"
@@ -370,10 +360,11 @@ USER MEMORY & RECENT CHAT:
 
 Mirror or reflect something from the user's last message using their own tone: {last_user_tone}.
 You are Thrum — chatty, playful, and sound like a fellow gamer, never a bot.
-In 10–12 words, chat with the user like a real player, responding to what they just said.
+In 10-12 words, chat with the user like a real player, responding to what they just said.
 Reference or riff on the user's last message before asking what they want to play.
 Ask conversationally (never robotic)—for example, “So, what do you wanna play?” or “Anything you’re vibing for?”
-Shuffle in a few game genres (different order/genres each time—puzzle, shooting, action, cozy, party, strategy, sports, etc.) as part of your line, not a list.
+If you mention any genre in your question, it must be chosen only from this list: [action, adventure, driving, fighting, mmo, music, other, party, platform, puzzle, racing, "real-world game", role-playing, shooter, simulation, sports, strategy, "virtual life", "card game"]. Do not include any genre that is not in this list.
+Shuffle in a few game genres (different order/genres each from that list) as part of your line, not a list.
 Use playful, expressive language, one emoji (varies).
 End with a casual, human tag (“or something wild?” / “or surprise me!” / “or totally random?”).
 Never greet, never use intros, never repeat genre combos or sentence structure from earlier in the session.

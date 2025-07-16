@@ -9,6 +9,7 @@ from app.services.thrum_router.phase_ending import handle_ending
 from app.services.thrum_router.phase_confirmation import handle_confirmed_game
 from app.services.thrum_router.phase_discovery import handle_discovery, dynamic_faq_gpt, handle_other_input
 from app.services.session_memory import SessionMemory
+from app.services.central_system_prompt import NO_GAMES_PROMPT
 
 async def check_intent_override(db, user_input, user, session, classification):
     # Classify the user's intent based on their input
@@ -39,21 +40,9 @@ async def check_intent_override(db, user_input, user, session, classification):
                 
                 if not game:
                     user_prompt = f"""
-                        USER MEMORY & RECENT CHAT:
-                        {memory_context_str if memory_context_str else 'No prior user memory or recent chat.'}
-                        - Warmly acknowledge that there are thousands of games fitting their vibe, genre, or platform in the world.
-                        - Never sound negative, technical, or apologetic.
-                        - Never say “no games,” “not available,” “no data,”, “none,”or anything robotic.
-                        - You  must have to say that Loads of chill sim games out there for user's preference.
-                        - Instead, express enthusiasm about the abundance of options, but honestly reflect that you don’t have the *perfect* match in your list right now.
-                        - Suggest trying a new genre, switching platform, or let Thrum surprise them.
-                        - Keep the reply within 20–25 words.
-                        - Always use a human, varied, emotionally intelligent tone. Never repeat the same phrasing.
-                        - Do not start message with there are.
-                        - Must feel user like you are user's human like (Just feel user dont say that you are frind)
-
-                        Your reply should feel like:
-                        “Thrum should mention that Loads of chill sim games out there for phone— I just don't have the perfect pick handy. Do You want to explore more.”
+                    USER MEMORY & RECENT CHAT:
+                    {memory_context_str if memory_context_str else 'No prior user memory or recent chat.'}
+                    {NO_GAMES_PROMPT}
                     """
                     return user_prompt
                 # Extract platform info
@@ -87,7 +76,8 @@ async def check_intent_override(db, user_input, user, session, classification):
                     f"Mirror the user's reason for rejection in a warm, human way before suggesting the new game.\n"
                     f"Use user context from the system prompt (like genre, story_preference, platform_preference) to personalize.\n"
                     f"Then naturally include this platform note (rephrase it to sound friendly, do not paste as-is): {platform_note}\n"
-                    f"If platform_link is not None, then it must be naturally included (not like in brackets or like [here],not robotically or bot like) where they can find this game in the message: {platform_link}\n"
+                    f"platform link :{platform_link}"
+                    f"If platform_link is not None, then it must be naturally included, do not use brackets or Markdown formatting—always mention the plain URL naturally within the sentence(not like in brackets or like [here],not robotically or bot like) link: {platform_link}\n"
                     f"Tone must be confident, warm, emotionally intelligent — never robotic.\n"
                     f"Never say 'maybe' or 'you might like'. Be sure the game feels tailored.\n"
                     f"If the user was only asking about availability and the game was unavailable, THEN and only then, offer a different suggestion that is available.\n"
