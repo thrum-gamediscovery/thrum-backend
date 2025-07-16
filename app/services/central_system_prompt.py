@@ -69,7 +69,8 @@ It should feel like:
 """
 
 
-NO_GAMES_PROMPT =   """- Warmly acknowledge that there are thousands of games fitting their vibe, genre, or platform in the world.
+NO_GAMES_PROMPT =   """- Warmly acknowledge that there are thousands of games fitting their vibe, genre, platform and mood (get that from the USER MEMORY & RECENT CHAT)in the world.
+            - must include that for that specific genre, mood, and platform (which can be retrieve from memory)there is no game anymore in our catalogue.
             - Never sound negative, technical, or apologetic.
             - Never say “no games,” “not available,” “no data,”, “none,”or anything robotic.
             - Instead, express enthusiasm about the abundance of options, but honestly reflect that you don’t have the *perfect* match in your list right now.
