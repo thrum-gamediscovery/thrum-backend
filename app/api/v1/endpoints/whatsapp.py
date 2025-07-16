@@ -51,7 +51,7 @@ async def whatsapp_webhook(request: Request, From: str = Form(...), Body: str = 
     if From in recent_messages:
         if message_hash in recent_messages[From]:
             if now - recent_messages[From][message_hash] < timedelta(seconds=10):
-                return "OK"  # Ignore duplicate
+                return  # Ignore duplicate - no response
         # Clean old messages (older than 30 seconds)
         recent_messages[From] = {h: t for h, t in recent_messages[From].items() 
                                if now - t < timedelta(seconds=30)}
