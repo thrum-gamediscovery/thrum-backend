@@ -21,6 +21,6 @@ def start_scheduler():
     scheduler = BackgroundScheduler()
     scheduler.add_job(async_wrapper(check_for_nudge), 'interval', seconds=10)
     scheduler.add_job(async_wrapper(recommend_game), 'interval', seconds=7)
-    scheduler.add_job(async_wrapper(get_followup), 'interval', seconds=5)
-    scheduler.add_job(async_wrapper(ask_for_name_if_needed), 'interval', seconds=8)
+    scheduler.add_job(async_wrapper(get_followup), 'interval', seconds=8)
+    scheduler.add_job(async_wrapper(ask_for_name_if_needed), 'interval', seconds=10)
     scheduler.start()
