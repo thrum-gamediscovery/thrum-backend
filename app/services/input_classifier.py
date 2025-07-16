@@ -382,7 +382,9 @@ You must infer from both keywords and tone—even if the user is casual, brief, 
 
 11. game_feedback (list of dicts)  (** strict rule**)
    → if from the user input it is concluded that user does not like the recommended game (just for an example. if user input is "i don't like that" and you infere they actually don't like that game)then in game put the title from the last recommended game, accepted as False, and reason as the reason why they do not like it.
-    if from the user input it is concluded that user like the recommended game (just for an example. if user input is "yeah i like that" and you infere they actually like that game)then in game put the title from the last recommended game, accepted as True, and reason as the reason why they like it.
+   → if from the user input it is concluded that user like the recommended game (just for an example. if user input is "yeah i like that" and you infere they actually like that game)then in game put the title from the last recommended game, accepted as True, and reason as the reason why they like it.
+   → You must set `"accepted": false` only and only if the user **directly says** they do not like that game (using clear language about the game itself).
+   → Never set `"accepted": false` if the user rejects only a genre, platform, or mood (for example, saying "not in the mood for strategy games" or "I don't play on Xbox" must not be recorded as game feedback).
    → If they like the game, put accepted as True and reason as why they like it
    → If they react to specific games with name they mentioned in user input(just for an example. if user input is "i love Celeste" and you infere they actually like that game),then put that title in game, accepted as True or False based on their reaction, and reason as the reason why they like or dislike it.
    → If they react to specific games with like/dislike:
