@@ -21,7 +21,7 @@ def async_wrapper(coro_func):
 def start_scheduler():
     scheduler.add_job(async_wrapper(check_for_nudge), 'interval', seconds=30, max_instances=1)
     scheduler.add_job(async_wrapper(recommend_game), 'interval', seconds=2, max_instances=1)
-    scheduler.add_job(async_wrapper(get_followup), 'interval', seconds=5, max_instances=1)
+    scheduler.add_job(async_wrapper(get_followup), 'interval', seconds=4, max_instances=1)
     scheduler.add_job(async_wrapper(ask_for_name_if_needed), 'interval', seconds=7, max_instances=1)
     scheduler.start()
 
