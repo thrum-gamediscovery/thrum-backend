@@ -283,8 +283,8 @@ async def classify_user_input(session, user_input: str) -> dict | str:
             "description": last_game_obj.description[:200] if last_game_obj.description else None,
             "genre": last_game_obj.genre,
             "game_vibes": last_game_obj.game_vibes,
-            "mechanics": last_game_obj.mechanics,
-            "visual_style": last_game_obj.visual_style,
+            "mechanics": last_game_obj.mechanic,
+            "visual_style": last_game_obj.graphical_visual_style,
             "has_story": last_game_obj.has_story,
             "available_in_platforms":[platform.platform for platform in last_game_obj.platforms]
         }
@@ -409,6 +409,35 @@ You must infer from both keywords and tone—even if the user is casual, brief, 
    → return just one title of that game which user specify for recommend not list
    → If user not specify about game or title then strictly take last game title.
    → If not, return "None".
+   
+13. gameplay_elements (list of strings)
+   → Focus on GAMEPLAY MECHANICS that the user mentions wanting:
+   → Core mechanics: ["combat", "exploration", "puzzle-solving", "platforming", "stealth", "crafting", "building", "shooting", "racing"]
+   → Advancement: ["story-driven", "boss battles", "level progression", "skill tree", "character development"]
+   → Linearity: ["linear story", "open world", "sandbox", "mission-based", "procedural generation"]
+   → Perspective: ["first-person", "third-person", "top-down", "side-scrolling", "isometric"]
+   → Extract from phrases like "I want a game with combat and exploration" or "I like games with skill trees"
+   → Return as array of strings ["combat", "exploration", "skill tree"]
+   → If not mentioned, return []
+
+14. preferred_keywords (list of strings)
+   → Focus on PLAYER MOTIVATION and PREFERENCES:
+   → Game vibe: ["exciting", "suspenseful", "relaxing", "challenging", "immersive", "atmospheric"]
+   → Complexity: ["simple", "moderate", "complex", "casual", "hardcore"]
+   → Visual style: ["realistic", "cartoon", "pixel art", "stylized", "retro", "minimalist"]
+   → Themes: ["sci-fi", "fantasy", "historical", "modern", "post-apocalyptic", "horror"]
+   → Emotional fit: ["intense", "thrilling", "calming", "uplifting", "nostalgic", "thought-provoking"]
+   → Social aspects: ["single-player", "multiplayer", "co-op", "competitive", "team-based"]
+   → Extract from phrases like "I want a relaxing sci-fi game" or "looking for something competitive and intense"
+   → Return as array of strings ["relaxing", "sci-fi", "competitive", "intense"]
+   → If not mentioned, return []
+
+15. disliked_keywords (list of strings)
+   → Any negative gameplay patterns or experiences the user wants to avoid
+   → Examples: ["grinding", "pay-to-win", "microtransactions", "too difficult", "too easy", "repetitive", "slow-paced", "stressful", "time-consuming"]
+   → Extract from phrases like "I hate grinding" or "nothing with microtransactions or pay-to-win elements"
+   → Return as array of strings ["grinding", "microtransactions", "pay-to-win"]
+   → If not mentioned, return []
 ---
 
 🧠 RULES:
@@ -437,7 +466,10 @@ You must infer from both keywords and tone—even if the user is casual, brief, 
       "reason": "..."
     }}
   ],
-  "find_game":"..." 
+  "find_game":"...",
+  "gameplay_elements": ["..."],
+  "preferred_keywords": ["..."],
+  "disliked_keywords": ["..."]
 }}
 
 🧠 HINTS:
@@ -490,7 +522,10 @@ Now classify into the format below.
                 "playtime_pref": "None",
                 "reject_tags": [],
                 "game_feedback": [],
-                "find_game":"None"
+                "find_game":"None",
+                "gameplay_elements": [],
+                "preferred_keywords": [],
+                "disliked_keywords": []
             }
 
         print(f"Classification Result: {result}")
