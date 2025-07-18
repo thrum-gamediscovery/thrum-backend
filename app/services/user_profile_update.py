@@ -14,6 +14,7 @@ from app.services.session_manager import update_or_create_session_mood
 from app.utils.genre import get_best_genre_match 
 from app.utils.platform_utils import get_best_platform_match, get_default_platform
 from app.services.session_memory import SessionMemory
+from app.services.semantic_similarity import check_semantic_similarity
 
 # ✅ Update user profile with parsed classification fields
 async def update_game_feedback_from_json(db, user_id: UUID, session,feedback_data: list) -> None:
@@ -244,19 +245,46 @@ async def update_user_from_classification(db: Session, user, classification: dic
         
     # -- Gameplay Elements
     # Handle both [] and None values
-    session.gameplay_elements = gameplay_elements if gameplay_elements is not None else []
+    new_gameplay_elements = gameplay_elements if gameplay_elements is not None else []
+    existing_gameplay_elements = session.gameplay_elements or []
+    
+    # Check semantic similarity and add only unique values
+    if new_gameplay_elements:
+        unique_elements = await check_semantic_similarity(existing_gameplay_elements, new_gameplay_elements)
+        session.gameplay_elements = existing_gameplay_elements + unique_elements
+    else:
+        session.gameplay_elements = existing_gameplay_elements
+    
     flag_modified(session, "gameplay_elements")
     print(f"✅ Updated gameplay elements in session: {session.gameplay_elements}")
     
     # -- Preferred Keywords
     # Handle both [] and None values
-    session.preferred_keywords = preferred_keywords if preferred_keywords is not None else []
+    new_preferred_keywords = preferred_keywords if preferred_keywords is not None else []
+    existing_preferred_keywords = session.preferred_keywords or []
+    
+    # Check semantic similarity and add only unique values
+    if new_preferred_keywords:
+        unique_keywords = await check_semantic_similarity(existing_preferred_keywords, new_preferred_keywords)
+        session.preferred_keywords = existing_preferred_keywords + unique_keywords
+    else:
+        session.preferred_keywords = existing_preferred_keywords
+    
     flag_modified(session, "preferred_keywords")
     print(f"✅ Updated preferred keywords in session: {session.preferred_keywords}")
     
     # -- Disliked Keywords
     # Handle both [] and None values
-    session.disliked_keywords = disliked_keywords if disliked_keywords is not None else []
+    new_disliked_keywords = disliked_keywords if disliked_keywords is not None else []
+    existing_disliked_keywords = session.disliked_keywords or []
+    
+    # Check semantic similarity and add only unique values
+    if new_disliked_keywords:
+        unique_keywords = await check_semantic_similarity(existing_disliked_keywords, new_disliked_keywords)
+        session.disliked_keywords = existing_disliked_keywords + unique_keywords
+    else:
+        session.disliked_keywords = existing_disliked_keywords
+    
     flag_modified(session, "disliked_keywords")
     print(f"✅ Updated disliked keywords in session: {session.disliked_keywords}")
 

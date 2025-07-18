@@ -411,30 +411,32 @@ You must infer from both keywords and tone—even if the user is casual, brief, 
    → If not, return "None".
    
 13. gameplay_elements (list of strings)
-   → Focus on STRUCTURAL aspects of gameplay that the user mentions wanting:
-   → Interaction loop: ["exploring", "building", "solving", "fighting", "crafting", "collecting", "racing", "shooting"]
-   → Progression structure: ["linear story", "sandbox", "open world", "skill tree", "leveling", "mission-based"]
-   → Player control: ["real-time", "turn-based", "free movement", "scripted", "first-person", "third-person", "top-down"]
-   → Feedback rhythm: ["instant rewards", "long-term goals", "atmospheric", "fast-paced", "strategic planning"]
-   → Extract from phrases like "I want a game where I can build things" or "I like exploring open worlds"
-   → Return as array of strings ["building", "open world"]
+   → Focus on GAMEPLAY MECHANICS that the user mentions wanting:
+   → Core mechanics: ["combat", "exploration", "puzzle-solving", "platforming", "stealth", "crafting", "building", "shooting", "racing"]
+   → Advancement: ["story-driven", "boss battles", "level progression", "skill tree", "character development"]
+   → Linearity: ["linear story", "open world", "sandbox", "mission-based", "procedural generation"]
+   → Perspective: ["first-person", "third-person", "top-down", "side-scrolling", "isometric"]
+   → Extract from phrases like "I want a game with combat and exploration" or "I like games with skill trees"
+   → Return as array of strings ["combat", "exploration", "skill tree"]
    → If not mentioned, return []
 
 14. preferred_keywords (list of strings)
-   → Focus on MOTIVATIONAL aspects of why the user wants to play:
-   → Emotional goals: ["powerful", "safe", "nostalgic", "immersed", "uplifted", "challenged", "relaxed"]
-   → Cognitive style: ["strategic", "reactive", "creative", "thoughtful", "mindless", "puzzling"]
-   → Social mode: ["solo", "co-op", "multiplayer", "competitive", "team-based", "social"]
-   → Intensity level: ["casual", "hardcore", "low-stakes", "high-focus", "flow-state"]
-   → Extract from phrases like "I want to feel powerful" or "looking for something relaxing"
-   → Return as array of strings ["powerful", "relaxing"]
+   → Focus on PLAYER MOTIVATION and PREFERENCES:
+   → Game vibe: ["exciting", "suspenseful", "relaxing", "challenging", "immersive", "atmospheric"]
+   → Complexity: ["simple", "moderate", "complex", "casual", "hardcore"]
+   → Visual style: ["realistic", "cartoon", "pixel art", "stylized", "retro", "minimalist"]
+   → Themes: ["sci-fi", "fantasy", "historical", "modern", "post-apocalyptic", "horror"]
+   → Emotional fit: ["intense", "thrilling", "calming", "uplifting", "nostalgic", "thought-provoking"]
+   → Social aspects: ["single-player", "multiplayer", "co-op", "competitive", "team-based"]
+   → Extract from phrases like "I want a relaxing sci-fi game" or "looking for something competitive and intense"
+   → Return as array of strings ["relaxing", "sci-fi", "competitive", "intense"]
    → If not mentioned, return []
 
 15. disliked_keywords (list of strings)
    → Any negative gameplay patterns or experiences the user wants to avoid
-   → Examples: ["grinding", "pay-to-win", "too difficult", "too easy", "repetitive", "slow-paced", "stressful"]
-   → Extract from phrases like "I hate grinding" or "nothing too difficult or stressful"
-   → Return as array of strings ["grinding", "difficult", "stressful"]
+   → Examples: ["grinding", "pay-to-win", "microtransactions", "too difficult", "too easy", "repetitive", "slow-paced", "stressful", "time-consuming"]
+   → Extract from phrases like "I hate grinding" or "nothing with microtransactions or pay-to-win elements"
+   → Return as array of strings ["grinding", "microtransactions", "pay-to-win"]
    → If not mentioned, return []
 ---
 
