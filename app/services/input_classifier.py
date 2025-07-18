@@ -409,6 +409,33 @@ You must infer from both keywords and tone—even if the user is casual, brief, 
    → return just one title of that game which user specify for recommend not list
    → If user not specify about game or title then strictly take last game title.
    → If not, return "None".
+   
+13. gameplay_elements (list of strings)
+   → Focus on STRUCTURAL aspects of gameplay that the user mentions wanting:
+   → Interaction loop: ["exploring", "building", "solving", "fighting", "crafting", "collecting", "racing", "shooting"]
+   → Progression structure: ["linear story", "sandbox", "open world", "skill tree", "leveling", "mission-based"]
+   → Player control: ["real-time", "turn-based", "free movement", "scripted", "first-person", "third-person", "top-down"]
+   → Feedback rhythm: ["instant rewards", "long-term goals", "atmospheric", "fast-paced", "strategic planning"]
+   → Extract from phrases like "I want a game where I can build things" or "I like exploring open worlds"
+   → Return as array of strings ["building", "open world"]
+   → If not mentioned, return []
+
+14. preferred_keywords (list of strings)
+   → Focus on MOTIVATIONAL aspects of why the user wants to play:
+   → Emotional goals: ["powerful", "safe", "nostalgic", "immersed", "uplifted", "challenged", "relaxed"]
+   → Cognitive style: ["strategic", "reactive", "creative", "thoughtful", "mindless", "puzzling"]
+   → Social mode: ["solo", "co-op", "multiplayer", "competitive", "team-based", "social"]
+   → Intensity level: ["casual", "hardcore", "low-stakes", "high-focus", "flow-state"]
+   → Extract from phrases like "I want to feel powerful" or "looking for something relaxing"
+   → Return as array of strings ["powerful", "relaxing"]
+   → If not mentioned, return []
+
+15. disliked_keywords (list of strings)
+   → Any negative gameplay patterns or experiences the user wants to avoid
+   → Examples: ["grinding", "pay-to-win", "too difficult", "too easy", "repetitive", "slow-paced", "stressful"]
+   → Extract from phrases like "I hate grinding" or "nothing too difficult or stressful"
+   → Return as array of strings ["grinding", "difficult", "stressful"]
+   → If not mentioned, return []
 ---
 
 🧠 RULES:
@@ -437,7 +464,10 @@ You must infer from both keywords and tone—even if the user is casual, brief, 
       "reason": "..."
     }}
   ],
-  "find_game":"..." 
+  "find_game":"...",
+  "gameplay_elements": ["..."],
+  "preferred_keywords": ["..."],
+  "disliked_keywords": ["..."]
 }}
 
 🧠 HINTS:
@@ -490,7 +520,10 @@ Now classify into the format below.
                 "playtime_pref": "None",
                 "reject_tags": [],
                 "game_feedback": [],
-                "find_game":"None"
+                "find_game":"None",
+                "gameplay_elements": [],
+                "preferred_keywords": [],
+                "disliked_keywords": []
             }
 
         print(f"Classification Result: {result}")

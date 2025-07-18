@@ -47,6 +47,11 @@ class Session(Base):
     last_recommended_game = Column(String, nullable=True)
     rejected_games = Column(ARRAY(String), default=[]) 
     story_preference = Column(Boolean, nullable=True)
+    gameplay_elements = Column(ARRAY(String), nullable=True)
+    preferred_keywords = Column(ARRAY(String), nullable=True)
+    disliked_keywords = Column(ARRAY(String), nullable=True)
+    accepted_gameplay_styles = Column(ARRAY(String), nullable=True)
+    rejected_gameplay_styles = Column(ARRAY(String), nullable=True)
 
     # Flow control flags — these help manage session dynamics, tone shifts, and user engagement
     # All of these are reset per session and used by the dialog engine to track behavioral shifts

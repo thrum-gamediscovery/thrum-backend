@@ -110,6 +110,9 @@ async def update_user_from_classification(db: Session, user, classification: dic
     reject_tags = classification.get("reject_tags", [])
     game_feedback = classification.get("game_feedback", [])
     find_game_title = classification.get("find_game")
+    gameplay_elements = classification.get("gameplay_elements", [])
+    preferred_keywords = classification.get("preferred_keywords", [])
+    disliked_keywords = classification.get("disliked_keywords", [])
 
     # -- Name
     if name and name != "None":
@@ -238,6 +241,24 @@ async def update_user_from_classification(db: Session, user, classification: dic
         user.playtime = playtime.strip().lower()
         flag_modified(user, "playtime")
         user.last_updated["playtime"] = str(datetime.utcnow())
+        
+    # -- Gameplay Elements
+    # Handle both [] and None values
+    session.gameplay_elements = gameplay_elements if gameplay_elements is not None else []
+    flag_modified(session, "gameplay_elements")
+    print(f"✅ Updated gameplay elements in session: {session.gameplay_elements}")
+    
+    # -- Preferred Keywords
+    # Handle both [] and None values
+    session.preferred_keywords = preferred_keywords if preferred_keywords is not None else []
+    flag_modified(session, "preferred_keywords")
+    print(f"✅ Updated preferred keywords in session: {session.preferred_keywords}")
+    
+    # -- Disliked Keywords
+    # Handle both [] and None values
+    session.disliked_keywords = disliked_keywords if disliked_keywords is not None else []
+    flag_modified(session, "disliked_keywords")
+    print(f"✅ Updated disliked keywords in session: {session.disliked_keywords}")
 
     # -- find game
     if find_game_title and find_game_title.lower() != "none":
