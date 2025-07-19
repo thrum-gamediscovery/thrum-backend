@@ -142,6 +142,7 @@ async def game_recommendation(db: Session, user, session):
 
         if not test_games:
             print(f"[:information_source:] No games found with genre '{last_genre}'.")
+            return None, False
             # handle fallback here if needed
         else:
             base_query = filtered_query
