@@ -50,6 +50,7 @@ class Game(Base):
     igdb_id = Column(ARRAY(String), nullable=True, default=[])  # IGDB ID for external game database reference
     sku = Column(String, nullable=True)  # Stock Keeping Unit
     
+    key_features = Column(ARRAY(String), nullable=True, default=[])  # key_features related to the game
 
     interactions = relationship("Interaction", back_populates="game")
     platforms = relationship("GamePlatform", back_populates="game")

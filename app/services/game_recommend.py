@@ -78,7 +78,7 @@ async def game_recommendation(db: Session, user, session):
     print(f"[Step 3] Number of games before platform filter: {base_query.count()}")
 
     # Step 4: Early fallback if no platform or session information is available
-    if platform is None and not session.gameplay_elements and not session.preferred_keywords and not session.disliked_keywords:
+    if platform is None and genre is None and not session.gameplay_elements and not session.preferred_keywords and not session.disliked_keywords:
         print("[Step 4] Early fallback: No platform or preferences info, recommending random game.")
         random_game = db.query(Game).order_by(func.random()).first()
         if not random_game:
@@ -169,40 +169,7 @@ async def game_recommendation(db: Session, user, session):
 
     # Step 8: If no games after applying all filters, fallback to random game
     if not base_games:
-        print("[Step 8] No games after filters, applying cold start fallback.")
-        random_game = db.query(Game).order_by(func.random()).first()
-        if not random_game:
-            print("[Step 8] No games in database for cold start fallback.")
-            return None, None
-        platforms = db.query(GamePlatform.platform).filter(
-            GamePlatform.game_id == random_game.game_id
-        ).all()
-        link = get_game_platform_link(random_game.game_id, platform, db)
-        # Save recommendation
-        game_rec = GameRecommendation(
-            session_id=session.session_id,
-            user_id=user.user_id,
-            game_id=random_game.game_id,
-            platform=None,
-            mood_tag=None,
-            accepted=None
-        )
-        db.add(game_rec)
-        db.commit()
-        session.phase = PhaseEnum.FOLLOWUP
-        session.followup_triggered = True
-        print(f"[Step 8] Cold start fallback recommended: {random_game.title}")
-        return {
-            "title": random_game.title,
-            "description": random_game.description[:200] if random_game.description else None,
-            "genre": random_game.genre,
-            "game_vibes": random_game.game_vibes,
-            "mechanics": random_game.mechanic,
-            "visual_style": random_game.visual_style,
-            "has_story": random_game.has_story,
-            "platforms": [p[0] for p in platforms],
-            "link": link
-        }, False
+        return None, False
 
     # Step 9: Embed session gameplay_elements, preferred_keywords, disliked_keywords at runtime
     session_gameplay_embedding = None

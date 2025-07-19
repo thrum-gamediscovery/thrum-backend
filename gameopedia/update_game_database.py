@@ -28,7 +28,7 @@ for game in json_data:
         db_game.description = game.get('description', db_game.description)
         db_game.genre = game.get('genre', db_game.genre)
         db_game.game_vibes = game.get('game_vibes', db_game.game_vibes)
-        db_game.mechanic = game.get('mechanic', db_game.mechanic)
+        db_game.mechanic = game.get('mechanics', db_game.mechanic)
         db_game.graphical_visual_style = game.get('graphical_visual_style', db_game.graphical_visual_style)
         db_game.age_rating = game.get('age_rating', db_game.age_rating)
         db_game.region = game.get('region', db_game.region)
@@ -54,8 +54,27 @@ for game in json_data:
         db_game.sku = game.get('sku', db_game.sku)
         db_game.gameplay_embedding = game.get('gameplay_embedding', db_game.gameplay_embedding)
         db_game.preference_embedding = game.get('preference_embedding', db_game.preference_embedding)
-        
+        db_game.key_features = game.get('short_key_features', db_game.key_features)
 
+        session.commit()
+        
+        # Update or insert platforms for this game
+        for platform in game.get('platforms', []):
+            platform_link = game.get('platform_link', {}).get(platform)
+            platform_distribution = game.get('distribution', {}).get(platform)
+            
+            db_platform = session.query(GamePlatform).filter(GamePlatform.game_id == db_game.game_id, GamePlatform.platform == platform).first()
+            
+            if db_platform:
+                db_platform.link = platform_link  # Update the link field
+                db_platform.distribution = platform_distribution  # Update the distribution field
+            else:
+                # If no db_platform is found, create a new one
+                new_platform = GamePlatform(game_id=db_game.game_id, platform=platform, link=platform_link, distribution=platform_distribution)
+                session.add(new_platform)  # Add the new platform entry
+
+        session.commit()  # Commit changes for all platforms at once
+        
     else:
         # If the game doesn't exist, insert a new record
         new_game = Game(
@@ -63,7 +82,7 @@ for game in json_data:
             description=game.get('description'),
             genre=game.get('genre'),
             game_vibes=game.get('game_vibes'),
-            mechanic=game.get('mechanic'),
+            mechanic=game.get('mechanics'),
             graphical_visual_style=game.get('graphical_visual_style'),
             age_rating=game.get('age_rating'),
             region=game.get('region'),
@@ -87,13 +106,21 @@ for game in json_data:
             discord_id=game.get('discord_id'),
             igdb_id=game.get('igdb_id'),
             sku=game.get('sku'),
-            gameplay_embedding = game.get('gameplay_embedding'),
-            preference_embedding = game.get('preference_embedding'),
+            gameplay_embedding=game.get('gameplay_embedding'),
+            preference_embedding=game.get('preference_embedding'),
+            key_features=game.get('short_key_features'),
         )
         session.add(new_game)
-             # Now handle platforms related to this game
-    
-    session.commit()
+        session.commit()  # Commit the new game entry to the database
+        
+        # Now handle platforms related to this game
+        for platform in game.get('platforms', []):
+            platform_link = game.get('platform_link', {}).get(platform)
+            platform_distribution = game.get('distribution', {}).get(platform)
+            new_platform = GamePlatform(game_id=new_game.game_id, platform=platform, link=platform_link, distribution=platform_distribution)
+            session.add(new_platform)  # Add the new platform entry
+
+        session.commit()  # Commit all platform changes at once
 
 # Close the session
 session.close()
