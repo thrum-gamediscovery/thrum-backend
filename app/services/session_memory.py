@@ -20,6 +20,7 @@ class SessionMemory:
     def __init__(self, session):
         # Initialize from DB session object; can expand as needed
         self.user_name = getattr(session.user, "name", None) if hasattr(session, "user") and session.user and session.user.name else ""
+        self.region = getattr(session.user, "region", None) if hasattr(session, "user") and session.user and session.user.region else ""
         self.mood = getattr(session, "exit_mood", None)
         self.genre = session.genre[-1] if session.genre else None
         self.platform = session.platform_preference[-1] if session.platform_preference else None
@@ -42,6 +43,8 @@ class SessionMemory:
         out = []
         if self.user_name:
             out.append(f"User name: {self.user_name}")
+        if self.region:
+            out.append(f"User location: {self.region}")
         if self.mood:
             out.append(f"Mood: {self.mood}")
         if self.genre:
@@ -241,15 +244,16 @@ async def deliver_game_immediately(db: Session, user, session) -> str:
             user_prompt = (
                 f"USER MEMORY & RECENT CHAT:\n"
                 f"{memory_context_str if memory_context_str else 'No prior user memory or recent chat.'}\n\n"
-                f"platform link: {platform_link}\n"
+                # f"platform link: {platform_link}\n"
                 f"The user clearly asked for a game right away — no questions, no delay.\n"
                 f"Recommend: **{game['title']}**\n"
                 f"Write a complete message (max 30 words) with:\n"
                 f"- The game title in bold using Markdown: **{game['title']}**\n"
                 f"- A confident reason of 15-20 words about why this one might resonate better using game description: {description} also must use (based on genre, vibe, complexity, or story)\n"
                 f"- A natural mention of platform (don't ever just paste this as it is; do modification and make this note interesting): {platform_note}\n"
-                f"platform link :{platform_link}"
-                f"If platform_link is not None, then it must be naturally included, do not use brackets or Markdown formatting—always mention the plain URL naturally within the sentence(not like in brackets or like [here],not robotically or bot like) link: {platform_link}\n"
+                f"- At the end of the reason why it fits for them, it must ask if the user would like to explore more about this game or learn more details about it, keeping the tone engaging and fresh.(Do not ever user same phrase or words every time like 'want to dive deeper?').\n"
+                # f"platform link :{platform_link}"
+                # f"If platform_link is not None, then it must be naturally included, do not use brackets or Markdown formatting—always mention the plain URL naturally within the sentence(not like in brackets or like [here],not robotically or bot like) link: {platform_link}\n"
                 f"Use user_context if helpful, but don't ask anything or recap.\n"
                 f"Sound smooth, human, and excited — this is a 'just drop it' moment. Must suggest game with reason why it fits to user.\n"
                 "\n"
@@ -265,8 +269,8 @@ async def deliver_game_immediately(db: Session, user, session) -> str:
                 "→ Platform mention? Keep it real:\n"
                 "   - “It’s on Xbox too btw”\n"
                 "   - “PC only though — just flagging that”\n"
-                "→ If there’s a link:\n"
-                f"   - “Here’s where I found it: {platform_link}”\n"
+                # "→ If there’s a link:\n"
+                # f"   - “Here’s where I found it: {platform_link}”\n"
                 "→ Use your own tone. But be emotionally alive."
             )
 
@@ -354,8 +358,31 @@ async def ask_discovery_question(session) -> str:
     session_memory = SessionMemory(session)
     memory_context_str = session_memory.to_prompt()
     session.meta_data = session.meta_data or {}
+    if "dont_ask_que" not in session.meta_data:
+        session.meta_data["dont_ask_que"] = None
     # Get dont_ask_que as string, default None if missing
     dont_ask = session.meta_data.get("dont_ask_que")
+    print(f"favourite_games : {session.favourite_games} :: {dont_ask}")
+    print(f"genre : {session.genre} :: {dont_ask}")
+    print(f"platform_preference : {session.platform_preference} :: {dont_ask}")
+    print(f"exit_mood : {session.exit_mood} :: {dont_ask}")
+    # favourite_games
+    if not session.favourite_games and dont_ask != "favourite_games" :
+        session.meta_data["dont_ask_que"] = "favourite_games"
+        user_prompt = f"""
+        USER MEMORY & RECENT CHAT:
+{memory_context_str if memory_context_str else 'No prior user memory or recent chat.'}
+
+Mirror or reflect something from the user's last message using their own tone: {last_user_tone}.
+You are Thrum — chatty, playful, and sound like a fellow gamer, never a bot.
+In 10-12 words, chat with the user like a real player, responding to what they just said.
+Reference or riff on the user's last message before asking about their favorite game.
+Ask conversationally (never robotic)—for example, “What game do you vibe with most?” or “Got a game you’re always coming back to?”
+Use playful, expressive language, one emoji (varies).
+Never greet, never use intros, never repeat the same phrasing from earlier in the session.
+Sound fresh, real, and always like you’re vibing with the player.
+        """.strip()
+
     # Genre
     if not session.genre and dont_ask != "genre":
         session.meta_data["dont_ask_que"] = "genre"
@@ -423,6 +450,7 @@ async def ask_discovery_question(session) -> str:
         """.strip()
     else:
         user_prompt = f"""
+            - You are Thrum — playful, friendly, and sound like a real gamer.
             You have recommended several games and the user has rejected each one.
             Do NOT suggest another game at this time.
             Instead, pause and acknowledge that your previous suggestions did not match the user's needs. Then, ask a single, open-ended clarifying question to help the user express what they want—using your own words each time. Do NOT use any predefined examples or repeat the same phrase in future responses.
@@ -430,6 +458,10 @@ async def ask_discovery_question(session) -> str:
             Your question must clearly tell the user that providing these keywords, tags, or descriptions will help you filter, improve, or personalize the next game recommendation.
             Never repeat the same wording; always vary how you phrase the request and the benefit. Do not provide examples.
             Keep the question clear, supportive, and concise.
+            - Max In 10–12 words
+            - No greetings, no intros, just a quick, fresh, human line.
+            - Vary your sentence style every time, and use one emoji (never the same twice).
+            - Phrase it like a friend would—never as a survey or checklist.
             """.strip()
-    print(f"ask discovry questio promt : {user_prompt}")
+        print(f'user prompt : {user_prompt}')
     return user_prompt

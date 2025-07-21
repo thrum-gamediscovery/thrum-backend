@@ -78,7 +78,7 @@ class Session(Base):
     meta_data = Column(MutableDict.as_mutable(JSON), nullable=True)
 
     memory = Column(MutableDict.as_mutable(JSON), default=dict)
-
+    favourite_games = Column(ARRAY(String), nullable=True) 
     # Relationships
     user = relationship("UserProfile", back_populates="sessions")
     interactions = relationship("Interaction", back_populates="session", cascade="all, delete-orphan")

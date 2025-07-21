@@ -109,7 +109,7 @@ async def game_recommendation(db: Session, user, session):
         print(f"[Step 4] Early fallback: Random game recommended: {random_game.title}")
         return {
             "title": random_game.title,
-            "description": random_game.description[:200] if random_game.description else None,
+            "description": random_game.description if random_game.description else None,
             "genre": random_game.genre,
             "game_vibes": random_game.game_vibes,
             "complexity": random_game.complexity,
@@ -173,7 +173,6 @@ async def game_recommendation(db: Session, user, session):
         filtered_query = base_query.filter(
             text("EXISTS (SELECT 1 FROM unnest(genre) AS g WHERE LOWER(g) = :g)")
         ).params(g=last_genre.strip().lower())
-        print("-----------------------", filtered_query)
         test_games = filtered_query.all()
         print(f"[Step 6] Number of games after genre filter: {len(test_games)}")
         if not test_games:

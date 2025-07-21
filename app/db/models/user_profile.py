@@ -10,7 +10,7 @@ from uuid import uuid4
 from app.db.base import Base
 from app.db.models.enums import PlatformEnum
 from sqlalchemy.orm import relationship
-from sqlalchemy import Column, String, Enum, JSON, Boolean, Integer
+from sqlalchemy import Column, String, Enum, JSON, Boolean, Integer, ARRAY
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.ext.mutable import MutableDict
 
@@ -42,6 +42,7 @@ class UserProfile(Base):
     story_pref = Column(Boolean, nullable=True)
     # When the user usually plays (e.g., "evenings", "weekends")
     playtime = Column(String, nullable=True)
+    favourite_games = Column(ARRAY(String), nullable=True)
     # Timestamp dictionary — tracks when each field was last updated
     # Example: {"platform": "2025-06-23T17:35", "genre_prefs": "2025-06-21T09:20"}
     last_updated = Column(MutableDict.as_mutable(JSON), default={})

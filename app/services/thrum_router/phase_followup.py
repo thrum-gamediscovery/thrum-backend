@@ -150,6 +150,7 @@ async def handle_game_inquiry(db: Session, user, session, user_input: str) -> st
         return f"""
             USER MEMORY & RECENT CHAT:
             {memory_context_str if memory_context_str else 'No prior user memory or recent chat.'}
+            IMPORTANT INSTRUCTION: if the user has asked that want to know more about game or want more information about the game and user responded positively(which conclude that user want more information)then you must include link in the message if not None as well as additional information of the game(not the same which was provided before).
             The user was already recommended the game **{game_info['title']}**, but now they have some follow-up questions.
             Here are the game details to help you respond naturally:(game details)
             - **Title**: {game_info['title']}
@@ -161,12 +162,14 @@ async def handle_game_inquiry(db: Session, user, session, user_input: str) -> st
             - **Story Focus**: This game {game_info['story_focus']}.
             - **Emotional Fit**: {game_info['emotion']}
             - **Mood Tags**: {game_info['mood_tags']}
-            - **available Platfrom**:{game_info['platforms']}
-            - **Platfrom_link**:{game_info['platform_link']}
+            - **available Platform**:{game_info['platforms']}
+            - **Platform_link**:{game_info['platform_link']}
             Based on what the user asked: “{user_input}”, answer their query naturally — assume they already know the basics.
             # Strict Instruction:
             only answer the user question from the game details do not add things on your own.
             Strictly provide only the information being asked by the user in their message.
+            f"If platform_link is not None, then it must be naturally included, do not use brackets or Markdown formatting—always mention the plain URL naturally within the sentence(not like in brackets or like [here],not robotically or bot like) link: {platform_link}\n"
+
             if platform link is none and it is asked in user input then you must just clearly tell them that there is no link we have for that game.
             When providing a platform link, do not use brackets or Markdown formatting—always mention the plain URL naturally within the sentence.and must acknowledge that this link is for {platform_preference} platform.
             If they ask about platforms, mention the available platforms (shown below).
@@ -188,6 +191,7 @@ async def handle_game_inquiry(db: Session, user, session, user_input: str) -> st
     db.commit()
     # 10-12 words on why it fits (you can replace with AI-generated or rule-based)
     # reason_fit = f"{game_info['title']} is immersive, emotionally rich, and story-driven with strong vibes."
+
     return f"""
     USER MEMORY & RECENT CHAT:
 {memory_context_str if memory_context_str else 'No prior user memory or recent chat.'}
@@ -211,7 +215,7 @@ Details you can use to enrich your response:
 - **Story Focus**: {game_info['story_focus']}
 - **Emotional Fit**: {game_info['emotion']}
 - **Mood Tags**: {game_info['mood_tags']}
-- **available Platfrom**:{game_info['platforms']}, just mention one or two platform.
-- **Platfrom_link**:{game_info['platform_link']}
+- **available Platform**:{game_info['platforms']}, just mention one or two platform.
+- **Platform_link**:{game_info['platform_link']}
 Now, answer the user’s message — “{user_input}” — and introduce this game like a friendly recommendation.
 """.strip()

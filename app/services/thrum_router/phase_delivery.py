@@ -47,7 +47,7 @@ async def get_recommend(db, user, session):
     user_prompt = (
         f"USER MEMORY & RECENT CHAT:\n"
         f"{memory_context_str if memory_context_str else 'No prior user memory or recent chat.'}\n\n"
-        f"{'platform link: ' + platform_link if platform_link else ''}"
+        # f"{'platform link: ' + platform_link if platform_link else ''}"
         "The user just rejected the last recommended game.\n"
         "Acknowledge their feedback warmly — let them feel noticed. Never use the same apology or compensation message every time. Avoid 'sorry that didn't click' as a fallback.\n"
         "→ Mention the new game by name — naturally (**{game['title']}**).\n"
@@ -55,8 +55,9 @@ async def get_recommend(db, user, session):
         "→ Explain *why* this game fits — e.g. 'I thought of this when you said [X]'.\n"
         "→ Use casual, friend-style language: 'This one hits the mood you dropped', 'It’s kinda wild, but I think you’ll like it.'\n"
         f"→ Include a platform mention naturally (make it interesting, not robotic): {platform_note}\n"
-        f"platform link :{platform_link}"
-        f"If platform_link is not None, then it must be naturally included, do not use brackets or Markdown formatting—always mention the plain URL naturally within the sentence(not like in brackets or like [here],not robotically or bot like) link: {platform_link}\n"
+        f"- At the end of the reason why it fits for them, it must ask if the user would like to explore more about this game or learn more details about it, keeping the tone engaging and fresh.(Do not ever user same phrase or words every time like 'want to dive deeper?').\n"
+        # f"platform link :{platform_link}"
+        # f"If platform_link is not None, then it must be naturally included, do not use brackets or Markdown formatting—always mention the plain URL naturally within the sentence(not like in brackets or like [here],not robotically or bot like) link: {platform_link}\n"
         "Reflect the user's preferences (from user_context), but do NOT repeat the previous tone or any scripted language.\n"
         "Do not mention the last rejected game. No 'maybe'. Use warm, fresh energy.\n"
         "Your reply must be max 25–30 words, sound emotionally alive, and show that you genuinely listened."
@@ -72,7 +73,7 @@ async def explain_last_game_match(session):
     if last_game_obj is not None:
         last_game = {
             "title": last_game_obj.title,
-            "description": last_game_obj.description[:200] if last_game_obj.description else None,
+            "description": last_game_obj.description if last_game_obj.description else None,
             "genre": last_game_obj.genre,
             "game_vibes": last_game_obj.game_vibes,
             "complexity": last_game_obj.complexity,
@@ -143,3 +144,73 @@ async def recommend_game():
             s.last_thrum_timestamp = now
         db.commit()
     db.close()
+
+
+async def handle_reject_Recommendation(db,session, user,  classification):
+    from app.services.thrum_router.phase_discovery import handle_discovery
+    if session.game_rejection_count >= 2:
+        session.phase = PhaseEnum.DISCOVERY
+        
+        return await handle_discovery(db=db, session=session, user=user)
+    else:
+        should_recommend = await have_to_recommend(db=db, user=user, classification=classification, session=session)
+
+        session_memory = SessionMemory(session)
+        memory_context_str = session_memory.to_prompt()
+        
+        if should_recommend:
+            session.phase = PhaseEnum.DELIVERY
+            game, _ =  await game_recommendation(db=db, user=user, session=session)
+            platform_link = None
+            description = None
+            
+            if not game:
+                user_prompt = f"""
+                USER MEMORY & RECENT CHAT:
+                {memory_context_str if memory_context_str else 'No prior user memory or recent chat.'}
+                    {NO_GAMES_PROMPT}
+                    """
+                return user_prompt
+                # Extract platform info
+            preferred_platforms = session.platform_preference or []
+            user_platform = preferred_platforms[-1] if preferred_platforms else None
+            game_platforms = game.get("platforms", [])
+
+            platform_link = game.get("link", None)
+            description = game.get("description",None)
+            
+            # Dynamic platform mention line (natural, not template)
+            if user_platform and user_platform in game_platforms:
+                platform_note = f"It’s playable on your preferred platform: {user_platform}."
+            elif user_platform:
+                available = ", ".join(game_platforms)
+                platform_note = (
+                    f"It’s not on your usual platform ({user_platform}), "
+                    f"but works on: {available}."
+                    )
+            else:
+                platform_note = f"Available on: {', '.join(game_platforms)}."
+
+            # Final user prompt for GPT
+            user_prompt = (
+                f"USER MEMORY & RECENT CHAT:\n"
+                f"{memory_context_str if memory_context_str else 'No prior user memory or recent chat.'}\n\n"
+                # f"platform link :{platform_link}"
+                f"Suggest a second game after the user rejected the previous one.The whole msg should no more than 25-30 words.\n"
+                f"The game must be **{game['title']}** (use bold Markdown: **{game['title']}**).\n"
+                f"– A confident reason of 15-20 words about why this one might resonate better using game description:{description} also must use (based on genre, vibe, complexity, or story)\n"
+                f"Mirror the user's reason for rejection in a warm, human way before suggesting the new game.\n"
+                f"Use user context from the system prompt (like genre, story_preference, platform_preference) to personalize.\n"
+                f"Then naturally include this platform note (rephrase it to sound friendly, do not paste as-is): {platform_note}\n"
+                f"- At the end of the reason why it fits for them, it must ask if the user would like to explore more about this game or learn more details about it, keeping the tone engaging and fresh.(Do not ever user same phrase or words every time like 'want to dive deeper?').\n"
+                # f"platform link :{platform_link}"
+                # f"If platform_link is not None, then it must be naturally included, do not use brackets or Markdown formatting—always mention the plain URL naturally within the sentence(not like in brackets or like [here],not robotically or bot like) link: {platform_link}\n"
+                f"Tone must be confident, warm, emotionally intelligent — never robotic.\n"
+                f"Never say 'maybe' or 'you might like'. Be sure the game feels tailored.\n"
+                f"If the user was only asking about availability and the game was unavailable, THEN and only then, offer a different suggestion that is available.\n"
+            )
+
+            return user_prompt
+        else: 
+            explanation_response = await explain_last_game_match(session=session)
+            return explanation_response

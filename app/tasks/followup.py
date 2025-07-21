@@ -53,19 +53,7 @@ async def handle_followup_logic(db, session, user, user_input, classification):
         return await handle_discovery(db=db, session=session, user=user)
 
     if intent in ["dont_want_another"]:
-        if not user.name:
-            name_prompts = [
-                "BTW, what's your name? I'd love to remember you next time 😊",
-                "Can I save your name for next time? Feels like we're already vibing 👀",
-                "I'm curious — what should I call you?",
-                "Wanna tell me your name? Just so I can keep it in mind for later!",
-                "Got a name I can remember you by? Always nice to keep things personal 🙌",
-                "What's your name, friend? I've got a good memory when it counts 💾"
-            ]
-            reply = random.choice(name_prompts)
-            print(f"handle_followup_logic : {reply}")
-            return reply
-        elif not user.playtime:
+        if not user.playtime:
             playtime_prompts = [
                 f"When do you usually play, {user.name}? Evenings, weekends, or those late-night sessions?",
                 f"{user.name}, what’s your usual game time — after dinner, late at night, or whenever you’re free?",

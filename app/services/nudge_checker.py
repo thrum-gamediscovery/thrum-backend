@@ -84,19 +84,6 @@ async def check_for_nudge():
         delay = timedelta(seconds=180)
 
         if now - s.last_thrum_timestamp > delay:
-            # 🎯 Soft nudge message
-            # nudge = random.choice([
-            #     "Still there? 😊",
-            #     "Just drop a word, I’m here.",
-            #     "You can say anything — no pressure.",
-            #     "Take your time. I’m listening.",
-            #     "Feel free to toss in a mood or thought.",
-            #     "Whenever you’re ready, just type something.",
-            #     "No rush — I’m right here when you are.",
-            #     "Say anything — a vibe, a genre, a name.",
-            #     "Let’s keep this going when you’re ready!"
-            # ])
-
             if user.name:
                 user_name = user.name
             else:

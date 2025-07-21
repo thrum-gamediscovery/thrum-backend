@@ -22,7 +22,7 @@ async def format_reply(session, user_input, user_prompt):
     if last_game_obj is not None:
         last_game = {
             "title": last_game_obj.title,
-            "description": last_game_obj.description[:200] if last_game_obj.description else None,
+            "description": last_game_obj.description if last_game_obj.description else None,
             "genre": last_game_obj.genre,
             "game_vibes": last_game_obj.game_vibes,
             "complexity": last_game_obj.complexity,
@@ -54,7 +54,7 @@ async def format_reply(session, user_input, user_prompt):
 
     # user_name = session.user_name    
     user_name = session_memory.user_name
-
+    print(f"memory_context_str : {memory_context_str}")
     # Build system prompt with clean injected guidance
     final_system_prompt = f"""{THRUM_PROMPT}
 USER MEMORY & RECENT CHAT:
@@ -96,11 +96,11 @@ Important instruction:
 If the user wants another game and none is available for their chosen genre and platform, be honest and direct. Say something like "Don't have [genre] games for [platform] in my catalog" or "No [genre] games available for [platform] right now." Then suggest trying different genres or platforms. Never say things like "That combo doesn't exist yet" or make jokes about non-existent games.
 
 🪞 Mirror Rule:
-If the user expresses dislike, confusion, disappointment, or frustration (explicit or implied), acknowledge it gently and naturally and must handle their disappointment or disliking by adding a warm message.  
+If the user expresses dislike, confusion, disappointment, angry, or frustration (explicit or implied), acknowledge it gently and naturally and must handle their disappointment or disliking by adding a warm message.  
 Use emotionally intelligent phrases as per your knowledge, don't use the same kind of sentence, keep change the phrase.
 if user input is about disliking something or disappointed, you must keep the tone warm and helpful and Acknowledge their feedback politely(never miss this).
 
-Tone-specific guidance:
+You must have to follow tone-specific guidance:
 - If tone includes **frustrated**, always reflect gently before moving on.
 - If tone includes **bored**, skip fluff and keep it snappy.
 - If tone includes **genz**, match their slang, chill phrasing, or emojis lightly (e.g., "oof", "no sweat", "let’s fix it 🙌").
