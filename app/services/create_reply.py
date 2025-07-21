@@ -1,5 +1,4 @@
 from app.services.thrum_router.phase_intro import handle_intro
-from app.services.thrum_router.phase_discovery import handle_discovery
 from app.services.thrum_router.phase_confirmation import handle_confirmation
 from app.services.thrum_router.phase_delivery import handle_delivery
 from app.services.thrum_router.phase_followup import handle_followup
@@ -14,7 +13,8 @@ from app.db.models.enums import PhaseEnum
 from app.services.tone_engine import detect_tone_cluster, update_tone_in_history
 
 @safe_call()
-async def generate_thrum_reply(db: Session, user_input: str, session, user) -> str:
+async def generate_thrum_reply(db: Session, user_input: str, session, user, intrection) -> str:
+    from app.services.thrum_router.phase_discovery import handle_discovery
     # 🔥 Intent override (e.g., "just give me a game")
     classification = await classify_user_input(session=session, user_input=user_input)
     await update_user_from_classification(db=db, user=user, classification=classification, session=session)
@@ -27,7 +27,7 @@ async def generate_thrum_reply(db: Session, user_input: str, session, user) -> s
         session.tone_shift_detected = True
         db.commit()
 
-    override_reply = await check_intent_override(db=db, user_input=user_input, user=user, session=session, classification=classification)
+    override_reply = await check_intent_override(db=db, user_input=user_input, user=user, session=session, classification=classification, intrection=intrection)
     if override_reply and override_reply is not None:
         return override_reply
 
@@ -38,7 +38,7 @@ async def generate_thrum_reply(db: Session, user_input: str, session, user) -> s
         return await handle_intro(session)
 
     elif phase == PhaseEnum.DISCOVERY:
-        return await handle_discovery(db=db, session=session, user=user,classification=classification, user_input=user_input)
+        return await handle_discovery(db=db, session=session, user=user)
 
     elif phase == PhaseEnum.CONFIRMATION:
         return await handle_confirmation(session)
@@ -47,7 +47,7 @@ async def generate_thrum_reply(db: Session, user_input: str, session, user) -> s
         return await handle_delivery(db=db, session=session, user=user, classification=classification, user_input=user_input)
 
     elif phase == PhaseEnum.FOLLOWUP:
-        return await handle_followup(db=db, session=session, user=user, user_input=user_input, classification=classification)
+        return await handle_followup(db=db, session=session, user=user, user_input=user_input, classification=classification, intrection=intrection)
 
     elif phase == PhaseEnum.ENDING:
         return await handle_ending(session)

@@ -59,7 +59,7 @@ async def user_chat_with_thrum(
         db.rollback()
         raise HTTPException(status_code=500, detail="DB error: " + str(e))
 
-    return session
+    return session, interaction
 
 
 # 🤖 Bot sends reply to user

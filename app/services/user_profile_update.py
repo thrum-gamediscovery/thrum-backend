@@ -14,6 +14,7 @@ from app.services.session_manager import update_or_create_session_mood
 from app.utils.genre import get_best_genre_match 
 from app.utils.platform_utils import get_best_platform_match, get_default_platform
 from app.services.session_memory import SessionMemory
+from app.services.semantic_similarity import check_semantic_similarity
 
 # ✅ Update user profile with parsed classification fields
 async def update_game_feedback_from_json(db, user_id: UUID, session,feedback_data: list) -> None:
@@ -110,6 +111,9 @@ async def update_user_from_classification(db: Session, user, classification: dic
     reject_tags = classification.get("reject_tags", [])
     game_feedback = classification.get("game_feedback", [])
     find_game_title = classification.get("find_game")
+    gameplay_elements = classification.get("gameplay_elements", [])
+    preferred_keywords = classification.get("preferred_keywords", [])
+    disliked_keywords = classification.get("disliked_keywords", [])
 
     # -- Name
     if name and name != "None":
@@ -238,6 +242,67 @@ async def update_user_from_classification(db: Session, user, classification: dic
         user.playtime = playtime.strip().lower()
         flag_modified(user, "playtime")
         user.last_updated["playtime"] = str(datetime.utcnow())
+        
+    # -- Gameplay Elements
+    if isinstance(gameplay_elements, list):
+        print(f"[🛑 Raw gameplay_elements]: {gameplay_elements}")
+        
+        # Ensure session.gameplay_elements is initialized as a list if it's None
+        if session.gameplay_elements is None:
+            session.gameplay_elements = []
+            print("✅ Initialized session.gameplay_elements as an empty list.")
+        
+        # Ensure all elements are strings and clean them
+        for element in gameplay_elements:
+            element_clean = element.strip().lower()
+            if element_clean not in session.gameplay_elements:
+                session.gameplay_elements.append(element_clean)
+                print(f"✅ Added gameplay element: {element_clean}")
+        
+        # Mark session for modification
+        flag_modified(session, "gameplay_elements")
+    else:
+        print(f"❌ Invalid gameplay_elements format: {gameplay_elements}. Expected a list.")
+        
+    # -- Preferred Keywords
+    if not hasattr(session, 'preferred_keywords'):
+        session.preferred_keywords = []
+
+    # Ensure preferred_keywords is always a list, even if it's None
+    if session.preferred_keywords is None:
+        session.preferred_keywords = []
+
+    if isinstance(preferred_keywords, list):
+        print(f"[🛑 Raw preferred_keywords]: {preferred_keywords}")
+        # Ensure all elements are strings and clean them
+        for keyword in preferred_keywords:
+            keyword_clean = keyword.strip().lower()
+            if keyword_clean not in session.preferred_keywords:
+                session.preferred_keywords.append(keyword_clean)
+                print(f"✅ Added preferred keyword: {keyword_clean}")
+        flag_modified(session, "preferred_keywords")
+    else:
+        print(f"❌ Invalid preferred_keywords format: {preferred_keywords}. Expected a list.")
+        
+    # -- Disliked Keywords
+    if not hasattr(session, 'disliked_keywords'):
+        session.disliked_keywords = []
+
+    # Ensure disliked_keywords is always a list, even if it's None
+    if session.disliked_keywords is None:
+        session.disliked_keywords = []
+
+    if isinstance(disliked_keywords, list):
+        print(f"[🛑 Raw disliked_keywords]: {disliked_keywords}")
+        # Ensure all elements are strings and clean them
+        for dislike in disliked_keywords:
+            dislike_clean = dislike.strip().lower()
+            if dislike_clean not in session.disliked_keywords:
+                session.disliked_keywords.append(dislike_clean)
+                print(f"✅ Added disliked keyword: {dislike_clean}")
+        flag_modified(session, "disliked_keywords")
+    else:
+        print(f"❌ Invalid disliked_keywords format: {disliked_keywords}. Expected a list.")
 
     # -- find game
     if find_game_title and find_game_title.lower() != "none":

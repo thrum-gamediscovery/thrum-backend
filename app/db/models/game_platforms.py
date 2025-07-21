@@ -14,5 +14,6 @@ class GamePlatform(Base):
     game_id = Column(UUID(as_uuid=True), ForeignKey("games.game_id"), nullable=False)
     platform = Column(String, nullable=False)
     link = Column(String, nullable=True)
+    distribution = Column(String, nullable=True)
 
     game = relationship("Game", back_populates="platforms")

@@ -7,7 +7,7 @@ from openai import OpenAIError
 from app.db.models.session import Session
 from app.db.models.game_recommendations import GameRecommendation
 from app.db.models.enums import SenderEnum
-from app.services.session_memory import SessionMemory
+
 from app.services.central_system_prompt import THRUM_PROMPT
 
 # Set API Key
@@ -34,6 +34,7 @@ intents = [
 ]
 
 async def classify_user_intent(user_input: str, session):
+    from app.services.session_memory import SessionMemory
     thrum_interactions = [i for i in session.interactions if i.sender == SenderEnum.Thrum]
     last_thrum_reply = thrum_interactions[-1].content if thrum_interactions else ""
     
@@ -273,6 +274,7 @@ OUTPUT FORMAT (Strict JSON) strictly deny to add another text:
     
 # ✅ Use OpenAI to classify mood, vibe, genre, and platform from free text
 async def classify_user_input(session, user_input: str) -> dict | str:
+    from app.services.session_memory import SessionMemory
     # Get the last message from Thrum to include as context
     thrum_interactions = [i for i in session.interactions if i.sender == SenderEnum.Thrum]
     last_thrum_reply = thrum_interactions[-1].content if thrum_interactions else ""
@@ -283,8 +285,8 @@ async def classify_user_input(session, user_input: str) -> dict | str:
             "description": last_game_obj.description[:200] if last_game_obj.description else None,
             "genre": last_game_obj.genre,
             "game_vibes": last_game_obj.game_vibes,
-            "mechanics": last_game_obj.mechanics,
-            "visual_style": last_game_obj.visual_style,
+            "complexity": last_game_obj.complexity,
+            "visual_style": last_game_obj.graphical_visual_style,
             "has_story": last_game_obj.has_story,
             "available_in_platforms":[platform.platform for platform in last_game_obj.platforms]
         }
@@ -409,6 +411,29 @@ You must infer from both keywords and tone—even if the user is casual, brief, 
    → return just one title of that game which user specify for recommend not list
    → If user not specify about game or title then strictly take last game title.
    → If not, return "None".
+   
+  13. gameplay_elements (list of strings)
+  → Focus on GAMEPLAY MECHANICS and structural features that the user describes or wants.
+  → Include any mention of core actions, progression systems, advancement, linearity, perspective, player control, interaction loops, or feedback style.
+  → Extract every word or phrase about how the player interacts with the game, what actions they take, and how gameplay is experienced or structured.
+  → Consider any description of what makes the game feel unique, active, hands-on, or what the player actually does in the game.
+  → Do NOT include reasons for playing (that goes in preferred_keywords), and do not skip implied mechanics.
+  → Return every relevant mechanic, structure, or action as an array of strings; if not present, return [].
+  14. preferred_keywords (list of strings)
+  → Focus on PLAYER MOTIVATION, emotional needs, and preferences for gameplay experience.
+  → Include all user mentions of desired game vibe, complexity, visual style, theme, emotional fit, social setting, cognitive style, intensity, or any reason for wanting a specific type of game.
+  → Extract every word or phrase that describes why the user wants to play — their mood, goals, feelings, or what makes a game appealing to them.
+  → Look for anything that explains the user’s ideal experience, even if only suggested through adjectives, tone, or feelings.
+  → Do NOT include gameplay mechanics (those go in gameplay_elements); capture only motivation and preference concepts.
+  → Return all preference and motivation words or phrases as an array; if not present, return [].
+  15. disliked_keywords (list of strings)
+  → Focus on all NEGATIVE experiences, unwanted features, or game elements the user wishes to avoid.
+  → Include anything the user describes as frustrating, boring, stressful, unappealing, annoying, or not enjoyable.
+  → Extract every word or phrase about bad gameplay patterns, disliked mechanics, monetization issues, emotional triggers, or negative play experiences.
+  → Look for any mention of what the user does NOT like in games, even if it’s subtle or implied (such as “no pay-to-win,” “hate grinding,” “too easy,” etc.).
+  → Do NOT skip implied dislikes or features the user reacts negatively to, even if not directly stated as “dislike.”
+  → Return all such terms as an array of strings; if not present, return [].
+
 ---
 
 🧠 RULES:
@@ -437,7 +462,10 @@ You must infer from both keywords and tone—even if the user is casual, brief, 
       "reason": "..."
     }}
   ],
-  "find_game":"..." 
+  "find_game":"...",
+  "gameplay_elements": ["..."],
+  "preferred_keywords": ["..."],
+  "disliked_keywords": ["..."]
 }}
 
 🧠 HINTS:
@@ -490,7 +518,10 @@ Now classify into the format below.
                 "playtime_pref": "None",
                 "reject_tags": [],
                 "game_feedback": [],
-                "find_game":"None"
+                "find_game":"None",
+                "gameplay_elements": [],
+                "preferred_keywords": [],
+                "disliked_keywords": []
             }
 
         print(f"Classification Result: {result}")
@@ -629,4 +660,4 @@ async def have_to_recommend(db: Session, user, classification: dict, session) ->
             print("🛑 Feedback: user rejected a game")
             return True  # Trigger new recommendation
 
-    return False  # No new recommendation needed, preferences match
+    return False  # No new recommendation needed, preferences matchs

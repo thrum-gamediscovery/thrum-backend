@@ -43,6 +43,7 @@ app.include_router(api_router, prefix="/api/v1")
 
 @app.on_event("startup")
 def on_startup():
+    print('Thrum started ........')
     start_scheduler()
 
 @app.on_event("shutdown")

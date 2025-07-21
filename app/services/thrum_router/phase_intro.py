@@ -1,8 +1,8 @@
 
 import random
-from app.services.session_memory import SessionMemory
 
 async def handle_intro(session):
+    from app.services.session_memory import SessionMemory
     session_memory = SessionMemory(session)
     memory_context_str = session_memory.to_prompt()
         

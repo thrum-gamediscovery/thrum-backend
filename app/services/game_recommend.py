@@ -9,114 +9,91 @@ from app.db.models.game import Game
 from sqlalchemy import func, cast, Integer, or_, and_
 from scipy.spatial.distance import cosine
 from datetime import datetime
-from typing import Optional, Dict, Tuple
 import numpy as np
+from sqlalchemy import text
+model = SentenceTransformer("BAAI/bge-base-en-v1.5")
 
-model = SentenceTransformer("all-MiniLM-L12-v2")
-
+# Function to get the platform link for a given game and preferred platform
 def get_game_platform_link(game_id, preferred_platform, db_session):
-    # Query the game_platform table for the specific game_id and platform
     platform_entry = db_session.query(GamePlatform).filter_by(
         game_id=game_id,
         platform=preferred_platform
     ).first()
     if platform_entry and platform_entry.link:
         return platform_entry.link
-    else:
-        return None  # or return a message/link for a default/fallback
-    
+    return None
+
+# Helper function to convert vector arrays to a consistent format
+def to_vector(v):
+    if v is None:
+        return None
+    v = np.array(v)
+    if v.ndim == 2:
+        return v.flatten()
+    if v.ndim == 1:
+        return v
+    return None
+
+# Main game recommendation function
 async def game_recommendation(db: Session, user, session):
-    today = datetime.utcnow().date().isoformat()
-    # Step 1: Pull platform, genre, mood
+
+    # Step 1: Determine platform preference from session or user
     platform = None
     if session.platform_preference:
         platform = session.platform_preference[-1]
-    elif user.platform_prefs and today in user.platform_prefs and user.platform_prefs[today]:
-        platform = user.platform_prefs[today][-1]
-    elif user.platform_prefs:
-        for day_prefs in reversed(user.platform_prefs.values()):
-            if day_prefs:
-                platform = day_prefs[-1]
-                break
-    genre = session.genre if session.genre else (
-    user.genre_prefs.get(today, []) if user.genre_prefs and today in user.genre_prefs
-        else next((g for g in reversed(user.genre_prefs.values()) if g), []) if user.genre_prefs else []
-    )
-    mood = session.exit_mood if session.exit_mood else (
-        user.mood_tags.get(today) if user.mood_tags and today in user.mood_tags
-        else next(reversed(user.mood_tags.values()), None) if user.mood_tags else None
-    )
-    print(f"[🎯] Final values — platform: {platform}, genre: {genre}, mood: {mood}")
+        print(f"[Step 1] Platform from session: {platform}")
+    else:
+        print("[Step 1] No platform preference found.")
 
-    # Step 2: Base query and rejection filters
+    # Step 2: Determine genre preference from session or user (use last genre from session)
+    genre = session.genre if session.genre else None
+    print(f"[Step 2] Genre: {genre}")
+
+    # Step 3: Exclude rejected and already recommended games
     rejected_game_ids = set(session.rejected_games or [])
     recommended_ids = set(
         r[0] for r in db.query(GameRecommendation.game_id).filter(
             GameRecommendation.session_id == session.session_id
         )
     )
-    reject_genres = set((session.meta_data or {}).get("reject_tags", {}).get("genre", []))
+    print(f"[Step 3] Rejected games count: {len(rejected_game_ids)}, Recommended games count: {len(recommended_ids)}")
 
     base_query = db.query(Game).filter(
-        Game.mood_embedding.isnot(None),
-        Game.game_embedding.isnot(None),
         ~Game.game_id.in_(rejected_game_ids),
         ~Game.game_id.in_(recommended_ids)
     )
+    print(f"[Step 3] Number of games before platform filter: {base_query.count()}")
 
-    if reject_genres:
-        genre_filters = [
-            Game.genre.any(func.lower(genre.strip().lower()))
-            for genre in reject_genres
-        ]
-        base_query = base_query.filter(~or_(*genre_filters))
-    
+    reject_genres = set((session.meta_data or {}).get("reject_tags", {}).get("genre", []))
+    rejected_genres_lower = [genre.strip().lower() for genre in reject_genres]
 
-    if genre:
-        genre_filters = [Game.genre.any(func.lower(g.strip().lower())) for g in genre]
-        filtered_query = base_query.filter(and_(*genre_filters))
-        test_games = filtered_query.all()
-        if not test_games and len(genre) > 1:
-            # Fallback: use only the last genre
-            print("[ℹ️] No games found with all genres; falling back to last genre only.")
-            last_genre = genre[-1]
-            filtered_query = base_query.filter(Game.genre.any(func.lower(last_genre.strip().lower())))
-        base_query = filtered_query
-    if platform:
-        platform_game_ids = db.query(GamePlatform.game_id).filter(
-            func.lower(GamePlatform.platform) == platform.lower()
-        ).all()
-        platform_game_ids = [g[0] for g in platform_game_ids]
-        base_query = base_query.filter(Game.game_id.in_(platform_game_ids))
+    filtered_query = base_query.filter(
+        text("""
+            NOT EXISTS (
+                SELECT 1
+                FROM unnest(games.genre) AS g
+                WHERE LOWER(g) = ANY(:rejected_genres)
+            )
+        """)
+    ).params(rejected_genres=rejected_genres_lower)
+    base_query = filtered_query
+    print(f"[Step 3.1] Number of games after reject_genres filter: {base_query.count()}")
+    reject_genre_games = filtered_query.all()
+    print(f"[Step 3.2] after reject_genres filter: {len(reject_genre_games)}")
 
-    # Step 3: Filter games above user age if user_age is known
-    user_age = None
-    if user.age_range:
-        try:
-            user_age = int(user.age_range)
-        except ValueError:
-            pass
 
-    if user_age is not None:
-        base_query = base_query.filter(
-            cast(Game.age_rating, Integer) <= user_age
-        )
-    session.game_rejection_count += 1
-    base_games = base_query.all()
-    if not base_games:
-        return None, None
-        # Step 1.5: Cold start → recommend random safe game
-
-    if not platform and not genre and not mood:
-        print("[🧊] Cold start: returning a safe random game.")
-        random_game = base_query.order_by(func.random()).first()
+    # Step 4: Early fallback if no platform or session information is available
+    if platform is None and genre is None and not session.gameplay_elements and not session.preferred_keywords and not session.disliked_keywords:
+        print("[Step 4] Early fallback: No platform or preferences info, recommending random game.")
+        random_game = db.query(Game).order_by(func.random()).first()
         if not random_game:
+            print("[Step 4] Early fallback: No games in database.")
             return None, None
-
         platforms = db.query(GamePlatform.platform).filter(
             GamePlatform.game_id == random_game.game_id
         ).all()
-
+        link = get_game_platform_link(random_game.game_id, platform, db)
+        # Save recommendation
         game_rec = GameRecommendation(
             session_id=session.session_id,
             user_id=user.user_id,
@@ -127,111 +104,177 @@ async def game_recommendation(db: Session, user, session):
         )
         db.add(game_rec)
         db.commit()
-
         session.phase = PhaseEnum.FOLLOWUP
         session.followup_triggered = True
-
+        print(f"[Step 4] Early fallback: Random game recommended: {random_game.title}")
         return {
             "title": random_game.title,
             "description": random_game.description[:200] if random_game.description else None,
             "genre": random_game.genre,
             "game_vibes": random_game.game_vibes,
-            "mechanics": random_game.mechanics,
-            "visual_style": random_game.visual_style,
+            "complexity": random_game.complexity,
+            "visual_style": random_game.graphical_visual_style,
             "has_story": random_game.has_story,
-            "platforms": [p[0] for p in platforms]
+            "platforms": [p[0] for p in platforms],
+            "link": link
         }, False
-    
-    # Step 4: Mood cluster for soft filtering
-    game_vibe = []
-    if mood:
-        mood_entry = db.query(MoodCluster).filter(MoodCluster.mood == mood).first()
-        if mood_entry and mood_entry.game_vibe:
-            game_vibe = mood_entry.game_vibe
 
-    # Step 5: Progressive soft filters
-    filter_levels = [
-        {"genre": True, "platform": True, "cluster": True, "story": True},
-        {"genre": True, "platform": True, "cluster": True, "story": False},
-    ]
+    # Step 5: Filter by platform availability
+    if platform:
+        platform_game_ids = db.query(GamePlatform.game_id).filter(
+            func.lower(GamePlatform.platform) == platform.lower()
+        ).all()
+        platform_game_ids = [g[0] for g in platform_game_ids]
+        base_query = base_query.filter(Game.game_id.in_(platform_game_ids))
+        print(f"[Step 5] Filtered games by platform '{platform}', candidates left: {len(platform_game_ids)}")
+    else:
+        print("[Step 5] No platform filter applied.")
 
-    def genre_filter_loop(base_games, genres_to_use):
-        candidate_games = []
-        for level in filter_levels:
-            current = []
-            for game in base_games:
-                if level["genre"] and genres_to_use:
-                    game_genres = [g.lower() for g in (game.genre or [])]
-                    if not all(g.lower() in game_genres for g in genres_to_use):
-                        continue
-                if level["platform"] and platform:
-                    platform_rows = [p[0] for p in db.query(GamePlatform.platform).filter(GamePlatform.game_id == game.game_id)]
-                    if platform.lower() not in [p.lower() for p in platform_rows]:
-                        continue
-                if level["cluster"] and game_vibe:
-                    vibe_val = [v.lower() for v in (game.game_vibes or [])]
-                    if not any(v.lower() in vibe_val for v in game_vibe):
-                        continue
-                if level.get("story", False) and user.story_pref is not None:
-                    if game.has_story != user.story_pref:
-                        continue
-                current.append(game)
-            print(f"[🧪] Filter level: {level} (genres={genres_to_use}) → game_vibe={game_vibe}) → candidates: {len(current)}")
-            if current:
-                return current
-        return []
-    
-    # -- Attempt with all genres
-    candidate_games = genre_filter_loop(base_games, genre)
-    # -- If no match and >1 genre, fallback to last genre only
-    if not candidate_games and genre and len(genre) > 1:
-        print("[ℹ️] No candidates for all genres, falling back to last genre.")
-        candidate_games = genre_filter_loop(base_games, [genre[-1]])
+    # Step 6: Apply genre filter after platform filtering
+    # if genre:
+    #     print(f"[Step 6] Applying filter for genres: {', '.join(genre)}")
 
-    if not candidate_games:
-        return None, None
-    
-    # Step 6: Embedding-based scoring
-    user_interactions = [i for i in session.interactions if i.sender == SenderEnum.User]
-    user_input = user_interactions[-1].content if user_interactions else ""
-    mood_input = f"{mood} | {user_input}" if mood else None
-    mood_vector = model.encode(mood_input) if mood_input else None
-    genre_str = ", ".join(genre) if genre else ""
-    genre_input = f"{genre} | {user_input}" if genre_str else None
-    genre_vector = model.encode(genre_input) if genre_input else None
+    #     # Use robust, case-insensitive genre filter for all genres in session
+    #     genre_filters = [
+    #         text("EXISTS (SELECT 1 FROM unnest(genre) AS g WHERE LOWER(g) = :g)")
+    #         for g in genre
+    #     ]
+    #     filtered_query = base_query.filter(
+    #         or_(*[f.params(g=g.strip().lower()) for g, f in zip(genre, genre_filters)])
+    #     )
 
-    def to_vector(v):
-        if v is None:
-            return None
-        v = np.array(v)
-        return v.flatten() if v.ndim == 2 else v if v.ndim == 1 else None
+    #     test_games = filtered_query.all()
+    #     print(f"[Step 6] Number of games after genre filter: {len(test_games)}")
+
+    #     if not test_games:
+    #         print(f"[:information_source:] No games found with all genres '{', '.join(genre)}'.")
+    #         # Fallback to the last genre if no games are found
+    #         print(f"[:information_source:] Falling back to last genre: {genre[-1]}")
+    #         last_genre = genre[-1]
+    #         filtered_query = base_query.filter(
+    #             text("EXISTS (SELECT 1 FROM unnest(genre) AS g WHERE LOWER(g) = :g)")
+    #         ).params(g=last_genre.strip().lower())
+
+    #         test_games = filtered_query.all()
+    #         if not test_games:
+    #             print("[Step 6] No games found with last genre. Returning None.")
+    #             return None, False
+    #         else:
+    #             base_query = filtered_query
+    #             print(f"[Step 6] Genre filter applied, {len(test_games)} games match.")
+    #     else:
+    #         base_query = filtered_query
+    #         print(f"[Step 6] Genre filter applied, {len(test_games)} games match.")
+
+    if genre:
+        last_genre = genre[-1]  # Get the last genre from the genre list in session
+        print(f"[Step 6] Applying filter for the last genre: {last_genre}")
+        # Use robust, case-insensitive genre filter
+        filtered_query = base_query.filter(
+            text("EXISTS (SELECT 1 FROM unnest(genre) AS g WHERE LOWER(g) = :g)")
+        ).params(g=last_genre.strip().lower())
+        print("-----------------------", filtered_query)
+        test_games = filtered_query.all()
+        print(f"[Step 6] Number of games after genre filter: {len(test_games)}")
+        if not test_games:
+            print(f"[:information_source:] No games found with genre '{last_genre}'.")
+            return None, False
+            # handle fallback here if needed
+        else:
+            base_query = filtered_query
+            print(f"[Step 6] Genre filter applied, {len(test_games)} games match.")
+
+    # Step 7: Filter by user age if available
+    user_age = None
+    if user.age_range:
+        try:
+            user_age = int(user.age_range)
+            base_query = base_query.filter(
+                cast(Game.age_rating, Integer) <= user_age
+            )
+            print(f"[Step 7] Applied age filter: user age = {user_age}")
+        except ValueError:
+            print("[Step 7] Invalid user age; skipping age filter.")
+    else:
+        print("[Step 7] No user age available; skipping age filter.")
+
+    session.game_rejection_count += 1
+    base_games = base_query.all()
+    print(f"[Step 7] Number of candidate games after filters: {len(base_games)}")
+
+    # Step 8: If no games after applying all filters, fallback to random game
+    if not base_games:
+        return None, False
+
+    # Step 9: Embed session gameplay_elements, preferred_keywords, disliked_keywords at runtime
+    session_gameplay_embedding = None
+    session_preference_embedding = None
+    session_disliked_embedding = None
+
+    if session.gameplay_elements:
+        session_gameplay_embedding = model.encode(' '.join(session.gameplay_elements))
+        print(f"[Step 9] Embedded gameplay_elements: {session.gameplay_elements}")
+    if session.preferred_keywords:
+        session_preference_embedding = model.encode(' '.join(session.preferred_keywords))
+        print(f"[Step 9] Embedded preferred_keywords: {session.preferred_keywords}")
+    if session.disliked_keywords:
+        session_disliked_embedding = model.encode(' '.join(session.disliked_keywords))
+        print(f"[Step 9] Embedded disliked_keywords: {session.disliked_keywords}")
+
+    # Thresholds and weights
+    DISLIKE_THRESHOLD = 0.5  # similarity above which game is rejected
+    PENALTY_WEIGHT = 0.5     # penalty weight for dislike similarity
+    GAMEPLAY_WEIGHT = 0.6
+    PREFERENCE_WEIGHT = 0.4
 
     def compute_score(game: Game):
-        mood_sim = genre_sim = 0
-        mood_weight = 0.6 if mood_vector is not None else 0
-        genre_weight = 0.4 if genre_vector is not None else 0
-        game_mood_vector = to_vector(game.mood_embedding)
-        game_genre_vector = to_vector(game.game_embedding)
+        gameplay_sim = 0
+        preference_sim = 0
+        dislike_sim = 0
 
-        if mood_vector is not None and game_mood_vector is not None:
-            mood_sim = 1 - cosine(mood_vector, game_mood_vector)
-        if genre_vector is not None and game_genre_vector is not None:
-            genre_sim = 1 - cosine(genre_vector, game_genre_vector)
+        game_gameplay_embedding = to_vector(game.gameplay_embedding)
+        game_preference_embedding = to_vector(game.preference_embedding)
 
-        return (mood_weight * mood_sim + genre_weight * genre_sim) if (mood_weight + genre_weight) > 0 else 0.01
+        if session_gameplay_embedding is not None and game_gameplay_embedding is not None:
+            gameplay_sim = 1 - cosine(session_gameplay_embedding, game_gameplay_embedding)
 
-    ranked = sorted([(g, compute_score(g)) for g in candidate_games], key=lambda x: x[1], reverse=True)
+        if session_preference_embedding is not None and game_preference_embedding is not None:
+            preference_sim = 1 - cosine(session_preference_embedding, game_preference_embedding)
 
-    # ✅ NEW: Avoid repeating the last recommended game
+        if session_disliked_embedding is not None and game_preference_embedding is not None:
+            dislike_sim = 1 - cosine(session_disliked_embedding, game_preference_embedding)
+            if dislike_sim >= DISLIKE_THRESHOLD:
+                print(f"[Step 10] Game '{game.title}' excluded due to disliked similarity: {dislike_sim}")
+                return 0
+
+        score = GAMEPLAY_WEIGHT * gameplay_sim + PREFERENCE_WEIGHT * preference_sim
+        # Soft penalty for disliked similarity if below threshold
+        if session_disliked_embedding is not None and dislike_sim < DISLIKE_THRESHOLD:
+            score -= PENALTY_WEIGHT * dislike_sim
+        return max(score, 0.01)
+
+    # Step 11: Score and rank candidate games
+    scored_games = [(g, compute_score(g)) for g in base_games]
+    ranked_games = sorted(scored_games, key=lambda x: x[1], reverse=True)
+
+    if not ranked_games:
+        print("[Step 11] No games scored above zero after embedding similarity.")
+        return None, None
+
+    # Optionally exclude last recommended game title
     if session.last_recommended_game:
-        ranked = [r for r in ranked if r[0].title != session.last_recommended_game]
-        if not ranked:
+        ranked_games = [rg for rg in ranked_games if rg[0].title != session.last_recommended_game]
+        print(f"[Step 11] Excluded last recommended game: {session.last_recommended_game}")
+        if not ranked_games:
+            print("[Step 11] No candidates after excluding last recommended game.")
             return None, None
 
-    top_game = ranked[0][0]
-    age_ask_required = False
+    top_game = ranked_games[0][0]
+    top_game_score = ranked_games[0][1]
+    print(f"[Step 11] Top game candidate: {top_game.title} with score {top_game_score:.4f}")
 
-    # Step 7: Final age prompt check (only if user age is unknown and game is 18+)
+    # Step 12: Age verification check for recommendation
+    age_ask_required = False
     try:
         game_age = int(top_game.age_rating) if top_game.age_rating else None
     except ValueError:
@@ -239,37 +282,43 @@ async def game_recommendation(db: Session, user, session):
 
     if user_age is None and game_age is not None and game_age >= 18:
         age_ask_required = True
+        print("[Step 12] Age verification required: user age unknown, game is 18+")
+    if user_age is not None and game_age is not None and game_age > user_age:
+        age_ask_required = True
+        print(f"[Step 12] Age verification required: user age {user_age}, game age rating {game_age}")
 
-    # Step 8: Get platforms
+    # Step 13: Retrieve platforms & purchase link
     platforms = db.query(GamePlatform.platform).filter(
         GamePlatform.game_id == top_game.game_id
     ).all()
-
     link = get_game_platform_link(top_game.game_id, platform, db)
+    print(f"[Step 13] Found platforms: {[p[0] for p in platforms]}, link: {link}")
 
-    # Step 9: Save recommendation
+    # Step 14: Save the recommendation record
     game_rec = GameRecommendation(
         session_id=session.session_id,
         user_id=user.user_id,
         game_id=top_game.game_id,
         platform=platform,
-        mood_tag=mood,
+        mood_tag=None,  # mood tagging not used here, add if needed
         accepted=None
     )
-    
     db.add(game_rec)
     db.commit()
     session.phase = PhaseEnum.FOLLOWUP
     session.followup_triggered = True
+    print(f"[Step 14] Recommendation saved for game: {top_game.title}")
 
+    # Step 15: Return recommendation info and age prompt flag
+    print("availables game not random ................")
     return {
         "title": top_game.title,
         "description": top_game.description if top_game.description else None,
         "genre": top_game.genre,
         "game_vibes": top_game.game_vibes,
-        "mechanics": top_game.mechanics,
-        "visual_style": top_game.visual_style,
+        "complexity": top_game.complexity,
+        "visual_style": top_game.graphical_visual_style,
         "has_story": top_game.has_story,
         "platforms": [p[0] for p in platforms],
-        "link":link
+        "link": link
     }, age_ask_required

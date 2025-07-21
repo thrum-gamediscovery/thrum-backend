@@ -2,7 +2,6 @@ import openai
 import os
 from app.db.models.enums import SenderEnum
 import types
-from app.services.session_memory import SessionMemory
 from app.services.central_system_prompt import THRUM_PROMPT
 
 openai.api_key = os.getenv("OPENAI_API_KEY")
@@ -11,6 +10,7 @@ model= os.getenv("GPT_MODEL")
 client = openai.AsyncOpenAI()
 
 async def format_reply(session, user_input, user_prompt):
+    from app.services.session_memory import SessionMemory
     if isinstance(user_prompt, types.CoroutineType):
         user_prompt = await user_prompt
     # Get last Thrum reply
@@ -25,8 +25,8 @@ async def format_reply(session, user_input, user_prompt):
             "description": last_game_obj.description[:200] if last_game_obj.description else None,
             "genre": last_game_obj.genre,
             "game_vibes": last_game_obj.game_vibes,
-            "mechanics": last_game_obj.mechanics,
-            "visual_style": last_game_obj.visual_style,
+            "complexity": last_game_obj.complexity,
+            "visual_style": last_game_obj.graphical_visual_style,
             "has_story": last_game_obj.has_story,
             "available_in_platforms":[platform.platform for platform in last_game_obj.platforms]
         }
@@ -69,7 +69,16 @@ Build your reply by emotionally reflecting:
 - The user's latest message: {user_input}  
 - Your own last reply or question: {last_thrum_reply}  
 - The last recommended game: {last_game or "None"}  
-- The user's current tone: {user_tone} (e.g., bored, frustrated, excited — or combinations like "genz frustrated")
+- Strictly follow these rules:
+Derive the user's current tone, intent, and emotional context entirely from USER MEMORY & RECENT CHAT and the latest user reply.
+Always generate your reply to match or respectfully counterbalance the user's current tone as inferred from their words, style, or attitude.
+If negative language or criticism is detected (e.g., “you should know,” “not helpful,” frustration, or rejection), switch to a neutral, humble tone and start your message with a warm acknowledgment (e.g., “Okay, let’s zoom in on your definition…” or “Got it, thanks for sharing what didn’t work”).
+Never respond with cheerfulness or positivity when the user is negative, disappointed, or rejecting a suggestion. Always prioritize acknowledgment and helpfulness over enthusiasm.
+Do not mention that you are analyzing tone. Do not state your process for tone detection. Just reply naturally with the correct emotional fit.
+You also receive a dictionary called `user_context`, which may contain some or all of the following:
+exit_mood, genre, platform_preference, story_preference
+Use `user_context` to subtly shape tone, recommendation style, or memory-based recall — **only if values are present**.
+If a field is missing or null, ignore it gracefully.
 
 You also receive a dictionary called `user_context`, which may contain some or all of the following:
 exit_mood, genre, platform_preference, story_preference

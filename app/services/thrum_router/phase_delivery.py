@@ -51,7 +51,7 @@ async def get_recommend(db, user, session):
         "The user just rejected the last recommended game.\n"
         "Acknowledge their feedback warmly — let them feel noticed. Never use the same apology or compensation message every time. Avoid 'sorry that didn't click' as a fallback.\n"
         "→ Mention the new game by name — naturally (**{game['title']}**).\n"
-        f"→ Give a mini-review based on description:{description} in 3–4 vivid, conversational sentences: quick summary, what’s it about, vibe, mechanic, art, feel, or weirdness.\n"
+        f"→ Give a mini-review based on description:{description} in 3–4 vivid, conversational sentences: quick summary, what’s it about, vibe, complexity, art, feel, or weirdness.\n"
         "→ Explain *why* this game fits — e.g. 'I thought of this when you said [X]'.\n"
         "→ Use casual, friend-style language: 'This one hits the mood you dropped', 'It’s kinda wild, but I think you’ll like it.'\n"
         f"→ Include a platform mention naturally (make it interesting, not robotic): {platform_note}\n"
@@ -75,8 +75,8 @@ async def explain_last_game_match(session):
             "description": last_game_obj.description[:200] if last_game_obj.description else None,
             "genre": last_game_obj.genre,
             "game_vibes": last_game_obj.game_vibes,
-            "mechanics": last_game_obj.mechanics,
-            "visual_style": last_game_obj.visual_style,
+            "complexity": last_game_obj.complexity,
+            "visual_style": last_game_obj.graphical_visual_style,
             "has_story": last_game_obj.has_story,
             "available_in_platforms":[platform.platform for platform in last_game_obj.platforms]
         }
