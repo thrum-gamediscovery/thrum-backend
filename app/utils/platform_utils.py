@@ -8,7 +8,7 @@ async def get_valid_platforms_from_db(db: Session) -> list[str]:
     row = db.query(UniqueValue).filter(UniqueValue.field == "platform").first()
     return row.unique_values if row and row.unique_values else []
 
-async def get_best_platform_match(user_input: str, db: Session, threshold: int = 65) -> Optional[str]:
+async def get_best_platform_match(user_input: str, db: Session, threshold: int = 80) -> Optional[str]:
     # Match user input to closest platform name
     valid_platforms = await get_valid_platforms_from_db(db)
     if not valid_platforms:

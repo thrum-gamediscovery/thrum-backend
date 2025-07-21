@@ -7,25 +7,27 @@ from app.services.thrum_router.phase_intro import handle_intro
 from app.services.thrum_router.phase_ending import handle_ending
 
 from app.services.thrum_router.phase_confirmation import handle_confirmed_game
-from app.services.thrum_router.phase_discovery import handle_discovery, dynamic_faq_gpt, handle_other_input
+from app.services.thrum_router.phase_discovery import dynamic_faq_gpt, handle_other_input
 from app.services.session_memory import SessionMemory
 from app.services.central_system_prompt import NO_GAMES_PROMPT
 
-async def check_intent_override(db, user_input, user, session, classification):
+async def check_intent_override(db, user_input, user, session, classification, intrection):
+    from app.services.thrum_router.phase_discovery import handle_discovery
     # Classify the user's intent based on their input
     from app.services.thrum_router.phase_followup import handle_game_inquiry, handle_followup
     classification_intent = await classify_user_intent(user_input=user_input, session=session)
-
+    intrection.classification = {"input" : classification, "intent" : classification_intent}
+    db.commit()
     if classification_intent.get("Phase_Discovery"):
-        return handle_discovery(db=db, session=session, classification=classification, user=user, user_input=user_input)
+        return await handle_discovery(db=db, session=session, user=user)
     
     # Handle rejection of recommendation
     if classification_intent.get("Reject_Recommendation"):
         # If the user has rejected the recommendation twice, reset and handle discovery phase
         if session.game_rejection_count >= 2:
             session.phase = PhaseEnum.DISCOVERY
-            session.game_rejection_count = 0
-            return await handle_discovery(db=db, session=session, user=user, classification=classification, user_input=user_input)
+            
+            return await handle_discovery(db=db, session=session, user=user)
         else:
             should_recommend = await have_to_recommend(db=db, user=user, classification=classification, session=session)
 
@@ -72,7 +74,7 @@ async def check_intent_override(db, user_input, user, session, classification):
                     f"platform link :{platform_link}"
                     f"Suggest a second game after the user rejected the previous one.The whole msg should no more than 25-30 words.\n"
                     f"The game must be **{game['title']}** (use bold Markdown: **{game['title']}**).\n"
-                    f"– A confident reason of 15-20 words about why this one might resonate better using game description:{description} also must use (based on genre, vibe, mechanics, or story)\n"
+                    f"– A confident reason of 15-20 words about why this one might resonate better using game description:{description} also must use (based on genre, vibe, complexity, or story)\n"
                     f"Mirror the user's reason for rejection in a warm, human way before suggesting the new game.\n"
                     f"Use user context from the system prompt (like genre, story_preference, platform_preference) to personalize.\n"
                     f"Then naturally include this platform note (rephrase it to sound friendly, do not paste as-is): {platform_note}\n"
@@ -101,7 +103,7 @@ async def check_intent_override(db, user_input, user, session, classification):
     # Handle information provided by the user
     elif classification_intent.get("Give_Info"):
         session.phase = PhaseEnum.DISCOVERY
-        return await handle_discovery(db=db, session=session, classification=classification, user=user, user_input=user_input)
+        return await handle_discovery(db=db, session=session, user=user)
 
     # Handle user opting out
     elif classification_intent.get("Opt_Out"):
@@ -123,7 +125,7 @@ async def check_intent_override(db, user_input, user, session, classification):
     
     elif classification_intent.get("Bot_Error_Mentioned"):
         response = (
-            "Sorry, I seem to have lost track—want to try again?"
+            "the Thrum encounters an error or loses track of the conversation, it should first apologize to the user in a friendly and empathetic manner. After the apology, the bot should invite the user to re-engage by asking for clarification on what they are looking for. The tone should remain light, open, and non-repetitive, ensuring the user feels comfortable guiding the conversation forward.Most Most Most importent is reply is must look like humanly - Not robotic"
         )
         return response
     

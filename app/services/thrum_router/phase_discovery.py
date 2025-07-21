@@ -5,20 +5,17 @@ from app.db.models.enums import PhaseEnum
 from app.utils.error_handler import safe_call
 from app.services.game_recommend import game_recommendation
 from app.services.tone_classifier import classify_tone
+from app.db.models.enums import SenderEnum
 from app.services.input_classifier import classify_user_intent
 from app.services.session_memory import SessionMemory
 from app.services.central_system_prompt import NO_GAMES_PROMPT
 
 @safe_call("Hmm, I had trouble figuring out what to ask next. Let's try something fun instead! 🎮")
-async def handle_discovery(db, session, user, classification, user_input):
+async def handle_discovery(db, session, user):
     session_memory = SessionMemory(session)
     memory_context_str = session_memory.to_prompt()
-
-    # if any(phrase in user_input.lower() for phrase in ["what do you do", "how does it work", "explain", "how this works", "Explain me this", "Explain me first"]):
-    #     return (
-    #         "I help you find games that match your mood, genre, or vibe 🎮\n"
-    #         "You can say something like 'fast action', 'sad story', or even a title like 'GTA'."
-    #     )
+    user_interactions = [i for i in session.interactions if i.sender == SenderEnum.User]
+    user_input = user_interactions[-1].content if user_interactions else ""
     
     intent_result = await classify_user_intent(user_input, session)
     tone_tag = await classify_tone(user_input)
@@ -31,7 +28,7 @@ async def handle_discovery(db, session, user, classification, user_input):
     session.phase = PhaseEnum.DISCOVERY
     discovery_data = await extract_discovery_signals(session)
 
-    if discovery_data.is_complete():
+    if discovery_data.is_complete() and session.game_rejection_count < 2:
         session.phase = PhaseEnum.CONFIRMATION
         return await confirm_input_summary(session)
 
@@ -82,7 +79,7 @@ async def handle_discovery(db, session, user, classification, user_input):
             f"- Bold the game title with Markdown: **{game['title']}**\n"
             f"- Give a 3–4 sentence based on desctipion:{description}, Draper-style, mini-review. Quick and real:\n"
             f"   - What's it about?\n"
-            f"   - What’s the vibe, mechanic, art, feel, or weirdness?\n"
+            f"   - What’s the vibe, complexity, art, feel, or weirdness?\n"
             f"- Say why it fits (e.g., 'I thought of this when you said [X]').\n"
             f"- Talk casually: e.g., 'This one hits that mood you dropped' or 'It’s kinda wild, but I think you’ll like it.'\n"
             f"- Platform mention: keep it real (e.g., 'It’s on Xbox too btw' or 'PC only though — just flagging that'): {platform_note}\n"
@@ -92,14 +89,10 @@ async def handle_discovery(db, session, user, classification, user_input):
             f"- Use warm, fresh energy, and show why this pick might actually be a better fit."
         )
 
-
         return user_prompt
 
     else:
         question = await ask_discovery_question(session)
-        if question is None:
-            session.phase = PhaseEnum.DELIVERY
-            return await deliver_game_immediately(db=db, session=session, user=user)
         session.discovery_questions_asked += 1
         return question
 
@@ -109,71 +102,75 @@ async def handle_user_info(db, user, classification, session, user_input):
     memory_context_str = session_memory.to_prompt()
     
     should_recommend = await have_to_recommend(db=db, user=user, classification=classification, session=session)
+    if session.game_rejection_count >= 2:
+        session.phase = PhaseEnum.DISCOVERY
+            
+        return await handle_discovery(db=db, session=session, user=user)
+    else:
+        if should_recommend:
+            session.phase = PhaseEnum.DELIVERY
+            session.discovery_questions_asked = 0
 
-    if should_recommend:
-        session.phase = PhaseEnum.DELIVERY
-        session.discovery_questions_asked = 0
-
-        game, _ = await game_recommendation(db=db, user=user, session=session)
-        platform_link = None
-        description = None
-        
-        if not game:
-            user_prompt = f"""
-            USER MEMORY & RECENT CHAT:
-            {memory_context_str if memory_context_str else 'No prior user memory or recent chat.'}
-            {NO_GAMES_PROMPT}
-            """
+            game, _ = await game_recommendation(db=db, user=user, session=session)
+            platform_link = None
+            description = None
+            
+            if not game:
+                user_prompt = f"""
+                USER MEMORY & RECENT CHAT:
+                {memory_context_str if memory_context_str else 'No prior user memory or recent chat.'}
+                {NO_GAMES_PROMPT}
+                """
 
 
+
+                return user_prompt
+            # Extract platform info
+            preferred_platforms = session.platform_preference or []
+            user_platform = preferred_platforms[-1] if preferred_platforms else None
+            game_platforms = game.get("platforms", [])
+            platform_link = game.get("link", None)
+            description = game.get("description",None)
+            # Dynamic platform mention line (natural, not template)
+            if user_platform and user_platform in game_platforms:
+                platform_note = f"It’s playable on your preferred platform: {user_platform}."
+            elif user_platform:
+                available = ", ".join(game_platforms)
+                platform_note = (
+                    f"It’s not on your usual platform ({user_platform}), "
+                    f"but works on: {available}."
+                )
+            else:
+                platform_note = f"Available on: {', '.join(game_platforms)}."
+
+            # Final user prompt for GPT
+            user_prompt = (
+                f"USER MEMORY & RECENT CHAT:\n"
+                f"{memory_context_str if memory_context_str else 'No prior user memory or recent chat.'}\n\n"
+                "→ Always reflect the user's current tone — keep it real and emotionally alive.\n"
+                f"Suggest the game **{game['title']}** to the user (title can appear anywhere in your message, no format restrictions).\n"
+                # Draper-style, mini-review checklist
+                "→ Mention the game by name — naturally.\n"
+                "→ Give a 3–4 sentence mini-review. Quick and dirty:\n"
+                "   - What's it about?\n"
+                "   - What’s the vibe, complexity, art, feel, weirdness?\n"
+                f"→ Say why it fits: e.g. “I thought of this when you said [{description}]”.\n"
+                "→ Talk casually:\n"
+                "   - “This one hits that mood you dropped”\n"
+                "   - “It’s kinda wild, but I think you’ll like it”\n"
+                f"→ Always include a real platform note, naturally woven in: {platform_note}\n"
+                f"platform link :{platform_link}"
+                f"If platform_link is not None, then it must be naturally included, do not use brackets or Markdown formatting—always mention the plain URL naturally within the sentence(not like in brackets or like [here],not robotically or bot like) link: {platform_link}\n""→ Use system prompt's user context (story_preference, genre, platform_preference) if it helps personalize — but don’t recap or ask.\n"
+                "→ Tone must be confident, warm, and human. Never use 'maybe', 'you might like', or robotic phrasing.\n"
+                "→ Your message must always explain *why* this game fits the user’s vibe, referencing their input."
+            )
 
             return user_prompt
-        # Extract platform info
-        preferred_platforms = session.platform_preference or []
-        user_platform = preferred_platforms[-1] if preferred_platforms else None
-        game_platforms = game.get("platforms", [])
-        platform_link = game.get("link", None)
-        description = game.get("description",None)
-        # Dynamic platform mention line (natural, not template)
-        if user_platform and user_platform in game_platforms:
-            platform_note = f"It’s playable on your preferred platform: {user_platform}."
-        elif user_platform:
-            available = ", ".join(game_platforms)
-            platform_note = (
-                f"It’s not on your usual platform ({user_platform}), "
-                f"but works on: {available}."
-            )
+
         else:
-            platform_note = f"Available on: {', '.join(game_platforms)}."
-
-        # Final user prompt for GPT
-        user_prompt = (
-            f"USER MEMORY & RECENT CHAT:\n"
-            f"{memory_context_str if memory_context_str else 'No prior user memory or recent chat.'}\n\n"
-            "→ Always reflect the user's current tone — keep it real and emotionally alive.\n"
-            f"Suggest the game **{game['title']}** to the user (title can appear anywhere in your message, no format restrictions).\n"
-            # Draper-style, mini-review checklist
-            "→ Mention the game by name — naturally.\n"
-            "→ Give a 3–4 sentence mini-review. Quick and dirty:\n"
-            "   - What's it about?\n"
-            "   - What’s the vibe, mechanic, art, feel, weirdness?\n"
-            f"→ Say why it fits: e.g. “I thought of this when you said [{description}]”.\n"
-            "→ Talk casually:\n"
-            "   - “This one hits that mood you dropped”\n"
-            "   - “It’s kinda wild, but I think you’ll like it”\n"
-            f"→ Always include a real platform note, naturally woven in: {platform_note}\n"
-            f"platform link :{platform_link}"
-            f"If platform_link is not None, then it must be naturally included, do not use brackets or Markdown formatting—always mention the plain URL naturally within the sentence(not like in brackets or like [here],not robotically or bot like) link: {platform_link}\n""→ Use system prompt's user context (story_preference, genre, platform_preference) if it helps personalize — but don’t recap or ask.\n"
-            "→ Tone must be confident, warm, and human. Never use 'maybe', 'you might like', or robotic phrasing.\n"
-            "→ Your message must always explain *why* this game fits the user’s vibe, referencing their input."
-        )
-
-        return user_prompt
-
-    else:
-        # Explain last recommended game instead
-        explanation_response = await explain_last_game_match(session=session)
-        return explanation_response
+            # Explain last recommended game instead
+            explanation_response = await explain_last_game_match(session=session)
+            return explanation_response
     
 
 async def handle_other_input(db, user, session, user_input: str) -> str:

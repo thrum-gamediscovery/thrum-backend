@@ -11,6 +11,7 @@ from datetime import datetime
 from sqlalchemy import Column, String, Text, Enum, ForeignKey, TIMESTAMP, Float, JSON
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
+from sqlalchemy.ext.mutable import MutableDict
 from app.db.base import Base
 from app.db.models.enums import SenderEnum, ResponseTypeEnum, SessionTypeEnum
 
@@ -29,7 +30,7 @@ class Interaction(Base):
 
     session_type = Column(Enum(SessionTypeEnum), nullable=True)
     game_id = Column(UUID(as_uuid=True), ForeignKey("games.game_id"), nullable=True)
-    bot_response_metadata = Column(JSON, nullable=True)
+    bot_response_metadata = Column(MutableDict.as_mutable(JSON), default=dict)
 
     timestamp = Column(TIMESTAMP, default=datetime.utcnow)
 
@@ -37,4 +38,5 @@ class Interaction(Base):
     game = relationship("Game", back_populates="interactions")
 
     tone_tag = Column(String, nullable=True)
+    classification = Column(JSON, nullable=True)
 

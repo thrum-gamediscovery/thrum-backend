@@ -22,7 +22,7 @@ class Game(Base):
     description = Column(Text, nullable=True)
     genre = Column(ARRAY(String), nullable=True, default=[])
     game_vibes = Column(ARRAY(String), nullable=True, default=[])
-    mechanic = Column(ARRAY(String), nullable=True, default=[])
+    complexity = Column(ARRAY(String), nullable=True, default=[])
     graphical_visual_style = Column(ARRAY(String), nullable=True, default=[]) # graphical_visual_style
     age_rating = Column(String, nullable=True)
     region = Column(String, nullable=True)  # e.g., "US", "UK"

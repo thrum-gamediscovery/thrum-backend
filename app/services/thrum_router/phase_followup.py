@@ -14,14 +14,15 @@ from app.db.models.game import Game
 from app.db.models.game_platforms import GamePlatform
 from app.services.session_memory import SessionMemory
 
+
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
 client = openai.AsyncOpenAI()
 
 model= os.getenv("GPT_MODEL")
 
-async def handle_followup(db, session, user, user_input,classification):
-    override_reply = await check_intent_override(db=db, user_input=user_input, user=user, session=session, classification=classification)
+async def handle_followup(db, session, user, user_input,classification,intrection):
+    override_reply = await check_intent_override(db=db, user_input=user_input, user=user, session=session, classification=classification, intrection=intrection)
     if override_reply:
         return override_reply
     return await handle_followup_logic(db=db, session=session, user=user, classification=classification ,user_input=user_input)
@@ -134,11 +135,11 @@ async def handle_game_inquiry(db: Session, user, session, user_input: str) -> st
         "description": game.description or "No description available.",
         "genre": ", ".join(game.genre) if game.genre else "N/A",
         "vibes": ", ".join(game.game_vibes) if game.game_vibes else "N/A",
-        "mechanics": game.mechanic or "N/A",
+        "complexity": game.complexity or "N/A",
         "visual_style": game.graphical_visual_style or "N/A",
         "story_focus": "has a strong story" if game.has_story else "is more gameplay-focused",
         "emotion": game.emotional_fit or "N/A",
-        "mood_tags": ", ".join(game.mood_tags.keys()) if game.mood_tags else "N/A",
+        "mood_tags": ", ".join(game.mood_tag) if game.mood_tag else "N/A",
         "platforms": ", ".join(platform_list) if platform_list else "Unknown",
         "platform_link": platform_link
     }
@@ -155,7 +156,7 @@ async def handle_game_inquiry(db: Session, user, session, user_input: str) -> st
             - **Description**: {game_info['description']}
             - **Genre**: {game_info['genre']}
             - **Vibes**: {game_info['vibes']}
-            - **Mechanics**: {game_info['mechanics']}
+            - **complexity**: {game_info['complexity']}
             - **Visual Style**: {game_info['visual_style']}
             - **Story Focus**: This game {game_info['story_focus']}.
             - **Emotional Fit**: {game_info['emotion']}
@@ -205,7 +206,7 @@ Details you can use to enrich your response:
 - **Description**: {game_info['description']}
 - **Genre**: {game_info['genre']}
 - **Vibes**: {game_info['vibes']}
-- **Mechanics**: {game_info['mechanics']}
+- **complexity**: {game_info['complexity']}
 - **Visual Style**: {game_info['visual_style']}
 - **Story Focus**: {game_info['story_focus']}
 - **Emotional Fit**: {game_info['emotion']}

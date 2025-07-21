@@ -9,7 +9,6 @@ from app.utils.whatsapp import send_whatsapp_message
 from app.services.tone_classifier import classify_tone  
 from app.services.input_classifier import analyze_followup_feedback  
 from app.services.thrum_router.phase_ending import handle_ending
-from app.services.thrum_router.phase_discovery import handle_discovery
 from app.services.share_intent import is_share_intent
 import random
 
@@ -38,6 +37,7 @@ async def send_feedback_followups():
         db.close()
 
 async def handle_followup_logic(db, session, user, user_input, classification):
+    from app.services.thrum_router.phase_discovery import handle_discovery
     feedback = await analyze_followup_feedback(user_input, session)
 
     print(feedback)
@@ -50,7 +50,7 @@ async def handle_followup_logic(db, session, user, user_input, classification):
 
     if intent in ["want_another"]:
         session.phase = PhaseEnum.DISCOVERY
-        return await handle_discovery(db=db, session=session, user=user, classification=classification, user_input=user_input)
+        return await handle_discovery(db=db, session=session, user=user)
 
     if intent in ["dont_want_another"]:
         if not user.name:

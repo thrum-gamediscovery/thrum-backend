@@ -36,30 +36,17 @@ def to_vector(v):
 
 # Main game recommendation function
 async def game_recommendation(db: Session, user, session):
-    today = datetime.utcnow().date().isoformat()
 
     # Step 1: Determine platform preference from session or user
     platform = None
     if session.platform_preference:
         platform = session.platform_preference[-1]
         print(f"[Step 1] Platform from session: {platform}")
-    elif user.platform_prefs and today in user.platform_prefs and user.platform_prefs[today]:
-        platform = user.platform_prefs[today][-1]
-        print(f"[Step 1] Platform from user today prefs: {platform}")
-    elif user.platform_prefs:
-        for day_prefs in reversed(user.platform_prefs.values()):
-            if day_prefs:
-                platform = day_prefs[-1]
-                print(f"[Step 1] Platform from user recent prefs: {platform}")
-                break
     else:
         print("[Step 1] No platform preference found.")
 
     # Step 2: Determine genre preference from session or user (use last genre from session)
-    genre = session.genre if session.genre else (
-        user.genre_prefs.get(today, []) if user.genre_prefs and today in user.genre_prefs
-        else next((g for g in reversed(user.genre_prefs.values()) if g), []) if user.genre_prefs else []
-    )
+    genre = session.genre if session.genre else None
     print(f"[Step 2] Genre: {genre}")
 
     # Step 3: Exclude rejected and already recommended games
@@ -76,6 +63,24 @@ async def game_recommendation(db: Session, user, session):
         ~Game.game_id.in_(recommended_ids)
     )
     print(f"[Step 3] Number of games before platform filter: {base_query.count()}")
+
+    reject_genres = set((session.meta_data or {}).get("reject_tags", {}).get("genre", []))
+    rejected_genres_lower = [genre.strip().lower() for genre in reject_genres]
+
+    filtered_query = base_query.filter(
+        text("""
+            NOT EXISTS (
+                SELECT 1
+                FROM unnest(games.genre) AS g
+                WHERE LOWER(g) = ANY(:rejected_genres)
+            )
+        """)
+    ).params(rejected_genres=rejected_genres_lower)
+    base_query = filtered_query
+    print(f"[Step 3.1] Number of games after reject_genres filter: {base_query.count()}")
+    reject_genre_games = filtered_query.all()
+    print(f"[Step 3.2] after reject_genres filter: {len(reject_genre_games)}")
+
 
     # Step 4: Early fallback if no platform or session information is available
     if platform is None and genre is None and not session.gameplay_elements and not session.preferred_keywords and not session.disliked_keywords:
@@ -107,7 +112,7 @@ async def game_recommendation(db: Session, user, session):
             "description": random_game.description[:200] if random_game.description else None,
             "genre": random_game.genre,
             "game_vibes": random_game.game_vibes,
-            "mechanics": random_game.mechanic,
+            "complexity": random_game.complexity,
             "visual_style": random_game.graphical_visual_style,
             "has_story": random_game.has_story,
             "platforms": [p[0] for p in platforms],
@@ -126,20 +131,51 @@ async def game_recommendation(db: Session, user, session):
         print("[Step 5] No platform filter applied.")
 
     # Step 6: Apply genre filter after platform filtering
-    # Step 6: Apply genre filter after platform filtering
+    # if genre:
+    #     print(f"[Step 6] Applying filter for genres: {', '.join(genre)}")
+
+    #     # Use robust, case-insensitive genre filter for all genres in session
+    #     genre_filters = [
+    #         text("EXISTS (SELECT 1 FROM unnest(genre) AS g WHERE LOWER(g) = :g)")
+    #         for g in genre
+    #     ]
+    #     filtered_query = base_query.filter(
+    #         or_(*[f.params(g=g.strip().lower()) for g, f in zip(genre, genre_filters)])
+    #     )
+
+    #     test_games = filtered_query.all()
+    #     print(f"[Step 6] Number of games after genre filter: {len(test_games)}")
+
+    #     if not test_games:
+    #         print(f"[:information_source:] No games found with all genres '{', '.join(genre)}'.")
+    #         # Fallback to the last genre if no games are found
+    #         print(f"[:information_source:] Falling back to last genre: {genre[-1]}")
+    #         last_genre = genre[-1]
+    #         filtered_query = base_query.filter(
+    #             text("EXISTS (SELECT 1 FROM unnest(genre) AS g WHERE LOWER(g) = :g)")
+    #         ).params(g=last_genre.strip().lower())
+
+    #         test_games = filtered_query.all()
+    #         if not test_games:
+    #             print("[Step 6] No games found with last genre. Returning None.")
+    #             return None, False
+    #         else:
+    #             base_query = filtered_query
+    #             print(f"[Step 6] Genre filter applied, {len(test_games)} games match.")
+    #     else:
+    #         base_query = filtered_query
+    #         print(f"[Step 6] Genre filter applied, {len(test_games)} games match.")
+
     if genre:
         last_genre = genre[-1]  # Get the last genre from the genre list in session
         print(f"[Step 6] Applying filter for the last genre: {last_genre}")
-
         # Use robust, case-insensitive genre filter
         filtered_query = base_query.filter(
             text("EXISTS (SELECT 1 FROM unnest(genre) AS g WHERE LOWER(g) = :g)")
         ).params(g=last_genre.strip().lower())
         print("-----------------------", filtered_query)
-
         test_games = filtered_query.all()
         print(f"[Step 6] Number of games after genre filter: {len(test_games)}")
-
         if not test_games:
             print(f"[:information_source:] No games found with genre '{last_genre}'.")
             return None, False
@@ -147,8 +183,6 @@ async def game_recommendation(db: Session, user, session):
         else:
             base_query = filtered_query
             print(f"[Step 6] Genre filter applied, {len(test_games)} games match.")
-
-
 
     # Step 7: Filter by user age if available
     user_age = None
@@ -276,12 +310,13 @@ async def game_recommendation(db: Session, user, session):
     print(f"[Step 14] Recommendation saved for game: {top_game.title}")
 
     # Step 15: Return recommendation info and age prompt flag
+    print("availables game not random ................")
     return {
         "title": top_game.title,
         "description": top_game.description if top_game.description else None,
         "genre": top_game.genre,
         "game_vibes": top_game.game_vibes,
-        "mechanics": top_game.mechanic,
+        "complexity": top_game.complexity,
         "visual_style": top_game.graphical_visual_style,
         "has_story": top_game.has_story,
         "platforms": [p[0] for p in platforms],
