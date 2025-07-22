@@ -18,6 +18,7 @@ async def get_recommend(db, user, session):
     memory_context_str = session_memory.to_prompt()
     platform_link = None
     description=None
+    mood = session.exit_mood  or "neutral"
     if not game:
         user_prompt = f"""
             USER MEMORY & RECENT CHAT:
@@ -48,14 +49,15 @@ async def get_recommend(db, user, session):
         f"USER MEMORY & RECENT CHAT:\n"
         f"{memory_context_str if memory_context_str else 'No prior user memory or recent chat.'}\n\n"
         # f"{'platform link: ' + platform_link if platform_link else ''}"
-        "The user just rejected the last recommended game.\n"
-        "Acknowledge their feedback warmly — let them feel noticed. Never use the same apology or compensation message every time. Avoid 'sorry that didn't click' as a fallback.\n"
-        "→ Mention the new game by name — naturally (**{game['title']}**).\n"
-        f"→ Give a mini-review based on description:{description} in 3–4 vivid, conversational sentences: quick summary, what’s it about, vibe, complexity, art, feel, or weirdness.\n"
-        "→ Explain *why* this game fits — e.g. 'I thought of this when you said [X]'.\n"
-        "→ Use casual, friend-style language: 'This one hits the mood you dropped', 'It’s kinda wild, but I think you’ll like it.'\n"
-        f"→ Include a platform mention naturally (make it interesting, not robotic): {platform_note}\n"
-        f"- At the end of the reason why it fits for them, it must ask if the user would like to explore more about this game or learn more details about it, keeping the tone engaging and fresh.(Do not ever user same phrase or words every time like 'want to dive deeper?').\n"
+        f"The user just rejected the last recommended game.\n"
+        f"Acknowledge their feedback warmly — let them feel noticed. Never use the same apology or compensation message every time. Avoid 'sorry that didn't click' as a fallback.\n"
+        f"Recommend: **{game['title']}** in natural and friendly way according to user's tone.\n"
+        f"Write a complete message no more than 3 to 4 sentence (30 to 35)words with:\n"
+        f"- In the message the game title must be in bold using Markdown: **{game['title']}**\n"
+        f"what the message must include is Markdown: **{game['title']}**,must Reflect user’s current mood = {mood}.and avoid using repetitive template structures or formats."
+        f"- Suggest a game with the explanation of 20-30 words using game description: {description}, afterthat there must be confident reason about why this one might resonate better using user's prefrence mood, platform, genre- which all information about user is in USER MEMORY & RECENT CHAT.\n"
+        f"- A natural mention of platform (don't ever just paste this as it is; do modification and make this note interesting): {platform_note}\n"
+        f"- At the end of the reason why it fits for them, it must ask if the user would like to explore more about this game or learn more details about it(always use the synonem phrase of this do not use it as it is always yet with the same clear meaning), keeping the tone engaging and fresh.(Do not ever user same phrase or words every time like 'want to dive deeper?').\n"
         # f"platform link :{platform_link}"
         # f"If platform_link is not None, then it must be naturally included, do not use brackets or Markdown formatting—always mention the plain URL naturally within the sentence(not like in brackets or like [here],not robotically or bot like) link: {platform_link}\n"
         "Reflect the user's preferences (from user_context), but do NOT repeat the previous tone or any scripted language.\n"
@@ -163,7 +165,7 @@ async def handle_reject_Recommendation(db,session, user,  classification):
             game, _ =  await game_recommendation(db=db, user=user, session=session)
             platform_link = None
             description = None
-            
+            mood = session.exit_mood  or "neutral"
             if not game:
                 user_prompt = f"""
                 USER MEMORY & RECENT CHAT:
@@ -197,12 +199,13 @@ async def handle_reject_Recommendation(db,session, user,  classification):
                 f"{memory_context_str if memory_context_str else 'No prior user memory or recent chat.'}\n\n"
                 # f"platform link :{platform_link}"
                 f"Suggest a second game after the user rejected the previous one.The whole msg should no more than 25-30 words.\n"
-                f"The game must be **{game['title']}** (use bold Markdown: **{game['title']}**).\n"
-                f"– A confident reason of 15-20 words about why this one might resonate better using game description:{description} also must use (based on genre, vibe, complexity, or story)\n"
-                f"Mirror the user's reason for rejection in a warm, human way before suggesting the new game.\n"
-                f"Use user context from the system prompt (like genre, story_preference, platform_preference) to personalize.\n"
-                f"Then naturally include this platform note (rephrase it to sound friendly, do not paste as-is): {platform_note}\n"
-                f"- At the end of the reason why it fits for them, it must ask if the user would like to explore more about this game or learn more details about it, keeping the tone engaging and fresh.(Do not ever user same phrase or words every time like 'want to dive deeper?').\n"
+                        f"Recommend: **{game['title']}** in natural and friendly way according to user's tone.\n"
+                f"Write a complete message no more than 3 to 4 sentence (30 to 35)words with:\n"
+                f"- In the message the game title must be in bold using Markdown: **{game['title']}**\n"
+                f"what the message must include is Markdown: **{game['title']}**,must Reflect user’s current mood = {mood}. and avoid using repetitive template structures or formats."
+                f"- Suggest a game with the explanation of 20-30 words using game description: {description}, afterthat there must be confident reason about why this one might resonate better using user's prefrence mood, platform, genre- which all information about user is in USER MEMORY & RECENT CHAT.\n"
+                f"- A natural mention of platform (don't ever just paste this as it is; do modification and make this note interesting): {platform_note}\n"
+                f"- At the end of the reason why it fits for them, it must ask if the user would like to explore more about this game or learn more details about it(always use the synonem phrase of this do not use it as it is always yet with the same clear meaning), keeping the tone engaging and fresh.(Do not ever user same phrase or words every time like 'want to dive deeper?').\n"
                 # f"platform link :{platform_link}"
                 # f"If platform_link is not None, then it must be naturally included, do not use brackets or Markdown formatting—always mention the plain URL naturally within the sentence(not like in brackets or like [here],not robotically or bot like) link: {platform_link}\n"
                 f"Tone must be confident, warm, emotionally intelligent — never robotic.\n"

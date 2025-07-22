@@ -149,6 +149,7 @@ async def handle_game_inquiry(db: Session, user, session, user_input: str) -> st
         db.commit()
         return f"""
             USER MEMORY & RECENT CHAT:
+            Generate friendly review with 1 emotional hook and platform tag. No repetition of pitch.
             {memory_context_str if memory_context_str else 'No prior user memory or recent chat.'}
             IMPORTANT INSTRUCTION: if the user has asked that want to know more about game or want more information about the game and user responded positively(which conclude that user want more information)then you must include link in the message if not None as well as additional information of the game(not the same which was provided before).
             The user was already recommended the game **{game_info['title']}**, but now they have some follow-up questions.
@@ -166,11 +167,9 @@ async def handle_game_inquiry(db: Session, user, session, user_input: str) -> st
             - **Platform_link**:{game_info['platform_link']}
             Based on what the user asked: “{user_input}”, answer their query naturally — assume they already know the basics.
             # Strict Instruction:
-            only answer the user question from the game details do not add things on your own.
-            Strictly provide only the information being asked by the user in their message.
             f"If platform_link is not None, then it must be naturally included, do not use brackets or Markdown formatting—always mention the plain URL naturally within the sentence(not like in brackets or like [here],not robotically or bot like) link: {platform_link}\n"
-
-            if platform link is none and it is asked in user input then you must just clearly tell them that there is no link we have for that game.
+            provide the game information(between 20-30 words) which must be unique and different than previous information, in a friendly, human-like tone, as per the user's tone, and preferences using description:{game_info['description']}
+            if platform_link is None and it is asked in user input then you must just clearly tell them that there is no link we have for that game.
             When providing a platform link, do not use brackets or Markdown formatting—always mention the plain URL naturally within the sentence.and must acknowledge that this link is for {platform_preference} platform.
             If they ask about platforms, mention the available platforms (shown below).
             If the user does not ask about links or platforms, do not mention them.

@@ -85,7 +85,7 @@ Carefully consider the context of the conversation and the specific tone or dire
 - **Inquire_About_Game**: must be set to true if:
     1. The user message contains the title of a specific game (matching the game catalog), OR
     2. The user asks for a link, platform, or store for any game, even if the main question is about the link.
-    3. if the user has been asked that they want more information about game(in different phrase or words) and if they positively respond about they want the more information or they want to know more(then Inquire_About_Game must be true not Confirm_Game not be true.), indicating they want to know more about it. The user expresses a desire to know more about a game, such as its features, gameplay mechanics, or storyline.
+    3. if the user has been asked that they want more information about game(in different phrase or words with this intention) and if they positively respond about they want the more information(not they like the game but want to know more) or they want to know more(then Inquire_About_Game must be true , Confirm_Game must be false in that case.), indicating they want to know more about it. The user expresses a desire to know more about a game, such as its features, gameplay mechanics, or storyline.
 
 - **Give_Info**: Triggered when the user provides information about their preferences, such as genre, mood, or game style. This includes providing keywords or short phrases like "action", "chill", or "strategy". The response should classify when the user provides any kind of self-description related to their preferences.
 
@@ -95,7 +95,7 @@ Carefully consider the context of the conversation and the specific tone or dire
 
 - **Other_Question**: Triggered when the user asks any question related to themselves or about Thrum (for example, "what do you do?", "How are you?", "what makes you powerful" or any kind of general question).
 
-- **Confirm_Game**: Triggered when the user confirms their interest in a game that was previously recommended(if input is just "yes" then it might be for know more information depends on previous thrum message in that case Inquire_About_Game should be true.). The confirmation could be something like "like that game" or "I like that game." This is explicitly confirming the previous game suggestion, meaning that the user is showing interest in the exact game Thrum recommended.
+- **Confirm_Game**: Triggered when the user confirms their interest in a game that was previously recommended(if input is just "yes" then it might be for know more information depends on previous thrum message in that case Inquire_About_Game should be true.). The confirmation could be something like "like that game" or "I like that game." or "like that one" or similar to that, This is explicitly confirming the previous game suggestion, meaning that the user is showing interest in the exact game Thrum recommended they liked that.
 - **Other**:  
   Triggered for any input that doesn’t match the above categories, or when user is input is just an statement which shares some information about the game.  
   This could include irrelevant or non-conversational responses, random input, or statements that do not fall within the intent framework.

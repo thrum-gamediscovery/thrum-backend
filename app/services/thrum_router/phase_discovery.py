@@ -8,18 +8,19 @@ from app.services.session_memory import SessionMemory
 from app.services.central_system_prompt import NO_GAMES_PROMPT
 
 @safe_call("Hmm, I had trouble figuring out what to ask next. Let's try something fun instead! 🎮")
+@safe_call("Hmm, I had trouble figuring out what to ask next. Let's try something fun instead! :video_game:")
 async def handle_discovery(db, session, user):
     session_memory = SessionMemory(session)
     memory_context_str = session_memory.to_prompt()
-    
+    session.meta_data = session.meta_data or {}
+    if "session_phase" not in session.meta_data:
+        session.meta_data["session_phase"] = "Onboarding"
     session.phase = PhaseEnum.DISCOVERY
     discovery_data = await extract_discovery_signals(session)
-
     if discovery_data.is_complete() and session.game_rejection_count < 2:
         session.phase = PhaseEnum.CONFIRMATION
         return await confirm_input_summary(session)
-
-    elif session.discovery_questions_asked >= 2:
+    elif (session.meta_data.get("session_phase") == "active" and session.discovery_questions_asked >= 2) or (session.meta_data.get("session_phase") == "Onboarding" and session.discovery_questions_asked >= 3):
         session.meta_data = session.meta_data or {}
         session.meta_data["dont_ask_que"] = None
         
@@ -29,7 +30,7 @@ async def handle_discovery(db, session, user):
         game, _ = await game_recommendation(db=db, session=session, user=user)
         platform_link = None
         description = None
-        
+        mood = session.exit_mood  or "neutral"
         if not game:
             user_prompt = f"""
             USER MEMORY & RECENT CHAT:
@@ -61,16 +62,13 @@ async def handle_discovery(db, session, user):
             f"{memory_context_str if memory_context_str else 'No prior user memory or recent chat.'}\n\n"
             f"The user just rejected the last recommended game — reflect this, show emotional intelligence, and don’t use a generic apology (never say 'sorry that didn’t click').\n"
             f"Make the user feel heard; acknowledge their reaction in a natural, human way before suggesting another game.\n"
-            f"Now, suggest a new one: **{game['title']}**\n"
-            f"Write a message (25-30 words max) that must:\n"
-            f"- Bold the game title with Markdown: **{game['title']}**\n"
-            f"- Give a 3–4 sentence based on desctipion:{description}, Draper-style, mini-review. Quick and real:\n"
-            f"- What's it about?\n"
-            f"- What’s the vibe, complexity, art, feel, or weirdness?\n"
-            f"- Say why it fits (e.g., 'I thought of this when you said [X]').\n"
-            f"- Talk casually: e.g., 'This one hits that mood you dropped' or 'It’s kinda wild, but I think you’ll like it.'\n"
-            f"- Platform mention: keep it real (e.g., 'It’s on Xbox too btw' or 'PC only though — just flagging that'): {platform_note}\n"
-            f"- At the end of the reason why it fits for them, it must ask if the user would like to explore more about this game or learn more details about it, keeping the tone engaging and fresh.(Do not ever user same phrase or words every time like 'want to dive deeper?').\n"
+            f"Recommend: **{game['title']}** in natural and friendly way according to user's tone.\n"
+            f"Write a complete message no more than 3 to 4 sentence (30 to 35)words with:\n"
+            f"- In the message the game title must be in bold using Markdown: **{game['title']}**\n"
+            f"what the message must include is Markdown: **{game['title']}**,must Reflect user’s current mood = {mood}. and avoid using repetitive template structures or formats."
+            f"- Suggest a game with the explanation of 20-30 words using game description: {description}, afterthat there must be confident reason about why this one might resonate better using user's prefrence mood, platform, genre- which all information about user is in USER MEMORY & RECENT CHAT.\n"
+            f"- A natural mention of platform (don't ever just paste this as it is; do modification and make this note interesting): {platform_note}\n"
+            f"- At the end of the reason why it fits for them, it must ask if the user would like to explore more about this game or learn more details about it(always use the synonem phrase of this do not use it as it is always yet with the same clear meaning), keeping the tone engaging and fresh.(Do not ever user same phrase or words every time like 'want to dive deeper?').\n"
             # f"platform link :{platform_link}"
             # f"If platform_link is not None, then it must be naturally included, do not use brackets or Markdown formatting—always mention the plain URL naturally within the sentence(not like in brackets or like [here],not robotically or bot like) link: {platform_link}\n"            f"- Mirror the user's known preferences (from user_context), but avoid repeating previous tone or style.\n"
             f"- Do NOT mention the last game or say 'maybe.'\n"
@@ -102,7 +100,7 @@ async def handle_user_info(db, user, classification, session, user_input):
             game, _ = await game_recommendation(db=db, user=user, session=session)
             platform_link = None
             description = None
-            
+            mood = session.exit_mood  or "neutral"
             if not game:
                 user_prompt = f"""
                 USER MEMORY & RECENT CHAT:
@@ -138,16 +136,13 @@ async def handle_user_info(db, user, classification, session, user_input):
                 "→ Always reflect the user's current tone — keep it real and emotionally alive.\n"
                 f"Suggest the game **{game['title']}** to the user (title can appear anywhere in your message, no format restrictions).\n"
                 # Draper-style, mini-review checklist
-                "→ Mention the game by name — naturally.\n"
-                "→ Give a 3–4 sentence mini-review. Quick and dirty:\n"
-                "   - What's it about?\n"
-                "   - What’s the vibe, complexity, art, feel, weirdness?\n"
-                f"→ Say why it fits: e.g. “I thought of this when you said [{description}]”.\n"
-                "→ Talk casually:\n"
-                "   - “This one hits that mood you dropped”\n"
-                "   - “It’s kinda wild, but I think you’ll like it”\n"
-                f"→ Always include a real platform note, naturally woven in: {platform_note}\n"
-                f"- At the end of the reason why it fits for them, it must ask if the user would like to explore more about this game or learn more details about it, keeping the tone engaging and fresh.(Do not ever user same phrase or words every time like 'want to dive deeper?').\n"
+                f"Recommend: **{game['title']}** in natural and friendly way according to user's tone.\n"
+                f"Write a complete message no more than 3 to 4 sentence (30 to 35)words with:\n"
+                f"- In the message the game title must be in bold using Markdown: **{game['title']}**\n"
+                f"what the message must include is Markdown: **{game['title']}**,must Reflect user’s current mood = {mood}. and avoid using repetitive template structures or formats."
+                f"- Suggest a game with the explanation of 20-30 words using game description: {description}, afterthat there must be confident reason about why this one might resonate better using user's prefrence mood, platform, genre- which all information about user is in USER MEMORY & RECENT CHAT.\n"
+                f"- A natural mention of platform (don't ever just paste this as it is; do modification and make this note interesting): {platform_note}\n"
+                f"- At the end of the reason why it fits for them, it must ask if the user would like to explore more about this game or learn more details about it(always use the synonem phrase of this do not use it as it is always yet with the same clear meaning), keeping the tone engaging and fresh.(Do not ever user same phrase or words every time like 'want to dive deeper?').\n"
                 # f"platform link :{platform_link}"
                 # f"If platform_link is not None, then it must be naturally included, do not use brackets or Markdown formatting—always mention the plain URL naturally within the sentence(not like in brackets or like [here],not robotically or bot like) link: {platform_link}\n""→ Use system prompt's user context (story_preference, genre, platform_preference) if it helps personalize — but don’t recap or ask.\n"
                 "→ Tone must be confident, warm, and human. Never use 'maybe', 'you might like', or robotic phrasing.\n"
@@ -181,7 +176,7 @@ async def handle_other_input(db, user, session, user_input: str) -> str:
         f"Instructions for Thrum:\n"
         f"- STRICT INSTRUCTION :never repeat the same lines, emoji or wordings as last time. each time the message should be unique and fresh.\n"
         f"- Do not start with hey then name, make it unique each time.\n"
-        f"- do not suggest game on your own if there is no game."
+        f"- do not ever suggest the different game if on your own."
         f"- Treat every input as valid — from direct questions (about games, platforms, Thrum itself, or life), to casual talk, jokes, doubts, or even random comments.\n"
         f"- Always reply with human warmth, empathy, and confidence — like a real friend, never a bot.\n"
         f"- Use all available context: user's profile (name, platform, genre, vibe), recent conversation, and the emotional tone of their message.\n"

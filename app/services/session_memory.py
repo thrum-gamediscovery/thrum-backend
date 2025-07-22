@@ -227,7 +227,7 @@ async def deliver_game_immediately(db: Session, user, session) -> str:
 
             platform_link = game.get("link", None)
             description = game.get("description",None)
-
+            mood = session.exit_mood  or "neutral"
             # Build natural platform note
             if user_platform and user_platform in game_platforms:
                 platform_note = f"It’s available on your preferred platform: {user_platform}."
@@ -245,13 +245,15 @@ async def deliver_game_immediately(db: Session, user, session) -> str:
                 f"USER MEMORY & RECENT CHAT:\n"
                 f"{memory_context_str if memory_context_str else 'No prior user memory or recent chat.'}\n\n"
                 # f"platform link: {platform_link}\n"
+                f"message  is not fixed "
                 f"The user clearly asked for a game right away — no questions, no delay.\n"
-                f"Recommend: **{game['title']}**\n"
-                f"Write a complete message (max 30 words) with:\n"
-                f"- The game title in bold using Markdown: **{game['title']}**\n"
-                f"- A confident reason of 15-20 words about why this one might resonate better using game description: {description} also must use (based on genre, vibe, complexity, or story)\n"
+                f"Recommend: **{game['title']}** in natural and friendly way according to user's tone.\n"
+                f"Write a complete message no more than 3 to 4 sentence (30 to 35)words with:\n"
+                f"- In the message the game title must be in bold using Markdown: **{game['title']}**\n"
+                f"what the message must include is Markdown: **{game['title']}**,must Reflect user’s current mood = {mood}.and avoid using repetitive template structures or formats."
+                f"- Suggest a game with the explanation of 20-30 words using game description: {description}, afterthat there must be confident reason about why this one might resonate better using user's prefrence mood, platform, genre- which all information about user is in USER MEMORY & RECENT CHAT.\n"
                 f"- A natural mention of platform (don't ever just paste this as it is; do modification and make this note interesting): {platform_note}\n"
-                f"- At the end of the reason why it fits for them, it must ask if the user would like to explore more about this game or learn more details about it, keeping the tone engaging and fresh.(Do not ever user same phrase or words every time like 'want to dive deeper?').\n"
+                f"- At the end of the reason why it fits for them, it must ask if the user would like to explore more about this game or learn more details about it(always use the synonem phrase of this do not use it as it is always yet with the same clear meaning), keeping the tone engaging and fresh.(Do not ever user same phrase or words every time like 'want to dive deeper?').\n"
                 # f"platform link :{platform_link}"
                 # f"If platform_link is not None, then it must be naturally included, do not use brackets or Markdown formatting—always mention the plain URL naturally within the sentence(not like in brackets or like [here],not robotically or bot like) link: {platform_link}\n"
                 f"Use user_context if helpful, but don't ask anything or recap.\n"
@@ -384,7 +386,7 @@ Sound fresh, real, and always like you’re vibing with the player.
         """.strip()
 
     # Genre
-    if not session.genre and dont_ask != "genre":
+    elif not session.genre and dont_ask != "genre":
         session.meta_data["dont_ask_que"] = "genre"
         user_prompt = f"""
         USER MEMORY & RECENT CHAT:

@@ -36,7 +36,8 @@ def to_vector(v):
 
 # Main game recommendation function
 async def game_recommendation(db: Session, user, session):
-
+    session.meta_data = session.meta_data or {}
+    session.meta_data["session_phase"] = "Activate"
     # Step 1: Determine platform preference from session or user
     platform = None
     if session.platform_preference:
@@ -105,7 +106,7 @@ async def game_recommendation(db: Session, user, session):
         db.add(game_rec)
         db.commit()
         session.phase = PhaseEnum.FOLLOWUP
-        session.followup_triggered = True
+        # session.followup_triggered = True
         print(f"[Step 4] Early fallback: Random game recommended: {random_game.title}")
         return {
             "title": random_game.title,
@@ -305,7 +306,7 @@ async def game_recommendation(db: Session, user, session):
     db.add(game_rec)
     db.commit()
     session.phase = PhaseEnum.FOLLOWUP
-    session.followup_triggered = True
+    # session.followup_triggered = True
     print(f"[Step 14] Recommendation saved for game: {top_game.title}")
 
     # Step 15: Return recommendation info and age prompt flag
