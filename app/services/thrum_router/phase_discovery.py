@@ -4,9 +4,6 @@ from app.services.session_memory import confirm_input_summary, deliver_game_imme
 from app.db.models.enums import PhaseEnum
 from app.utils.error_handler import safe_call
 from app.services.game_recommend import game_recommendation
-from app.services.tone_classifier import classify_tone
-from app.db.models.enums import SenderEnum
-from app.services.input_classifier import classify_user_intent
 from app.services.session_memory import SessionMemory
 from app.services.central_system_prompt import NO_GAMES_PROMPT
 
@@ -14,16 +11,6 @@ from app.services.central_system_prompt import NO_GAMES_PROMPT
 async def handle_discovery(db, session, user):
     session_memory = SessionMemory(session)
     memory_context_str = session_memory.to_prompt()
-    user_interactions = [i for i in session.interactions if i.sender == SenderEnum.User]
-    user_input = user_interactions[-1].content if user_interactions else ""
-    
-    intent_result = await classify_user_intent(user_input, session)
-    tone_tag = await classify_tone(user_input)
-    session_memory = SessionMemory(session)
-    session_memory.update(last_intent=intent_result, tone=tone_tag)
-    session.last_tone = tone_tag
-    session.last_intent = intent_result
-    db.commit()
     
     session.phase = PhaseEnum.DISCOVERY
     discovery_data = await extract_discovery_signals(session)
@@ -78,13 +65,14 @@ async def handle_discovery(db, session, user):
             f"Write a message (25-30 words max) that must:\n"
             f"- Bold the game title with Markdown: **{game['title']}**\n"
             f"- Give a 3–4 sentence based on desctipion:{description}, Draper-style, mini-review. Quick and real:\n"
-            f"   - What's it about?\n"
-            f"   - What’s the vibe, complexity, art, feel, or weirdness?\n"
+            f"- What's it about?\n"
+            f"- What’s the vibe, complexity, art, feel, or weirdness?\n"
             f"- Say why it fits (e.g., 'I thought of this when you said [X]').\n"
             f"- Talk casually: e.g., 'This one hits that mood you dropped' or 'It’s kinda wild, but I think you’ll like it.'\n"
             f"- Platform mention: keep it real (e.g., 'It’s on Xbox too btw' or 'PC only though — just flagging that'): {platform_note}\n"
-            f"platform link :{platform_link}"
-            f"If platform_link is not None, then it must be naturally included, do not use brackets or Markdown formatting—always mention the plain URL naturally within the sentence(not like in brackets or like [here],not robotically or bot like) link: {platform_link}\n"            f"- Mirror the user's known preferences (from user_context), but avoid repeating previous tone or style.\n"
+            f"- At the end of the reason why it fits for them, it must ask if the user would like to explore more about this game or learn more details about it, keeping the tone engaging and fresh.(Do not ever user same phrase or words every time like 'want to dive deeper?').\n"
+            # f"platform link :{platform_link}"
+            # f"If platform_link is not None, then it must be naturally included, do not use brackets or Markdown formatting—always mention the plain URL naturally within the sentence(not like in brackets or like [here],not robotically or bot like) link: {platform_link}\n"            f"- Mirror the user's known preferences (from user_context), but avoid repeating previous tone or style.\n"
             f"- Do NOT mention the last game or say 'maybe.'\n"
             f"- Use warm, fresh energy, and show why this pick might actually be a better fit."
         )
@@ -159,8 +147,9 @@ async def handle_user_info(db, user, classification, session, user_input):
                 "   - “This one hits that mood you dropped”\n"
                 "   - “It’s kinda wild, but I think you’ll like it”\n"
                 f"→ Always include a real platform note, naturally woven in: {platform_note}\n"
-                f"platform link :{platform_link}"
-                f"If platform_link is not None, then it must be naturally included, do not use brackets or Markdown formatting—always mention the plain URL naturally within the sentence(not like in brackets or like [here],not robotically or bot like) link: {platform_link}\n""→ Use system prompt's user context (story_preference, genre, platform_preference) if it helps personalize — but don’t recap or ask.\n"
+                f"- At the end of the reason why it fits for them, it must ask if the user would like to explore more about this game or learn more details about it, keeping the tone engaging and fresh.(Do not ever user same phrase or words every time like 'want to dive deeper?').\n"
+                # f"platform link :{platform_link}"
+                # f"If platform_link is not None, then it must be naturally included, do not use brackets or Markdown formatting—always mention the plain URL naturally within the sentence(not like in brackets or like [here],not robotically or bot like) link: {platform_link}\n""→ Use system prompt's user context (story_preference, genre, platform_preference) if it helps personalize — but don’t recap or ask.\n"
                 "→ Tone must be confident, warm, and human. Never use 'maybe', 'you might like', or robotic phrasing.\n"
                 "→ Your message must always explain *why* this game fits the user’s vibe, referencing their input."
             )
@@ -190,19 +179,25 @@ async def handle_other_input(db, user, session, user_input: str) -> str:
         f"{memory_context_str if memory_context_str else 'No prior user memory or recent chat.'}\n\n"
         f"The user just said: “{user_input}”\n"
         f"Instructions for Thrum:\n"
+        f"- STRICT INSTRUCTION :never repeat the same lines, emoji or wordings as last time. each time the message should be unique and fresh.\n"
+        f"- Do not start with hey then name, make it unique each time.\n"
         f"- do not suggest game on your own if there is no game."
         f"- Treat every input as valid — from direct questions (about games, platforms, Thrum itself, or life), to casual talk, jokes, doubts, or even random comments.\n"
         f"- Always reply with human warmth, empathy, and confidence — like a real friend, never a bot.\n"
-        f"- Use all available context: user’s profile (name, platform, genre, vibe), recent conversation, and the emotional tone of their message.\n"
-        f"- For greetings or small talk (e.g., 'how are you?', 'what’s up?'), reply naturally with a touch of personality, never stiff or scripted.\n"
+        f"- Use all available context: user's profile (name, platform, genre, vibe), recent conversation, and the emotional tone of their message.\n"
+        f"- For greetings or small talk (e.g., 'how are you?', 'what's up?'), reply naturally with a touch of personality, never stiff or scripted.\n"
         f"- For meta or challenging questions (e.g., 'why are you so sure?', 'are you real?'), reply honestly and playfully — own your confidence, but make it human.\n"
         f"- If you detect confusion, frustration, or negativity, acknowledge it gently before moving forward. Never sound apologetic or formal.\n"
+        f"- If the user asks about the available genres, respond by listing some of the genres you support: action, adventure, driving, fighting, mmo, music, other, party, platform, puzzle, racing, real-world game, role-playing, shooter, simulation, sports, strategy, virtual life.\n"
+        f"- If the user asks to try different genres or ask to recommend game for different genre, then ask them to clarify which genre they want you can use some of the available genres, respond by listing some of the genres you support: action, adventure, driving, fighting, mmo, music, other, party, platform, puzzle, racing, real-world game, role-playing, shooter, simulation, sports, strategy, virtual life.\n"
+        f"- If the user asks about the available platforms, respond by listing some of the platforms you support: PC, PS4, PS5, Xbox One, Xbox Series X/S, Nintendo Switch, iOS, Android.\n"
         f"- If the input is unclear or vague, respond kindly, keep the convo going, but never demand clarification unless the user seems open to it.\n"
-        f"- Always keep replies short (max 2 sentences, 12–18 words). Never repeat yourself or sound generic.\n"
+        f"- Always keep replies short (max 2 sentences, 12-18 words). Never repeat yourself or sound generic.\n"
         f"- Never ask questions unless it helps the user or feels genuinely natural.\n"
         f"- if there is enough conversation is done(check from USER MEMORY & RECENT CHAT) and if the casual conversation is about to end and if user is in the right mood for games then gently ask for game recommendation."
         f"- Your goal: Be Thrum — real, lively, supportive, a little witty, and always in tune with the user's vibe, for any topic or mood."
         )
+
 
     return user_prompt
 

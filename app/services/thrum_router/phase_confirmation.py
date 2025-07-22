@@ -31,7 +31,6 @@ async def handle_confirmed_game(db, user, session):
     # Check if 'dont_give_name' is not in session.meta_data, and if so, add it
     if "dont_give_name" not in session.meta_data:
         session.meta_data["dont_give_name"] = False
-    
     db.commit()
     return user_prompt
 
@@ -43,9 +42,10 @@ async def ask_for_name_if_needed():
         Session.last_thrum_timestamp.isnot(None),
         Session.meta_data["dont_give_name"].astext.cast(Boolean) == False
     ).all()
-
     for s in sessions:
+        print(f"ask for user name : {sessions}")
         user = s.user
+        print(f"user name : {user.name}")
         if user.name is None:
             delay = timedelta(seconds=5)
 
@@ -55,17 +55,14 @@ async def ask_for_name_if_needed():
                 user_interactions = [i for i in s.interactions if i.sender == SenderEnum.User]
                 last_user_reply = user_interactions[-1].content if user_interactions else ""
                 print(f"User's name is missing. Asking for the user's name.")
-                session_memory = SessionMemory(s)
-                memory_context_str = session_memory.to_prompt()
-
+                
                 response_prompt  = (
-                        f"USER MEMORY & RECENT CHAT:\n"
-                        f"{memory_context_str if memory_context_str else 'No prior user memory or recent chat.'}\n\n"
                         "Generate a polite, natural message (max 10–12 words) asking the user for their name.\n"
                         "The tone should be friendly and casual, without being too formal or overly casual.\n"
                         "Ensure it doesn’t feel forced, just a simple request to know their name.\n"
                         "Output only the question, no extra explanations or examples."
                         "do not use emoji. and use only one question to ask name."
+                        "Ask like thrum want to remmeber for next time."
                     )
                 
                 reply = await format_reply(session=s, user_input=last_user_reply, user_prompt=response_prompt)

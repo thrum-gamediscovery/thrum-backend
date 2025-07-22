@@ -102,7 +102,8 @@ async def update_user_from_classification(db: Session, user, classification: dic
     name = classification.get("name")
     mood = classification.get("mood")
     game_vibe = classification.get("game_vibe")
-    genre = classification.get("genre")
+    favourite_games = classification.get("favourite_games")
+    genres = classification.get("genre")
     platform = classification.get("platform_pref")
     region = classification.get("region")
     age = classification.get("age")
@@ -120,6 +121,7 @@ async def update_user_from_classification(db: Session, user, classification: dic
         user.name = name.strip().title()
         user.last_updated["name"] = str(datetime.utcnow())
         session.meta_data["name"] = user.name  # Store in session for short-term memory
+        session.meta_data["dont_give_name"] = True  # Store in session for short-term memory
         flag_modified(user, "name")
 
     # -- Mood
@@ -143,43 +145,71 @@ async def update_user_from_classification(db: Session, user, classification: dic
         flag_modified(user, "mood_tags")
         user.last_updated["mood_tags"] = str(datetime.utcnow())
     
+    # -- favourite_games
+    if isinstance(favourite_games, list):
+        print(f"[✅ Raw favourite_games]: {favourite_games}")
+        
+        # Ensure all elements are strings and clean them
+        for game in favourite_games:
+            game_clean = game.strip().lower()
+            if game_clean != "none":
+                # Ensure session.favourite_games is initialized as a list if it's None
+                if session.favourite_games is None:
+                    session.favourite_games = []
+                    print("✅ Initialized session.favourite_games as an empty list.")
+                if game_clean not in session.favourite_games:
+                    session.favourite_games.append(game_clean)
+                if game_clean not in session.favourite_games:
+                    user.favourite_games.append(game_clean)
+                    flag_modified(user, "favourite_games")
+                    user.last_updated["favourite_games"] = str(datetime.utcnow())
+                print(f"✅ Added favourite games: {game_clean}")
+
     # -- Genre Preferences
-    if genre and genre != "None":
-        matched_genre = await get_best_genre_match(db=db, input_genre=genre)
-        print(f"update matched genre : {matched_genre}")
-        if matched_genre:
-            user.genre_prefs.setdefault(today, [])
-            if matched_genre in user.genre_prefs[today]:
-                user.genre_prefs[today].remove(matched_genre)
-            user.genre_prefs[today].append(matched_genre)
-            print(f"✅ Added genre '{matched_genre}' to user.genre_prefs[{today}]")
+    if isinstance(genres, list):
+        print(f"[✅ Raw genre]: {genres}")
+        # Ensure all elements are strings and clean them
+        for genre in genres:
+            if genre.strip().lower() != "none":
+                matched_genre = await get_best_genre_match(db=db, input_genre=genre)
+                print(f"update matched genre : {matched_genre}")
+                if matched_genre:
+                    # Ensure session.genre is initialized as a list if it's None
+                    if session.genre is None:
+                        session.genre = []
+                        print("✅ Initialized session.genre as an empty list.")
+                    user.genre_prefs.setdefault(today, [])
+                    if matched_genre in user.genre_prefs[today]:
+                        user.genre_prefs[today].remove(matched_genre)
+                    user.genre_prefs[today].append(matched_genre)
+                    print(f"✅ Added genre '{matched_genre}' to user.genre_prefs[{today}]")
 
-            # ✅ Remove from user.reject_tags["genre"]
-            if matched_genre in user.reject_tags.get("genre", []):
-                user.reject_tags["genre"].remove(matched_genre)
-                print(f"🧹 Removed genre '{matched_genre}' from user.reject_tags")
+                    # ✅ Remove from user.reject_tags["genre"]
+                    if matched_genre in user.reject_tags.get("genre", []):
+                        user.reject_tags["genre"].remove(matched_genre)
+                        print(f"🧹 Removed genre '{matched_genre}' from user.reject_tags")
 
-            # ✅ Remove from session.meta_data["reject_tags"]["genre"]
-            if session and session.meta_data and "reject_tags" in session.meta_data:
-                reject_data = session.meta_data["reject_tags"]
-                if matched_genre in reject_data.get("genre", []):
-                    reject_data["genre"].remove(matched_genre)
-                    print(f"🧹 Removed genre '{matched_genre}' from session.meta_data['reject_tags']['genre']")
+                    # ✅ Remove from session.meta_data["reject_tags"]["genre"]
+                    if session and session.meta_data and "reject_tags" in session.meta_data:
+                        reject_data = session.meta_data["reject_tags"]
+                        if matched_genre in reject_data.get("genre", []):
+                            reject_data["genre"].remove(matched_genre)
+                            print(f"🧹 Removed genre '{matched_genre}' from session.meta_data['reject_tags']['genre']")
 
-            # ✅ Add to session.genre
-            if session:
-                session_genres = session.genre or []
-                if matched_genre in session_genres:
-                    session_genres.remove(matched_genre)
-                session_genres.append(matched_genre)
-                session.genre = session_genres
-                flag_modified(session, "genre")
+                    # ✅ Add to session.genre
+                    if session:
+                        session_genres = session.genre or []
+                        if matched_genre in session_genres:
+                            session_genres.remove(matched_genre)
+                        session_genres.append(matched_genre)
+                        session.genre = session_genres
+                        flag_modified(session, "genre")
 
-                print(f"[✅ Genre added to session]: {session_genres}")
-            else:
-                print("❌ Session object is missing or invalid.")
+                        print(f"[✅ Genre added to session]: {session_genres}")
+                    else:
+                        print("❌ Session object is missing or invalid.")
 
-            user.last_updated["genre_prefs"] = str(datetime.utcnow())
+                    user.last_updated["genre_prefs"] = str(datetime.utcnow())
 
     # -- Platform Preferences
     if platform and platform != "None":

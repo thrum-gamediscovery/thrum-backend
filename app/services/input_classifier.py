@@ -50,75 +50,11 @@ last thrum reply: {last_thrum_reply} (This is the reply that Thrum gave to the u
 """
   
     
-    final_system_prompt =  f"""{THRUM_PROMPT}
+    final_system_prompt =  f"""
 USER MEMORY & RECENT CHAT:
 {memory_context_str if memory_context_str else 'No prior user memory or recent chat.'}
 
-You're not a chatbot. You're a friend.  
-Like one you'd have at school. Or at home. Or at the gym.  
-Sometimes you're like a brother, a sister, a dad, or a game expert — but always someone who knows games, knows the user, and knows what’s out there.  
-You're a guide. Not a ghost.  
-You're an assistant — but never robotic. You're a friendly friend.
-
-You don't pretend to be human.  
-You just speak like a real friend would.  
-Because you listen. You reflect. You mirror.  
-You talk back like friends do — especially using Draper-style hooks: emotional, clear, specific.
-
-Your mission is simple:  
-→ Help the user find the games they're actually searching for  
-→ Based on their input, you search and you deliver  
-→ And you tell them clearly: *“this is based on what you gave me.”*
-
-MEMORY: You always remember:
-- Their name, age, platform, genre, mood, location
-- Rejected games and favorite ones
-- How they talk — slang, emojis, style, lowercase, chaotic typing
-- Every input matters — even if it’s random
-      
-HOW YOU SPEAK:
-You sound like a best friend.  
-Like a streamer.  
-Like a buddy at the soccer club, or someone you meet on the street.  
-Not every day in contact, but happy to see them when they return.
-
-You know what they like. They know you remember.
-
-→ If they’re chill, you’re chill.  
-→ If they’re chaotic, you can be *a little* chaotic — not more than them.  
-→ If they’re poetic, you mirror with calm, rationale, softness.  
-→ If they’re flirty, you can flirt back — lightly.  
-→ If they speak in slang, you use it.  
-→ If not, you stay neutral.  
-→ Memes? No. You keep it simple and conversational. No overload. They came for a game — keep it real.
-
-You use emojis when natural. 1–2 per message. Never too many.  
-Everything you say should feel like WhatsApp, Discord, or real late-night texting.
-
-VIBE:
-→ You’re always safe. Always fun. Always available.
-→ Someone they can relax with on the couch.
-→ You like what’s hot: music from TikTok, vibes from Spotify, trends from real gamers.
-→ You always know what’s cool — not by selling, but by sharing.
-→ You are not in the way. You are not pressuring.
-→ You are a trusted presence.
-
-THINGS TO NEVER DO:
-- Don’t explain how you work. Act like you know.
-- Don’t say “as an AI” or “no results found” or “I’m searching…”
-- Don’t list features. Don’t use markdown, brackets, or fake UI language.
-- Don’t say "description:" or "title:" — ever.
-- Don’t pitch. Just recommend. Like a friend.
-
-WRITE ONE MESSAGE:
-Your reply should feel real. Not a tool. Not a prompt.  
-You’re not completing a form. You’re continuing a conversation.
-
-It should feel like:
-→ A voice note from a friend  
-→ A DM in a group chat  
-→ A smart reply from someone who *knows you and listens*
-
+**You are intent classifier**
 **Special Rule:**  
 If the user's message is a greeting (e.g., "hi", "hello", "hey") and there is no previous Thrum reply, classify as Greet.
 
@@ -144,42 +80,26 @@ Carefully consider the context of the conversation and the specific tone or dire
 
 - **Reject_Recommendation**: Triggered when the user directly rejects the game suggested in the previous response.  
   This can be a clear refusal such as "Not that one," "I don’t like this," or other similar phrases that reject the previously suggested game.
-  If this intent is triggered:
-  - Never apologize or use robotic language. Respond naturally, for example:
-    - “That’s cool.”
-    - “You didn’t vibe with it. Fair enough.”
-    - “Actually, I liked it — but if you didn’t, fair enough.”
-  - Keep the conversation moving. Suggest the next best game warmly:
-    - “Want me to find more games?”
-    - “Maybe you have extra clues or hints for me?”
-    - “Meantime, I dug into something else.”
-    - “Not sure, but this one might actually be good.”
-    - “Check it out and let me know if I’m doing better.”
-  - After your short, natural, non-apologetic message, immediately suggest the next best game (with a fresh, upbeat mini-review and platform info as usual).
-  - Never repeat yourself, and always vary your phrasing.
   - Be especially strict and accurate in detecting when the user is rejecting a game. Do not miss it, even if the language is casual, short, or slang. Always classify these as Reject_Recommendation.
+
 - **Inquire_About_Game**: must be set to true if:
     1. The user message contains the title of a specific game (matching the game catalog), OR
     2. The user asks for a link, platform, or store for any game, even if the main question is about the link.
+    3. if the user has been asked that they want more information about game(in different phrase or words) and if they positively respond about they want the more information or they want to know more(then Inquire_About_Game must be true not Confirm_Game not be true.), indicating they want to know more about it. The user expresses a desire to know more about a game, such as its features, gameplay mechanics, or storyline.
+
 - **Give_Info**: Triggered when the user provides information about their preferences, such as genre, mood, or game style. This includes providing keywords or short phrases like "action", "chill", or "strategy". The response should classify when the user provides any kind of self-description related to their preferences.
+
 - **Share_Game**: Triggered when the user shows interest in sharing a game suggestion with others. This could include asking questions like "Can I share this with my friends?" or stating their intention to recommend a game to someone else.
+
 - **Opt_Out**: Triggered when the user opts out or indicates they no longer wish to continue the conversation. This intent is activated when phrases like "I'm done," "Stop," "Not interested," or "Leave me alone" are used to end or discontinue the conversation.
+
 - **Other_Question**: Triggered when the user asks any question related to themselves or about Thrum (for example, "what do you do?", "How are you?", "what makes you powerful" or any kind of general question).
-- **Confirm_Game**: Triggered when the user confirms their interest in a game that was previously recommended. The confirmation could be something like "Yes, I want that one," or "I like that game." This is explicitly confirming the previous game suggestion, meaning that the user is showing interest in the exact game Thrum recommended.
+
+- **Confirm_Game**: Triggered when the user confirms their interest in a game that was previously recommended(if input is just "yes" then it might be for know more information depends on previous thrum message in that case Inquire_About_Game should be true.). The confirmation could be something like "like that game" or "I like that game." This is explicitly confirming the previous game suggestion, meaning that the user is showing interest in the exact game Thrum recommended.
 - **Other**:  
   Triggered for any input that doesn’t match the above categories, or when user is input is just an statement which shares some information about the game.  
   This could include irrelevant or non-conversational responses, random input, or statements that do not fall within the intent framework.
-  If this intent is triggered:
-  - The user just sent something random or off-topic.
-  - IF THE USER SAYS SOMETHING RANDOM:
-    → Stay calm. No judgment.
-    → Acknowledge it lightly:
-      - “That’s a different kind of input 😅”
-    → Then re-anchor:
-      - “Just to be square: which genre are you feeling today?”
-    → Gently bring it back to game discovery. Keep it warm and friendly.
-  - Never scold or sound dismissive. Always make the user feel welcome.
-  - Do not over-explain. Quickly guide the conversation back to discovering games, with a smile.
+  
 - **Bot_Error_Mentioned:** The user indicates the bot is lost, confused, or not understanding them ("you are lost", "you do not hear me", "you don’t know me", "why do you suggest if you don’t know who I am", etc.).
 - **About_FAQ**: Triggered when the user asks about what Thrum does, how it works, who you are, or any general FAQ about the service. Examples:
     - "how does it work?"
@@ -235,7 +155,7 @@ OUTPUT FORMAT (Strict JSON) strictly deny to add another text:
 }}
 """
     
-    if user_prompt:
+    try:
         response = await client.chat.completions.create(
             model=model,
             messages=[
@@ -244,9 +164,9 @@ OUTPUT FORMAT (Strict JSON) strictly deny to add another text:
             ],
             temperature=0,
         )
+        res = response.choices[0].message.content
         # Try parsing the LLM output into JSON
         try:
-            res = response.choices[0].message.content
             result = json.loads(res)
             print("user_input: ", user_input)
             print(f"intent : {result}")
@@ -255,20 +175,37 @@ OUTPUT FORMAT (Strict JSON) strictly deny to add another text:
             print(":x: GPT classification failed:", e)
             # Return a default response if there is an error
             return {
-    "Greet": False,
-    "Phase_Discovery": False,
-    "Request_Quick_Recommendation": False,
-    "Reject_Recommendation": False,
-    "Inquire_About_Game": False,
-    "Give_Info": False,
-    "Share_Game": False,
-    "Opt_Out": False,
-    "Other_Question": False,
-    "Confirm_Game": False,
-    "Other": True,
-    "Bot_Error_Mentioned": False,
-    "About_FAQ": False
-}
+                "Greet": False,
+                "Phase_Discovery": False,
+                "Request_Quick_Recommendation": False,
+                "Reject_Recommendation": False,
+                "Inquire_About_Game": False,
+                "Give_Info": False,
+                "Share_Game": False,
+                "Opt_Out": False,
+                "Other_Question": False,
+                "Confirm_Game": False,
+                "Other": True,
+                "Bot_Error_Mentioned": False,
+                "About_FAQ": False
+            }
+    except OpenAIError as e:
+        print(f"⚠️ OpenAI Error: {e}")
+        return {
+                "Greet": False,
+                "Phase_Discovery": False,
+                "Request_Quick_Recommendation": False,
+                "Reject_Recommendation": False,
+                "Inquire_About_Game": False,
+                "Give_Info": False,
+                "Share_Game": False,
+                "Opt_Out": False,
+                "Other_Question": False,
+                "Confirm_Game": False,
+                "Other": True,
+                "Bot_Error_Mentioned": False,
+                "About_FAQ": False
+            }
 
 
     
@@ -282,7 +219,7 @@ async def classify_user_input(session, user_input: str) -> dict | str:
     if last_game_obj is not None:
         last_game = {
             "title": last_game_obj.title,
-            "description": last_game_obj.description[:200] if last_game_obj.description else None,
+            "description": last_game_obj.description if last_game_obj.description else None,
             "genre": last_game_obj.genre,
             "game_vibes": last_game_obj.game_vibes,
             "complexity": last_game_obj.complexity,
@@ -296,7 +233,7 @@ async def classify_user_input(session, user_input: str) -> dict | str:
     session_memory = SessionMemory(session)
     memory_context_str = session_memory.to_prompt()
 
-    final_system_prompt = f'''{THRUM_PROMPT}
+    final_system_prompt = f'''
 USER MEMORY & RECENT CHAT:
 {memory_context_str if memory_context_str else 'No prior user memory or recent chat.'}
 
@@ -324,15 +261,34 @@ You must infer from both keywords and tone—even if the user is casual, brief, 
    → If not mentioned, return "None".
    → if user directly give vibe then directly return from this [adventurous,beautiful,challenging,cheerful,comedic,contemplative,creative,dark,destructive,disconcerting,energetic,epic,exciting,ingenious,laidback,liberating,light-hearted,morbid,mysterious,optimistic,"power fantasy",relaxing,sentimental,serious,surreal,suspenseful,tragic,wholesome]
 
-4. genre (string)  
-   → e.g., puzzle, horror, racing, shooter, strategy, farming, simulation, narrative, platformer.
-   → select exactly one genre from this list only: card game, action, adventure, driving, fighting, mmo, music, other, party, platform, puzzle, racing, "real-world game", role-playing, shooter, simulation, sports, strategy, "virtual life".
-   → Accept and map common synonyms if there is message about genre(examples: “scary” = horror, “farming sim” = simulation, “story-based” = adventure, “battle” = fighting, “online” = mmo, “music” = music, “car” or “racing” = racing or driving, “sports”, “football”, or “basketball” = sports, “strategy” or “tactics” = strategy).
-   → If not mentioned, return "None".
-   → Accept synonyms like “scary” = horror, “farming sim” = farming.
-   → If not mentioned, return "None".
+4. genre (list of strings)  
+  → e.g., puzzle, horror, racing, shooter, strategy, farming, simulation, narrative, platformer.  
+  → Select exactly one genre from this list only: card game, action, adventure, driving, fighting, mmo, music, other, party, platform, puzzle, racing, "real-world game", role-playing, shooter, simulation, sports, strategy, "virtual life", and **newly identified genres based on user input**.  
+  → Accept and map common synonyms **based on detected gameplay structure**. If the user refers to specific activities or gameplay styles, match them dynamically. For example:
+    - “scary” → horror
+    - “farming sim” → simulation
+    - “story-based” → adventure
+    - “battle” → fighting
+    - “online” → mmo
+    - “music” → music
+    - “car” or “racing” → racing or driving
+    - new genre added dynamically based on user input
+  → If not explicitly mentioned or if input cannot be mapped directly, return "None".  
+  → This classification system is flexible and adapts to new terms, ensuring that any user-specific genre or activity is categorized appropriately without manual mapping.  
 
-5. platform_pref (string)
+  → The goal is to identify what *feels* like a genre by detecting **player interaction patterns**, such as:
+    - **Exploration, Racing, Fighting, Simulation**, etc.
+  → Do not rely on hardcoded genre names but instead dynamically map based on user language and gameplay description.
+
+5. favourite_games (list of strings)
+→ Only return the exact title of the game they refer to as their favorite or most liked.
+→ If the user does not mention a favorite, return "None".
+→ If the user mentions more than one, choose the one they describe most positively.
+→ Do not infer, guess, or include games that are not explicitly mentioned as a favorite.
+→ Your response must only be the game title as a string (no explanation or extra text).
+→ If unclear or not mentioned, return "None".
+  
+6. platform_pref (string)
    → Use platform **exactly as provided** if it matches one of these:
      Android, Linux, Macintosh, "Meta Quest 2", "New Nintendo 3DS", "Nintendo 3DS",
      "Nintendo Switch", "Nintendo Switch 2", "Nintendo Wii U", "Oculus Quest",
@@ -346,24 +302,24 @@ You must infer from both keywords and tone—even if the user is casual, brief, 
    → Do NOT map or infer platforms from phrases like “on my couch” or “on the train” — only extract explicit matches.
    → If not mentioned, return "None".
 
-6. region (string)  
+7. region (string)  
    → Location like India, US, UK, etc.  
    → Phrases like “I'm in Canada” → "Canada", “I'm from the UK” → "UK".
    → If not mentioned, return "None".
 
-7. age (string)  
+8. age (string)  
    → extract age as single number not a range. like 18, 25, 30, 50, etc.
    → from input e.g., "teen", "18-25", "30s", "50+".  
    → If mentioned or implied (e.g., “my kids” = likely 30s+), extract.
    → If not mentioned or cannot be inferred, return "None".
 
-8. story_pref (boolean)  
+9. story_pref (boolean)  
    → True if they like games with story. False if they avoid it.  
    → “I want something with a good story” = True.  
    → “I skip cutscenes” = False.  
    → If unclear, return null.
 
-9. playtime_pref (string)(** strict rule**)
+10. playtime_pref (string)(** strict rule**)
    → if the user input is like user not like the recommended game then 
    → When they usually play: evenings, weekends, mornings, after work, before bed, “in short breaks”.  
    → Detect direct and subtle mentions.  
@@ -374,7 +330,7 @@ You must infer from both keywords and tone—even if the user is casual, brief, 
      - “Before bed” → "night"
    → If not mentioned, return "None".
 
-10. reject_tags (list of strings)  
+11. reject_tags (list of strings)  
    → What they dislike. Genres, moods, mechanics, or platforms.  
    → e.g., ["horror", "mobile", "realistic"]  
    → Hints: “I don't like shooters”, “not into mobile games”, “too realistic”.
@@ -382,7 +338,7 @@ You must infer from both keywords and tone—even if the user is casual, brief, 
    → only add anything in reject_tag if it is sure otherwise not
    → If not mentioned, return [].
 
-11. game_feedback (list of dicts)  (** strict rule**)
+12. game_feedback (list of dicts)  (** strict rule**)
    → if from the user input it is concluded that user does not like the recommended game (just for an example. if user input is "i don't like that" and you infere they actually don't like that game)then in game put the title from the last recommended game, accepted as False, and reason as the reason why they do not like it.
    → if from the user input it is concluded that user like the recommended game (just for an example. if user input is "yeah i like that" and you infere they actually like that game)then in game put the title from the last recommended game, accepted as True, and reason as the reason why they like it.
    → You must set `"accepted": false` only and only if the user **directly says** they do not like that game (using clear language about the game itself).
@@ -404,7 +360,7 @@ You must infer from both keywords and tone—even if the user is casual, brief, 
    ]
    → Can be empty list if no feedback.
 
-12. find_game(title of the game)
+13. find_game(title of the game)
    → if user is specifying that find me game by giving the title of the game then put that game in find_game variable
    → if user want specific game and give name or title for recommend (if user i saying something like"i don't like xyz game" then dont add that in this, only add when you find user want this specific game or want to know about this game)
    → if user do not specify game title but looking like user is inquiry about ame or check avilability of any then return last recommend game's title.
@@ -412,21 +368,23 @@ You must infer from both keywords and tone—even if the user is casual, brief, 
    → If user not specify about game or title then strictly take last game title.
    → If not, return "None".
    
-  13. gameplay_elements (list of strings)
-  → Focus on GAMEPLAY MECHANICS and structural features that the user describes or wants.
+14. gameplay_elements (list of strings)
+  → Focus on GAMEPLAY ELEMENT and structural features that the user describes or wants.
   → Include any mention of core actions, progression systems, advancement, linearity, perspective, player control, interaction loops, or feedback style.
   → Extract every word or phrase about how the player interacts with the game, what actions they take, and how gameplay is experienced or structured.
   → Consider any description of what makes the game feel unique, active, hands-on, or what the player actually does in the game.
-  → Do NOT include reasons for playing (that goes in preferred_keywords), and do not skip implied mechanics.
+  → Do NOT include reasons for playing (that goes in preferred_keywords), and do not skip implied ELEMENT.
   → Return every relevant mechanic, structure, or action as an array of strings; if not present, return [].
-  14. preferred_keywords (list of strings)
-  → Focus on PLAYER MOTIVATION, emotional needs, and preferences for gameplay experience.
+
+15. preferred_keywords (list of strings)
+  → Focus on PLAYER MOTIVATION, emotional needs, and preferences for game experience.
   → Include all user mentions of desired game vibe, complexity, visual style, theme, emotional fit, social setting, cognitive style, intensity, or any reason for wanting a specific type of game.
   → Extract every word or phrase that describes why the user wants to play — their mood, goals, feelings, or what makes a game appealing to them.
   → Look for anything that explains the user’s ideal experience, even if only suggested through adjectives, tone, or feelings.
-  → Do NOT include gameplay mechanics (those go in gameplay_elements); capture only motivation and preference concepts.
+  → Do NOT include game ELEMENT (those go in gameplay_elements); capture only motivation and preference concepts.
   → Return all preference and motivation words or phrases as an array; if not present, return [].
-  15. disliked_keywords (list of strings)
+
+16. disliked_keywords (list of strings)
   → Focus on all NEGATIVE experiences, unwanted features, or game elements the user wishes to avoid.
   → Include anything the user describes as frustrating, boring, stressful, unappealing, annoying, or not enjoyable.
   → Extract every word or phrase about bad gameplay patterns, disliked mechanics, monetization issues, emotional triggers, or negative play experiences.
@@ -448,7 +406,8 @@ You must infer from both keywords and tone—even if the user is casual, brief, 
   "name": "...",
   "mood": "...",
   "game_vibe": "...",
-  "genre": "...",
+  "genre": ["..."],
+  "favourite_games": ["..."],
   "platform_pref": "...",
   "region": "...",
   "age": "...",
@@ -510,7 +469,8 @@ Now classify into the format below.
                 "name": "None",
                 "mood": "None",
                 "game_vibe": "None",
-                "genre": "None",
+                "genre": [],
+                "favourite_games": [],
                 "platform_pref": "None",
                 "region": "None",
                 "age": "None",
@@ -529,10 +489,33 @@ Now classify into the format below.
 
     except OpenAIError as e:
         print(f"⚠️ OpenAI Error: {e}")
-        return "⚠️ Something went wrong. Please try again."
+        
+        result = {
+                "name": "None",
+                "mood": "None",
+                "game_vibe": "None",
+                "genre": [],
+                "favourite_games": [],
+                "platform_pref": "None",
+                "region": "None",
+                "age": "None",
+                "story_pref": None,
+                "playtime_pref": "None",
+                "reject_tags": [],
+                "game_feedback": [],
+                "find_game":"None",
+                "gameplay_elements": [],
+                "preferred_keywords": [],
+                "disliked_keywords": []
+            }
+
+    print(f"Classification Result: {result}")
+    return result
+
     
 
 async def analyze_followup_feedback(user_reply: str, session) -> dict:
+    from app.services.session_memory import SessionMemory
     game_title = session.last_recommended_game
     thrum_interactions = [i for i in session.interactions if i.sender == SenderEnum.Thrum]
     last_thrum_reply = thrum_interactions[-1].content if thrum_interactions else ""
