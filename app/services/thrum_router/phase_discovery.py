@@ -22,13 +22,20 @@ async def handle_discovery(db, session, user):
         return await confirm_input_summary(session)
     elif (session.meta_data.get("session_phase") == "active" and session.discovery_questions_asked >= 2) or (session.meta_data.get("session_phase") == "Onboarding" and session.discovery_questions_asked >= 3):
         session.meta_data = session.meta_data or {}
-        session.meta_data["dont_ask_que"] = None
+        if "dont_ask_que" not in session.meta_data:
+            session.meta_data["dont_ask_que"] = []
+        else:
+            if "favourite_games" in session.meta_data["dont_ask_que"]:
+                session.meta_data["dont_ask_que"] = ["favourite_games"]
+            else:
+                session.meta_data["dont_ask_que"] = []
         
         session.phase = PhaseEnum.DELIVERY
         session.discovery_questions_asked = 0
-
+        
         game, _ = await game_recommendation(db=db, session=session, user=user)
         platform_link = None
+        last_session_game = None
         description = None
         mood = session.exit_mood  or "neutral"
         if not game:
@@ -57,24 +64,35 @@ async def handle_discovery(db, session, user):
             platform_note = f"Available on: {', '.join(game_platforms)}."
 
         # 🧠 User Prompt (fresh rec after rejection, warm tone, 20–25 words)
+        is_last_session_game = game.get("is_last_session_game", False)
+        if is_last_session_game:
+            last_session_game = game.get("last_session_game", {}).get("title", None)
         user_prompt = (
             f"USER MEMORY & RECENT CHAT:\n"
             f"{memory_context_str if memory_context_str else 'No prior user memory or recent chat.'}\n\n"
+            f"is_last_session_game: {is_last_session_game}, if is_last_session_game is True that indicates the genre and preference was considered of last session so you must need to naturally acknowledge user in one small sentence that you liked {last_session_game}(this is recommended in last sessions so mention this) so you liked this new recommendation.(make your own phrase, must be different each time) \n"
+            f"if is_last_session_game is False then you must not mention this at all above line instruction.\n"
             f"The user just rejected the last recommended game — reflect this, show emotional intelligence, and don’t use a generic apology (never say 'sorry that didn’t click').\n"
+            f"Imagine you're texting a close friend one short game tip based on how they feel right now. This is your one chance to connect — no second message. So it must feel real.\n"
+            "→ Start completely fresh each time — no templates, no reused sentence structures.\n"
+            "→ Avoid robotic setups like 'If you like X, then Y' or 'This game is perfect for...'. Talk like a person.\n"
             f"Make the user feel heard; acknowledge their reaction in a natural, human way before suggesting another game.\n"
             f"Recommend: **{game['title']}** in natural and friendly way according to user's tone.\n"
             f"Write a complete message no more than 3 to 4 sentence (30 to 35)words with:\n"
-            f"- In the message the game title must be in bold using Markdown: **{game['title']}**\n"
+            f"- somewhere natural using Markdown title must be bold using Markdown: **{game['title']}**\n"
             f"what the message must include is Markdown: **{game['title']}**,must Reflect user’s current mood = {mood}. and avoid using repetitive template structures or formats."
             f"- Suggest a game with the explanation of 20-30 words using game description: {description}, afterthat there must be confident reason about why this one might resonate better using user's prefrence mood, platform, genre- which all information about user is in USER MEMORY & RECENT CHAT.\n"
             f"- A natural mention of platform (don't ever just paste this as it is; do modification and make this note interesting): {platform_note}\n"
             f"- At the end of the reason why it fits for them, it must ask if the user would like to explore more about this game or learn more details about it(always use the synonem phrase of this do not use it as it is always yet with the same clear meaning), keeping the tone engaging and fresh.(Do not ever user same phrase or words every time like 'want to dive deeper?').\n"
+            "→ Keep it punchy and alive: 3–4 sentences, about 30–35 words.\n"
+            "→ Think like a storyteller. Add a spark. Surprise them. Make them smile, nod, or lean in.\n"
+            "→ Every reply should feel like: 'Whoa — that hit exactly right.'\n\n"
             # f"platform link :{platform_link}"
             # f"If platform_link is not None, then it must be naturally included, do not use brackets or Markdown formatting—always mention the plain URL naturally within the sentence(not like in brackets or like [here],not robotically or bot like) link: {platform_link}\n"            f"- Mirror the user's known preferences (from user_context), but avoid repeating previous tone or style.\n"
             f"- Do NOT mention the last game or say 'maybe.'\n"
             f"- Use warm, fresh energy, and show why this pick might actually be a better fit."
         )
-
+        print(f"User prompt: {user_prompt}")
         return user_prompt
 
     else:
@@ -100,6 +118,7 @@ async def handle_user_info(db, user, classification, session, user_input):
             game, _ = await game_recommendation(db=db, user=user, session=session)
             platform_link = None
             description = None
+            last_session_game = None
             mood = session.exit_mood  or "neutral"
             if not game:
                 user_prompt = f"""
@@ -130,9 +149,14 @@ async def handle_user_info(db, user, classification, session, user_input):
                 platform_note = f"Available on: {', '.join(game_platforms)}."
 
             # Final user prompt for GPT
+            is_last_session_game = game.get("is_last_session_game", False)
+            if is_last_session_game:
+                last_session_game = game.get("last_session_game", {}).get("title", None)
             user_prompt = (
                 f"USER MEMORY & RECENT CHAT:\n"
                 f"{memory_context_str if memory_context_str else 'No prior user memory or recent chat.'}\n\n"
+                f"last_session_game: {last_session_game}, if last_session_game is True that indicates the genre and preference was considered of last session so you must need to naturally acknowledge user in one small sentence that you liked {last_session_game}(this is recommended in last sessions so mention this) so you liked this new recommendation.(make your own phrase, must be different each time) \n"
+                f"if last_session_game is False then you must not mention this at all above line instruction.\n"
                 "→ Always reflect the user's current tone — keep it real and emotionally alive.\n"
                 f"Suggest the game **{game['title']}** to the user (title can appear anywhere in your message, no format restrictions).\n"
                 # Draper-style, mini-review checklist
@@ -148,7 +172,7 @@ async def handle_user_info(db, user, classification, session, user_input):
                 "→ Tone must be confident, warm, and human. Never use 'maybe', 'you might like', or robotic phrasing.\n"
                 "→ Your message must always explain *why* this game fits the user’s vibe, referencing their input."
             )
-
+            print(f"User prompt: {user_prompt}")
             return user_prompt
 
         else:

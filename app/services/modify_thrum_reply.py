@@ -54,7 +54,6 @@ async def format_reply(session, user_input, user_prompt):
 
     # user_name = session.user_name    
     user_name = session_memory.user_name
-    print(f"memory_context_str : {memory_context_str}")
     # Build system prompt with clean injected guidance
     final_system_prompt = f"""{THRUM_PROMPT}
 USER MEMORY & RECENT CHAT:

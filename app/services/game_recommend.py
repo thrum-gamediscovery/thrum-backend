@@ -46,10 +46,16 @@ async def game_recommendation(db: Session, user, session):
     else:
         print("[Step 1] No platform preference found.")
 
+    last_session_game = False
     # Step 2: Determine genre preference from session or user (use last genre from session)
+    last_session_liked_game = db.query(GameRecommendation).filter(
+        GameRecommendation.user_id == user.user_id,
+        GameRecommendation.accepted == True,
+        GameRecommendation.session_id != session.session_id
+    ).order_by(GameRecommendation.timestamp.desc()).first()
+    
+    # Check if the last liked game exists before trying to access its genre
     genre = session.genre if session.genre else None
-    print(f"[Step 2] Genre: {genre}")
-
     # Step 3: Exclude rejected and already recommended games
     rejected_game_ids = set(session.rejected_games or [])
     recommended_ids = set(
@@ -82,43 +88,89 @@ async def game_recommendation(db: Session, user, session):
     reject_genre_games = filtered_query.all()
     print(f"[Step 3.2] after reject_genres filter: {len(reject_genre_games)}")
 
+    session_gameplay_embedding = None
+    session_preference_embedding = None
+    session_disliked_embedding = None
+
+    if session.gameplay_elements:
+        session_gameplay_embedding = model.encode(' '.join(session.gameplay_elements))
+        print(f"[Step 9] Embedded gameplay_elements: {session.gameplay_elements}")
+    if session.preferred_keywords:
+        session_preference_embedding = model.encode(' '.join(session.preferred_keywords))
+        print(f"[Step 9] Embedded preferred_keywords: {session.preferred_keywords}")
+    if session.disliked_keywords:
+        session_disliked_embedding = model.encode(' '.join(session.disliked_keywords))
+        print(f"[Step 9] Embedded disliked_keywords: {session.disliked_keywords}")
 
     # Step 4: Early fallback if no platform or session information is available
     if platform is None and genre is None and not session.gameplay_elements and not session.preferred_keywords and not session.disliked_keywords:
-        print("[Step 4] Early fallback: No platform or preferences info, recommending random game.")
-        random_game = db.query(Game).order_by(func.random()).first()
-        if not random_game:
-            print("[Step 4] Early fallback: No games in database.")
-            return None, None
-        platforms = db.query(GamePlatform.platform).filter(
-            GamePlatform.game_id == random_game.game_id
-        ).all()
-        link = get_game_platform_link(random_game.game_id, platform, db)
-        # Save recommendation
-        game_rec = GameRecommendation(
-            session_id=session.session_id,
-            user_id=user.user_id,
-            game_id=random_game.game_id,
-            platform=None,
-            mood_tag=None,
-            accepted=None
-        )
-        db.add(game_rec)
-        db.commit()
-        session.phase = PhaseEnum.FOLLOWUP
-        # session.followup_triggered = True
-        print(f"[Step 4] Early fallback: Random game recommended: {random_game.title}")
-        return {
-            "title": random_game.title,
-            "description": random_game.description if random_game.description else None,
-            "genre": random_game.genre,
-            "game_vibes": random_game.game_vibes,
-            "complexity": random_game.complexity,
-            "visual_style": random_game.graphical_visual_style,
-            "has_story": random_game.has_story,
-            "platforms": [p[0] for p in platforms],
-            "link": link
-        }, False
+        if last_session_liked_game:
+            print("[Step 4] Early fallback: Using last liked game from session.")
+            
+            platform = last_session_liked_game.platform
+            genre = last_session_liked_game.genre if last_session_liked_game.genre else last_session_liked_game.game.genre
+            gameplay_elements = last_session_liked_game.keywords.get("gameplay_elements", []) if last_session_liked_game.keywords else None
+            preferred_keywords = last_session_liked_game.keywords.get("preferred_keywords", []) if last_session_liked_game.keywords else None
+            disliked_keywords = last_session_liked_game.keywords.get("disliked_keywords", []) if last_session_liked_game.keywords else None
+
+            if gameplay_elements is not None:
+                session_gameplay_embedding = model.encode(' '.join(gameplay_elements))
+                print(f"[Step 9] Embedded gameplay_elements: {gameplay_elements}")
+            if preferred_keywords is not None:
+                session_preference_embedding = model.encode(' '.join(preferred_keywords))
+                print(f"[Step 9] Embedded preferred_keywords: {preferred_keywords}")
+            if preferred_keywords is not None:
+                session_disliked_embedding = model.encode(' '.join(preferred_keywords))
+                print(f"[Step 9] Embedded disliked_keywords: {disliked_keywords}")
+            last_session_game = True
+        
+        else:
+            print("[Step 4] Early fallback: No platform or preferences info, recommending random game.")
+            random_game = db.query(Game).order_by(func.random()).first()
+            if not random_game:
+                print("[Step 4] Early fallback: No games in database.")
+                return None, None
+            platforms = db.query(GamePlatform.platform).filter(
+                GamePlatform.game_id == random_game.game_id
+            ).all()
+            link = get_game_platform_link(random_game.game_id, platform, db)
+            # Save recommendation
+            game_rec = GameRecommendation(
+                session_id=session.session_id,
+                user_id=user.user_id,
+                game_id=random_game.game_id,
+                platform=session.platform_preference[-1] if session.platform_preference else None,
+                genre=session.genre if session.genre else None,
+                tone=session.meta_data.get("tone", {}) if session.meta_data.get("tone") else None,
+                keywords={
+                    "gameplay_elements": session.gameplay_elements or [],
+                    "preferred_keywords": session.preferred_keywords or [],
+                    "disliked_keywords": session.disliked_keywords or []
+                },
+                mood_tag=session.exit_mood if session.exit_mood else None,
+                accepted=None
+            )
+            db.add(game_rec)
+            db.commit()
+            session.phase = PhaseEnum.FOLLOWUP
+            # session.followup_triggered = True
+            print(f"[Step 4] Early fallback: Random game recommended: {random_game.title}")
+            return {
+                "title": random_game.title,
+                "description": random_game.description if random_game.description else None,
+                "genre": random_game.genre,
+                "game_vibes": random_game.game_vibes,
+                "complexity": random_game.complexity,
+                "visual_style": random_game.graphical_visual_style,
+                "has_story": random_game.has_story,
+                "platforms": [p[0] for p in platforms],
+                "link": link,
+                "last_session_game": {
+                    "is_last_session_game": last_session_game,
+                    "title": last_session_liked_game.game.title if last_session_liked_game else None,
+                    "game_id": last_session_liked_game.game.game_id if last_session_liked_game else None
+                }
+            }, False
 
     # Step 5: Filter by platform availability
     if platform:
@@ -206,21 +258,6 @@ async def game_recommendation(db: Session, user, session):
     if not base_games:
         return None, False
 
-    # Step 9: Embed session gameplay_elements, preferred_keywords, disliked_keywords at runtime
-    session_gameplay_embedding = None
-    session_preference_embedding = None
-    session_disliked_embedding = None
-
-    if session.gameplay_elements:
-        session_gameplay_embedding = model.encode(' '.join(session.gameplay_elements))
-        print(f"[Step 9] Embedded gameplay_elements: {session.gameplay_elements}")
-    if session.preferred_keywords:
-        session_preference_embedding = model.encode(' '.join(session.preferred_keywords))
-        print(f"[Step 9] Embedded preferred_keywords: {session.preferred_keywords}")
-    if session.disliked_keywords:
-        session_disliked_embedding = model.encode(' '.join(session.disliked_keywords))
-        print(f"[Step 9] Embedded disliked_keywords: {session.disliked_keywords}")
-
     # Thresholds and weights
     DISLIKE_THRESHOLD = 0.5  # similarity above which game is rejected
     PENALTY_WEIGHT = 0.5     # penalty weight for dislike similarity
@@ -300,7 +337,14 @@ async def game_recommendation(db: Session, user, session):
         user_id=user.user_id,
         game_id=top_game.game_id,
         platform=platform,
-        mood_tag=None,  # mood tagging not used here, add if needed
+        genre=session.genre if session.genre else None,
+        tone=session.meta_data.get("tone", {}) if session.meta_data.get("tone") else None,
+        mood_tag=session.exit_mood if session.exit_mood else None,
+        keywords={
+            "gameplay_elements": session.gameplay_elements or [],
+            "preferred_keywords": session.preferred_keywords or [],
+            "disliked_keywords": session.disliked_keywords or []
+        },
         accepted=None
     )
     db.add(game_rec)
@@ -311,14 +355,21 @@ async def game_recommendation(db: Session, user, session):
 
     # Step 15: Return recommendation info and age prompt flag
     print("availables game not random ................")
+    print(f"[Step 15] Last session game is used: {last_session_liked_game.game.title if last_session_liked_game else None}")
     return {
-        "title": top_game.title,
-        "description": top_game.description if top_game.description else None,
-        "genre": top_game.genre,
-        "game_vibes": top_game.game_vibes,
-        "complexity": top_game.complexity,
-        "visual_style": top_game.graphical_visual_style,
-        "has_story": top_game.has_story,
-        "platforms": [p[0] for p in platforms],
-        "link": link
-    }, age_ask_required
+            "title": top_game.title,
+            "description": top_game.description if top_game.description else None,
+            "genre": top_game.genre,
+            "game_vibes": top_game.game_vibes,
+            "complexity": top_game.complexity,
+            "visual_style": top_game.graphical_visual_style,
+            "has_story": top_game.has_story,
+            "platforms": [p[0] for p in platforms],
+            "link": link,
+            "last_session_game": {
+                "is_last_session_game": last_session_game,
+                "title": last_session_liked_game.game.title if last_session_liked_game is not None else None,
+                "game_id": last_session_liked_game.game.game_id if last_session_liked_game is not None else None
+                }
+        }, age_ask_required
+    

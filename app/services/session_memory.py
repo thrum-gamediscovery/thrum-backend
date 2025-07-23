@@ -219,7 +219,10 @@ async def deliver_game_immediately(db: Session, user, session) -> str:
         else:
             session.last_recommended_game = game["title"]
             session_memory.last_game = game["title"]
-
+            last_session_game = None
+            is_last_session_game = game.get("is_last_session_game", False)
+            if is_last_session_game:
+                last_session_game = game.get("last_session_game", {}).get("title", None)
             # Get user's preferred platform
             preferred_platforms = session.platform_preference or []
             user_platform = preferred_platforms[-1] if preferred_platforms else None
@@ -247,6 +250,8 @@ async def deliver_game_immediately(db: Session, user, session) -> str:
                 # f"platform link: {platform_link}\n"
                 f"message  is not fixed "
                 f"The user clearly asked for a game right away — no questions, no delay.\n"
+                f"is_last_session_game: {is_last_session_game}, if is_last_session_game is True that indicates the genre and preference was considered of last session so you must need to naturally acknowledge user in one small sentence that you liked {last_session_game}(this is recommended in last sessions so mention this) so you liked this new recommendation.(make your own phrase, must be different each time) \n"
+                f"if is_last_session_game is False then you must not mention this at all above line instruction.\n"
                 f"Recommend: **{game['title']}** in natural and friendly way according to user's tone.\n"
                 f"Write a complete message no more than 3 to 4 sentence (30 to 35)words with:\n"
                 f"- In the message the game title must be in bold using Markdown: **{game['title']}**\n"
@@ -275,7 +280,7 @@ async def deliver_game_immediately(db: Session, user, session) -> str:
                 # f"   - “Here’s where I found it: {platform_link}”\n"
                 "→ Use your own tone. But be emotionally alive."
             )
-
+            print(f"User prompt: {user_prompt}")
             return user_prompt
 
 
@@ -361,83 +366,99 @@ async def ask_discovery_question(session) -> str:
     memory_context_str = session_memory.to_prompt()
     session.meta_data = session.meta_data or {}
     if "dont_ask_que" not in session.meta_data:
-        session.meta_data["dont_ask_que"] = None
+        session.meta_data["dont_ask_que"] = []
     # Get dont_ask_que as string, default None if missing
-    dont_ask = session.meta_data.get("dont_ask_que")
-    print(f"favourite_games : {session.favourite_games} :: {dont_ask}")
-    print(f"genre : {session.genre} :: {dont_ask}")
-    print(f"platform_preference : {session.platform_preference} :: {dont_ask}")
-    print(f"exit_mood : {session.exit_mood} :: {dont_ask}")
+    dont_ask = session.meta_data.get("dont_ask_que") or []
     # favourite_games
-    if not session.favourite_games and dont_ask != "favourite_games" :
-        session.meta_data["dont_ask_que"] = "favourite_games"
+    if not session.favourite_games and "favourite_games" not in dont_ask:
+        session.meta_data["dont_ask_que"].append("favourite_games")
         user_prompt = f"""
         USER MEMORY & RECENT CHAT:
-{memory_context_str if memory_context_str else 'No prior user memory or recent chat.'}
-
-Mirror or reflect something from the user's last message using their own tone: {last_user_tone}.
-You are Thrum — chatty, playful, and sound like a fellow gamer, never a bot.
-In 10-12 words, chat with the user like a real player, responding to what they just said.
-Reference or riff on the user's last message before asking about their favorite game.
-Ask conversationally (never robotic)—for example, “What game do you vibe with most?” or “Got a game you’re always coming back to?”
-Use playful, expressive language, one emoji (varies).
-Never greet, never use intros, never repeat the same phrasing from earlier in the session.
-Sound fresh, real, and always like you’re vibing with the player.
+        {memory_context_str if memory_context_str else 'No prior user memory or recent chat.'}
+        → You are Thrum — chatty, playful, and sound like a fellow gamer, never a bot.
+        → Imagine you're texting a close friend one short game tip based on how they feel right now. This is your one chance to connect — no second message. So it must feel real.\n
+        → Start completely fresh each time — no templates, no reused sentence structures.\n
+        → Reflect the user's tone, energy, and phrasing — if they're chill, be chill. If they're wild, loosen up.\n
+        → Mirror or reflect something from the user's last message using their own tone: {last_user_tone}.
+        → In 10-12 words, chat with the user like a real player, responding to what they just said.
+        → Reference or riff on the user's last message before asking about their favorite game.
+        → Ask conversationally (never robotic)—for example, “What game do you vibe with most?” or “Got a game you’re always coming back to?”
+        → Use playful, expressive language, one emoji (varies).
+        → Never greet, never use intros, never repeat the same phrasing from earlier in the session.
+        → Sound fresh, real, and always like you’re vibing with the player.
+        → Every reply should feel like: 'Whoa — that hit exactly right.'\n\n
+        → Must feel uer that You are listening to them and responding to their last message. but never repeat the same sentence structure or example order within the session and feel user like You never judge his/her. 
         """.strip()
 
     # Genre
-    elif not session.genre and dont_ask != "genre":
-        session.meta_data["dont_ask_que"] = "genre"
+    elif not session.genre and "genre" not in dont_ask:
+        session.meta_data["dont_ask_que"].append("genre")
+        
         user_prompt = f"""
         USER MEMORY & RECENT CHAT:
         {memory_context_str if memory_context_str else 'No prior user memory or recent chat.'}
 
-        Mirror or reflect something from the user's last message using their own tone: {last_user_tone}.
-        You are Thrum — chatty, playful, and sound like a fellow gamer, never a bot.
-        In 10-12 words, chat with the user like a real player, responding to what they just said.
-        Reference or riff on the user's last message before asking what they want to play.
-        Ask conversationally (never robotic)—for example, “So, what do you wanna play?” or “Anything you’re vibing for?”
-        If you mention any genre in your question, it must be chosen only from this list: [action, adventure, driving, fighting, mmo, music, other, party, platform, puzzle, racing, "real-world game", role-playing, shooter, simulation, sports, strategy, "virtual life", "card game"]. Do not include any genre that is not in this list.
-        Shuffle in a few game genres (different order/genres each from that list) as part of your line, not a list.
-        Use playful, expressive language, one emoji (varies).
-        End with a casual, human tag (“or something wild?” / “or surprise me!” / “or totally random?”).
-        Never greet, never use intros, never repeat genre combos or sentence structure from earlier in the session.
-        Sound fresh, real, and always like you’re listening and riffing on the player’s vibe.
+        → Mirror or reflect something from the user's last message using their own tone: {last_user_tone}.
+        → You are Thrum — chatty, playful, and sound like a fellow gamer, never a bot.
+        → Imagine you're texting a close friend one short game tip based on how they feel right now. This is your one chance to connect — no second message. So it must feel real.\n
+        → Start completely fresh each time — no templates, no reused sentence structures.\n
+        → Reflect the user's tone, energy, and phrasing — if they're chill, be chill. If they're wild, loosen up.\n
+        → In 10-12 words, chat with the user like a real player, responding to what they just said.
+        → Reference or riff on the user's last message before asking what they want to play.
+        → Ask conversationally (never robotic)—for example, “So, what do you wanna play?” or “Anything you’re vibing for?”
+        → If you mention any genre in your question, it must be chosen only from this list: [action, adventure, driving, fighting, mmo, music, other, party, → platform, puzzle, racing, "real-world game", role-playing, shooter, simulation, sports, strategy, "virtual life", "card game"]. Do not include any → genre that is not in this list.
+        → Shuffle in a few game genres (different order/genres each from that list) as part of your line, not a list.
+        → Use playful, expressive language, one emoji (varies).
+        → End with a casual, human tag (“or something wild?” / “or surprise me!” / “or totally random?”).
+        → Never greet, never use intros, never repeat genre combos or sentence structure from earlier in the session.
+        → Sound fresh, real, and always like you’re listening and riffing on the player’s vibe.
+        → Every reply should feel like: 'Whoa — that hit exactly right.'
+        → Must feel uer that You are listening to them and responding to their last message. but never repeat the same sentence structure or example order within the session and feel user like You never judge his/her. 
         """.strip()
-    elif not session.platform_preference and dont_ask != "platform":
-        session.meta_data["dont_ask_que"] = "platform"
+    elif not session.platform_preference and "platform" not in dont_ask:
+        session.meta_data["dont_ask_que"].append("platform")
         user_prompt = f"""
         USER MEMORY & RECENT CHAT:
         {memory_context_str if memory_context_str else 'No prior user memory or recent chat.'}
 
-        Mirror or reflect something from the user's last message using their tone: {last_user_tone}.
-        You are Thrum — a fellow gamer, playful and chatty, never a bot.
-        In 10–12 words, reply as if you’re chatting with another player.
-        First, reference or riff on the user's last message, so it’s clear you’re listening.
-        Casually ask what platform they want to play on—never as a robotic question.
-        Mix platform examples in the line (shuffle and vary each time: PC, mobile, Xbox, PlayStation, Switch, etc.), always using playful, human phrasing.
-        Use one emoji (different every time), and end casually (“or something else?”, “or wherever you vibe most?”, etc.).
-        Never greet or use intros, never repeat sentence structure or example order within the session.
-        Always sound fresh, expressive, and like you’re chatting mid-conversation—not a form.
+        → Mirror or reflect something from the user's last message using their tone: {last_user_tone}.
+        → You are Thrum — a fellow gamer, playful and chatty, never a bot.
+        → Imagine you're texting a close friend one short game tip based on how they feel right now. This is your one chance to connect — no second message. So it must feel real.\n
+        → Start completely fresh each time — no templates, no reused sentence structures.\n
+        → Reflect the user's tone, energy, and phrasing — if they're chill, be chill. If they're wild, loosen up.\n
+        → In 10–12 words, reply as if you’re chatting with another player.
+        → First, reference or riff on the user's last message, so it’s clear you’re listening.
+        → Casually ask what platform they want to play on—never as a robotic question.
+        → Mix platform examples in the line (shuffle and vary each time: PC, mobile, Xbox, PlayStation, Switch, etc.), always using playful, human phrasing.
+        → Use one emoji (different every time), and end casually (“or something else?”, “or wherever you vibe most?”, etc.).
+        → Never greet or use intros, never repeat sentence structure or example order within the session.
+        → Always sound fresh, expressive, and like you’re chatting mid-conversation—not a form.
+        → Every reply should feel like: 'Whoa — that hit exactly right.'
+        → Must feel uer that You are listening to them and responding to their last message. but never repeat the same sentence structure or example order within the session and feel user like You never judge his/her. 
         """.strip()
-    elif not session.exit_mood and dont_ask != "mood":
-        session.meta_data["dont_ask_que"] = "mood"
+    elif not session.exit_mood and "mood" not in dont_ask:
+        session.meta_data["dont_ask_que"].append("mood")
         user_prompt = f"""
         USER MEMORY & RECENT CHAT:
         {memory_context_str if memory_context_str else 'No prior user memory or recent chat.'}
 
-        Mirror or riff on the user's last message using their own tone: {last_user_tone}.
-        You are Thrum — playful, chatty, sounding like a real gamer friend, never a bot.
-        In 10–12 words, reply as if you’re in a conversation with another player.
-        First, reference or respond to what the user just said, so it feels natural and connected.
-        Casually invite them to share their gaming mood or vibe—never as a robotic question.
-        Mention a few example moods or energies in your line (shuffle/order differently every time: chill, hyped, cozy, competitive, wild, relaxed, focused, etc.).
-        Use expressive, playful language, include one emoji (varied each time), and end the line casually (“or something totally different?”, “or any other vibe?”, etc.).
-        No greetings or intros, never repeat sentence structure, mood list, or closing within this session.
-        Sound fresh, human, and like you’re chatting mid-game.
+        → Mirror or riff on the user's last message using their own tone: {last_user_tone}.
+        → You are Thrum — playful, chatty, sounding like a real gamer friend, never a bot.
+        → Imagine you're texting a close friend one short game tip based on how they feel right now. This is your one chance to connect — no second message. So it must feel real.\n
+        → Start completely fresh each time — no templates, no reused sentence structures.\n
+        → Reflect the user's tone, energy, and phrasing — if they're chill, be chill. If they're wild, loosen up.\n
+        → In 10–12 words, reply as if you’re in a conversation with another player.
+        → First, reference or respond to what the user just said, so it feels natural and connected.
+        → Casually invite them to share their gaming mood or vibe—never as a robotic question.
+        → Mention a few example moods or energies in your line (shuffle/order differently every time: chill, hyped, cozy, competitive, wild, relaxed, focused, etc.).
+        → Use expressive, playful language, include one emoji (varied each time), and end the line casually (“or something totally different?”, “or any other vibe?”, etc.).
+        → No greetings or intros, never repeat sentence structure, mood list, or closing within this session.
+        → Sound fresh, human, and like you’re chatting mid-game.
+        → Every reply should feel like: 'Whoa — that hit exactly right.'
+        → Must feel uer that You are listening to them and responding to their last message. but never repeat the same sentence structure or example order within the session and feel user like You never judge his/her. 
         """.strip()
-    elif session.story_preference is None and dont_ask != "story_preference":
-        session.meta_data["dont_ask_que"] = "story_preference"
+    elif session.story_preference is None and "story_preference" not in dont_ask:
+        session.meta_data["dont_ask_que"].append("story_preference")
         user_prompt = f"""
         USER MEMORY & RECENT CHAT:
         {memory_context_str if memory_context_str else 'No prior user memory or recent chat.'}

@@ -167,6 +167,7 @@ async def handle_game_inquiry(db: Session, user, session, user_input: str) -> st
             - **Platform_link**:{game_info['platform_link']}
             Based on what the user asked: “{user_input}”, answer their query naturally — assume they already know the basics.
             # Strict Instruction:
+            f"Strictly consider the user's tone, if they are questioning about the info you provide(like about genre, or platform or anything) then must change the tone to the polite or warn or humble and answer that and reply in a friendly, reflective tone."
             f"If platform_link is not None, then it must be naturally included, do not use brackets or Markdown formatting—always mention the plain URL naturally within the sentence(not like in brackets or like [here],not robotically or bot like) link: {platform_link}\n"
             provide the game information(between 20-30 words) which must be unique and different than previous information, in a friendly, human-like tone, as per the user's tone, and preferences using description:{game_info['description']}
             if platform_link is None and it is asked in user input then you must just clearly tell them that there is no link we have for that game.

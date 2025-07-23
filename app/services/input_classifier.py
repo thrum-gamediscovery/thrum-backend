@@ -78,9 +78,11 @@ Carefully consider the context of the conversation and the specific tone or dire
     - "give me a game"
     - "suggest one for me"
 
-- **Reject_Recommendation**: Triggered when the user directly rejects the game suggested in the previous response.  
-  This can be a clear refusal such as "Not that one," "I don’t like this," or other similar phrases that reject the previously suggested game.
+- **Reject_Recommendation**: Triggered when the user directly rejects the game suggested in the previous response.
+  This can be a clear refusal such as "Not that one," "I don’t like this," or any other similar phrases with same intent that reject the previously suggested game.
   - Be especially strict and accurate in detecting when the user is rejecting a game. Do not miss it, even if the language is casual, short, or slang. Always classify these as Reject_Recommendation.
+  - if user is giving the reason why they are rejecting the game then it, then at that time Request_Quick_Recommendation should be True or triggered, as user alrady provide the reason why they are rejecting the game. but if they do not provide the reason and just mean they did not like without reason then Request_Quick_Recommendation should be False and Reject_Recommendation must be true or triggered.
+  - If the user’s rejection is not strongly negative, but instead is neutral or based on context. For example, the user might say “not right now” (meaning they’re interested but just not at the moment) or “too expensive” (meaning the price, not the game itself, is the issue). In these situations, the system should recognize that it’s not a true dislike of the game, but rather a situational or soft rejection, so this should not trigger Reject_Recommendation.
 
 - **Inquire_About_Game**: must be set to true if:
     1. The user message contains the title of a specific game (matching the game catalog), OR
@@ -361,9 +363,11 @@ You must infer from both keywords and tone—even if the user is casual, brief, 
    → Can be empty list if no feedback.
 
 13. find_game(title of the game)
-   → if user is specifying that find me game by giving the title of the game then put that game in find_game variable
+   → if user is asking for a specific game title or name in last message, then put that game title in find_game variable
+   → if user is specifying that find me game by giving the title of the game in last message then put that game in find_game variable
    → if user want specific game and give name or title for recommend (if user i saying something like"i don't like xyz game" then dont add that in this, only add when you find user want this specific game or want to know about this game)
    → if user do not specify game title but looking like user is inquiry about ame or check avilability of any then return last recommend game's title.
+   → if user is not specifying any game title but chat is about game then return last recommend game's title.
    → return just one title of that game which user specify for recommend not list
    → If user not specify about game or title then strictly take last game title.
    → If not, return "None".
@@ -439,14 +443,14 @@ You must infer from both keywords and tone—even if the user is casual, brief, 
 Previous bot message:
 Thrum: "{last_thrum_reply}"
 
-User reply:
+User current reply:
 "{user_input}"
 
 last recommended game:
 "{last_game}"
 
+- Strictly extract the fields above from the user current reply not from USER MEMORY & RECENT CHAT (USER MEMORY & RECENT CHAT is just for reference).
 - classify based on user's reply and thrum's message (undersand it deeply what they want to say.)
-- 
 Now classify into the format below.
 '''
 

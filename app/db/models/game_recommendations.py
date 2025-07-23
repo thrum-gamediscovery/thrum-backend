@@ -1,10 +1,10 @@
 from uuid import uuid4
 from app.db.base import Base
 from sqlalchemy.orm import relationship
-from sqlalchemy import Column, String, ForeignKey, Boolean, DateTime
+from sqlalchemy import Column, String, ForeignKey, Boolean, DateTime, ARRAY, JSON
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
-
+from sqlalchemy.ext.mutable import MutableDict
 
 class GameRecommendation(Base):
     __tablename__ = 'game_recommendations'
@@ -14,6 +14,9 @@ class GameRecommendation(Base):
     user_id = Column(UUID(as_uuid=True), ForeignKey("user_profiles.user_id"))
     game_id = Column(UUID(as_uuid=True), ForeignKey("games.game_id"), index=True)
     platform = Column(String, nullable=True)
+    genre = Column(ARRAY(String), nullable=True)
+    tone = Column(String, nullable=True)
+    keywords = Column(MutableDict.as_mutable(JSON), default=dict)  # Keywords for the game
     mood_tag = Column(String, nullable=True)
     accepted = Column(Boolean, default=None)  # True = liked, False = rejected, None = not answered yet
     reason = Column(String, nullable=True)
