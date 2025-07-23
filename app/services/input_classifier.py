@@ -533,24 +533,28 @@ user reply : "{user_reply}"
 Your task is to classify whether the user is satisfied with that game or not, by considering both their reply and the last Thrum question.
 
 If you find the input sounds like the user wants another game, return "want_another".
-If the user input sounds like they like the recommended game or are satisfied with it (and it does NOT sound like they want another game), return "dont_want_another" as intent.
+If the user input sounds like they like the recommended game or are satisfied with it (and it does NOT sound like they want another game), return "game_accepted" as intent.
 If the user is vague, silent, or unclear, default to "dont_want_another".
 
 **Examples:**
 - User: "nah, show me something else" → {{ "intent": "want_another" }}
 - User: "not really my thing" → {{ "intent": "want_another" }}
-- User: "perfect, this is what I was looking for" → {{ "intent": "dont_want_another" }}
+- User: "perfect, this is what I was looking for" → {{ "intent": "game_accepted" }}
+- User: "I'll check it out" → {{ "intent": "game_accepted" }}
 - User: "okay" → {{ "intent": "dont_want_another" }}
+- User: "better. I'll check it out" → {{ "intent": "game_accepted" }}
+- User: "thx" → {{ "intent": "game_accepted" }}
 
 Rules:
 - If they liked it and want another → "want_another"
+- If they liked it and will try it → "game_accepted"
 - If they liked it but don’t want more → "dont_want_another"
 - If they disliked it or said no → "want_another"
 - If they’re vague, silent, or unsure → "dont_want_another"
 
 Return only a valid JSON object with one key "intent":
 {{
-  "intent": "want_another" | "dont_want_another"
+  "intent": "want_another" | "dont_want_another" | "game_accepted"
 }}
 
 Do NOT use triple backticks, code fences, or any markdown formatting.
@@ -558,7 +562,7 @@ Your response must be pure JSON, not wrapped in any formatting.
 If you add backticks, markdown, or any extra text, it is a mistake.
 Example of correct output:
 {{
-  "intent": "dont_want_another"
+  "intent": "game_accepted"
 }}
 """
 

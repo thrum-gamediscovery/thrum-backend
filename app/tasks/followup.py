@@ -44,9 +44,29 @@ async def handle_followup_logic(db, session, user, user_input, classification):
     parsed = json.loads(feedback)
     intent = parsed.get("intent")
 
+    # Check if user has accepted a game recommendation
+    game_accepted = False
+    last_game_title = None
+    if session.game_recommendations:
+        last_rec = session.game_recommendations[-1]
+        if last_rec.accepted is True:
+            game_accepted = True
+            last_game_title = last_rec.game.title if last_rec.game else "the game"
+
     # 👥 Share intent detected
     if await is_share_intent(user_input):
-        return "Send this to your friends: ‘I just got a perfect game drop from Thrum 🎮 — it's a vibe! Tap here to try it 👉 https://wa.me/12764000071?text=Hey%2C%20I%20heard%20Thrum%20can%20drop%20perfect%20games%20for%20my%20mood.%20Hit%20me%20with%20one!%20🔥’"
+        return "Send this to your friends: 'I just got a perfect game drop from Thrum 🎮 — it's a vibe! Tap here to try it 👉 https://wa.me/12764000071?text=Hey%2C%20I%20heard%20Thrum%20can%20drop%20perfect%20games%20for%20my%20mood.%20Hit%20me%20with%20one!%20🔥'"
+
+    # If user accepted a game, don't immediately suggest another one
+    if game_accepted and intent in ["dont_want_another", "game_accepted"]:
+        # Set a timestamp for when the game was accepted
+        session.meta_data = session.meta_data or {}
+        session.meta_data["game_accepted_at"] = datetime.utcnow().isoformat()
+        session.meta_data["accepted_game_title"] = last_game_title
+        db.commit()
+        
+        # Thank the user and end the conversation naturally
+        return f"Awesome, enjoy {last_game_title}! I'll check back with you later to see how it went."
 
     if intent in ["want_another"]:
         session.phase = PhaseEnum.DISCOVERY
@@ -94,7 +114,21 @@ async def get_post_recommendation_reply(user_input: str, last_game_name: str, se
     if tone == "cold":
         reply = f"Too off with *{last_game_name}*? Want me to change it up?"
     elif tone == "positive":
-        reply = f"You’re into *{last_game_name}* vibes then? Wanna go deeper or switch it up?"
+        # Mark the game as accepted in the session
+        if session.game_recommendations:
+            last_rec = session.game_recommendations[-1]
+            if last_rec.game and last_rec.game.title == last_game_name:
+                last_rec.accepted = True
+                db.commit()
+                
+        # Store acceptance info in session metadata
+        session.meta_data = session.meta_data or {}
+        session.meta_data["game_accepted_at"] = datetime.utcnow().isoformat()
+        session.meta_data["accepted_game_title"] = last_game_name
+        db.commit()
+        
+        # Thank the user instead of asking if they want to go deeper
+        reply = f"Awesome, enjoy *{last_game_name}*! I'll check back with you later to see how it went."
     elif tone == "vague":
         reply = f"Not sure if *{last_game_name}* hit right? I can keep digging if you want."
 
@@ -117,6 +151,55 @@ async def get_post_recommendation_reply(user_input: str, last_game_name: str, se
         db.commit()
 
     return reply
+
+# New function to check for delayed follow-ups
+@shared_task
+async def check_delayed_followups():
+    """
+    Checks for sessions with accepted games that need a delayed follow-up
+    """
+    db = SessionLocal()
+    try:
+        now = datetime.utcnow()
+        
+        # Find sessions with accepted games
+        sessions = db.query(Session).filter(
+            Session.meta_data.has_key("game_accepted_at")
+        ).all()
+        
+        for session in sessions:
+            # Skip if we've already sent a delayed follow-up
+            if session.meta_data.get("delayed_followup_sent"):
+                continue
+                
+            # Parse the acceptance timestamp
+            try:
+                accepted_at = datetime.fromisoformat(session.meta_data["game_accepted_at"])
+                # Check if it's been at least 3 hours
+                if now - accepted_at >= timedelta(hours=3):
+                    user = session.user
+                    game_title = session.meta_data.get("accepted_game_title", "the game")
+                    
+                    # Send follow-up message
+                    followup_messages = [
+                        f"Hey, did you get a chance to try {game_title}? How was it?",
+                        f"Checking in - were you able to play {game_title}? What did you think?",
+                        f"Curious if you had time to check out {game_title}? How'd it go?",
+                        f"Just wondering how {game_title} worked out for you?",
+                        f"Did {game_title} match your vibe? Would love to hear your thoughts!"
+                    ]
+                    message = random.choice(followup_messages)
+                    
+                    await send_whatsapp_message(user.phone_number, message)
+                    
+                    # Mark that we've sent the follow-up
+                    session.meta_data["delayed_followup_sent"] = True
+                    session.meta_data["delayed_followup_sent_at"] = now.isoformat()
+                    db.commit()
+            except (ValueError, TypeError, KeyError):
+                continue
+    finally:
+        db.close()
 
 FAREWELL_LINES = [
     "Ghost mode? Cool, I’ll be here later 👻",
