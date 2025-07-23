@@ -15,5 +15,9 @@ celery_app.conf.beat_schedule = {
         "task": "app.tasks.followup.send_feedback_followups",
         "schedule": 900.0,  # 15 minutes in seconds
     },
+    "check-delayed-followups": {
+        "task": "app.tasks.followup.check_delayed_followups",
+        "schedule": 300.0,  # Run every 5 minutes
+    },
 }
 celery_app.conf.timezone = 'UTC'

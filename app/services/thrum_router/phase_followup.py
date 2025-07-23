@@ -33,30 +33,106 @@ async def ask_followup_que(session) -> str:
     memory_context_str = session_memory.to_prompt()
 
     game_title = session.last_recommended_game or "that game"
-    prompt = f"""
-        USER MEMORY & RECENT CHAT:
-        {memory_context_str if memory_context_str else 'No prior user memory or recent chat.'}
+    
+    # Check if the user has accepted a game recommendation
+    game_accepted = False
+    if session.game_recommendations:
+        last_rec = session.game_recommendations[-1]
+        if last_rec.accepted is True:
+            game_accepted = True
+            # Store this information in session metadata
+            session.meta_data = session.meta_data or {}
+            if "game_accepted_at" not in session.meta_data:
+                session.meta_data["game_accepted_at"] = datetime.utcnow().isoformat()
+                session.meta_data["accepted_game_title"] = game_title
+    
+    # If a game was accepted, don't ask for another game immediately
+    if game_accepted:
+        # Check if it's been at least 2 minutes since the game was accepted
+        accepted_at = None
+        if "game_accepted_at" in session.meta_data:
+            try:
+                accepted_at = datetime.fromisoformat(session.meta_data["game_accepted_at"])
+            except (ValueError, TypeError):
+                pass
+        
+        # If it's been less than 2 minutes, just thank them and end the conversation
+        if accepted_at and (datetime.utcnow() - accepted_at) < timedelta(minutes=2):
+            return f"Awesome, enjoy {game_title}! I'll check back with you later to see how it went."
+        # If it's been more than 2 minutes but less than 3 hours, ask about the suggestion
+        elif accepted_at and (datetime.utcnow() - accepted_at) < timedelta(hours=3):
+            prompt = f"""
+                USER MEMORY & RECENT CHAT:
+                {memory_context_str if memory_context_str else 'No prior user memory or recent chat.'}
 
-        You are Thrum — an emotionally aware, tone-matching gaming companion.
+                You are Thrum — an emotionally aware, tone-matching gaming companion.
 
-        The user was just recommended a game.
+                The user accepted your recommendation for {game_title} just a few minutes ago.
+                Write ONE short, natural follow-up to ask what they think about the suggestion (not if they've played it yet).
 
-        Now, write ONE short, natural follow-up to check:
-        – if the game sounds good to them  
-        – OR if they’d like another game
+                Your response must:
+                - Reflect the user's tone: {last_user_tone} (e.g., chill, genz, hype, unsure, etc.)
+                - Use fresh and varied phrasing every time — never repeat past follow-up styles
+                - Be no more than 20 words. If you reach 20 words, stop immediately.
+                - Ask about their thoughts on the {game_title} suggestion
+                - Do not suggest any new games
+                - Avoid any fixed templates or repeated phrasing
 
-        Your response must:
-        - Reflect the user’s tone: {last_user_tone} (e.g., chill, genz, hype, unsure, etc.)
-        - Use fresh and varied phrasing every time — never repeat past follow-up styles
-        - Be no more than 15 words. If you reach 15 words, stop immediately.
-        - Do not mention or summarize the game or use the word "recommendation".
-        - Do not use robotic phrases like “Did that one hit the mark?”
-        - Avoid any fixed templates or repeated phrasing
+                Tone must feel warm, casual, playful, or witty — depending on the user's tone.
 
-        Tone must feel warm, casual, playful, or witty — depending on the user’s tone.
+                Only output one emotionally intelligent follow-up. Nothing else.
+                """
+            return prompt
+        # If it's been more than 3 hours, ask about their experience with the game
+        elif accepted_at:
+            prompt = f"""
+                USER MEMORY & RECENT CHAT:
+                {memory_context_str if memory_context_str else 'No prior user memory or recent chat.'}
 
-        Only output one emotionally intelligent follow-up. Nothing else.
-        """
+                You are Thrum — an emotionally aware, tone-matching gaming companion.
+
+                The user accepted your recommendation for {game_title} a while ago.
+                Now, write ONE short, natural follow-up to check if they had a chance to try the game and how they liked it.
+                If they haven't played it yet, ask if they'd like a different recommendation.
+
+                Your response must:
+                - Reflect the user's tone: {last_user_tone} (e.g., chill, genz, hype, unsure, etc.)
+                - Use fresh and varied phrasing every time — never repeat past follow-up styles
+                - Be no more than 25 words. If you reach 25 words, stop immediately.
+                - Specifically ask about their experience with {game_title}
+                - Include a question about whether they want something different if they haven't played
+                - Avoid any fixed templates or repeated phrasing
+
+                Tone must feel warm, casual, playful, or witty — depending on the user's tone.
+
+                Only output one emotionally intelligent follow-up. Nothing else.
+                """
+    else:
+        # Standard follow-up for non-accepted games
+        prompt = f"""
+            USER MEMORY & RECENT CHAT:
+            {memory_context_str if memory_context_str else 'No prior user memory or recent chat.'}
+
+            You are Thrum — an emotionally aware, tone-matching gaming companion.
+
+            The user was just recommended a game.
+
+            Now, write ONE short, natural follow-up to check:
+            – if the game sounds good to them  
+            – OR if they’d like another game
+
+            Your response must:
+            - Reflect the user’s tone: {last_user_tone} (e.g., chill, genz, hype, unsure, etc.)
+            - Use fresh and varied phrasing every time — never repeat past follow-up styles
+            - Be no more than 15 words. If you reach 15 words, stop immediately.
+            - Do not mention or summarize the game or use the word "recommendation".
+            - Do not use robotic phrases like “Did that one hit the mark?”
+            - Avoid any fixed templates or repeated phrasing
+
+            Tone must feel warm, casual, playful, or witty — depending on the user’s tone.
+
+            Only output one emotionally intelligent follow-up. Nothing else.
+            """
 
     response = await client.chat.completions.create(
         model=model,
@@ -95,6 +171,11 @@ async def handle_game_inquiry(db: Session, user, session, user_input: str) -> st
     game_id = session.meta_data.get("find_game")
     session_memory = SessionMemory(session)
     memory_context_str = session_memory.to_prompt()
+    
+    # Set game_interest_confirmed flag when user inquires about a game
+    session.meta_data = session.meta_data or {}
+    session.meta_data["game_interest_confirmed"] = True
+    db.commit()
     if not game_id:
         prompt = """
             You are Thrum, the game discovery assistant. The user has asked about a specific game, but there is no information about that game in your catalog or data.

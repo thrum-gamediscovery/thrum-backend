@@ -5,6 +5,7 @@ from app.db.session import SessionLocal
 from app.db.models import Interaction, Session
 from app.db.models.enums import ResponseTypeEnum, PhaseEnum
 import json
+import os
 from app.utils.whatsapp import send_whatsapp_message
 from app.services.tone_classifier import classify_tone  
 from app.services.input_classifier import analyze_followup_feedback  
@@ -43,10 +44,42 @@ async def handle_followup_logic(db, session, user, user_input, classification):
     print(feedback)
     parsed = json.loads(feedback)
     intent = parsed.get("intent")
+    
+    # Set game_interest_confirmed flag when user shows interest in a game
+    if intent in ["game_accepted"]:
+        session.meta_data = session.meta_data or {}
+        session.meta_data["game_interest_confirmed"] = True
+        db.commit()
+    
+    # Set game_interest_confirmed flag if the intent indicates interest in the game
+    if intent in ["game_accepted", "game_interest_confirmed"]:
+        session.meta_data = session.meta_data or {}
+        session.meta_data["game_interest_confirmed"] = True
+        db.commit()
+
+    # Check if user has accepted a game recommendation
+    game_accepted = False
+    last_game_title = None
+    if session.game_recommendations:
+        last_rec = session.game_recommendations[-1]
+        if last_rec.accepted is True:
+            game_accepted = True
+            last_game_title = last_rec.game.title if last_rec.game else "the game"
 
     # 👥 Share intent detected
     if await is_share_intent(user_input):
-        return "Send this to your friends: ‘I just got a perfect game drop from Thrum 🎮 — it's a vibe! Tap here to try it 👉 https://wa.me/12764000071?text=Hey%2C%20I%20heard%20Thrum%20can%20drop%20perfect%20games%20for%20my%20mood.%20Hit%20me%20with%20one!%20🔥’"
+        return "Send this to your friends: 'I just got a perfect game drop from Thrum 🎮 — it's a vibe! Tap here to try it 👉 https://wa.me/12764000071?text=Hey%2C%20I%20heard%20Thrum%20can%20drop%20perfect%20games%20for%20my%20mood.%20Hit%20me%20with%20one!%20🔥'"
+
+    # If user accepted a game, don't immediately suggest another one
+    if game_accepted and intent in ["dont_want_another", "game_accepted"]:
+        # Set a timestamp for when the game was accepted
+        session.meta_data = session.meta_data or {}
+        session.meta_data["game_accepted_at"] = datetime.utcnow().isoformat()
+        session.meta_data["accepted_game_title"] = last_game_title
+        db.commit()
+        
+        # Thank the user and end the conversation naturally
+        return f"Awesome, enjoy {last_game_title}! I'll check back with you later to see how it went."
 
     if intent in ["want_another"]:
         session.phase = PhaseEnum.DISCOVERY
@@ -94,7 +127,21 @@ async def get_post_recommendation_reply(user_input: str, last_game_name: str, se
     if tone == "cold":
         reply = f"Too off with *{last_game_name}*? Want me to change it up?"
     elif tone == "positive":
-        reply = f"You’re into *{last_game_name}* vibes then? Wanna go deeper or switch it up?"
+        # Mark the game as accepted in the session
+        if session.game_recommendations:
+            last_rec = session.game_recommendations[-1]
+            if last_rec.game and last_rec.game.title == last_game_name:
+                last_rec.accepted = True
+                db.commit()
+                
+        # Store acceptance info in session metadata
+        session.meta_data = session.meta_data or {}
+        session.meta_data["game_accepted_at"] = datetime.utcnow().isoformat()
+        session.meta_data["accepted_game_title"] = last_game_name
+        db.commit()
+        
+        # Thank the user instead of asking if they want to go deeper
+        reply = f"Awesome, enjoy *{last_game_name}*! I'll check back with you later to see how it went."
     elif tone == "vague":
         reply = f"Not sure if *{last_game_name}* hit right? I can keep digging if you want."
 
@@ -117,6 +164,85 @@ async def get_post_recommendation_reply(user_input: str, last_game_name: str, se
         db.commit()
 
     return reply
+
+# New function to check for delayed follow-ups
+@shared_task
+async def check_delayed_followups():
+    """
+    Checks for sessions with accepted games that need a delayed follow-up
+    """
+    db = SessionLocal()
+    try:
+        now = datetime.utcnow()
+        
+        # Find sessions with accepted games
+        sessions = db.query(Session).filter(
+            Session.meta_data.has_key("game_accepted_at")
+        ).all()
+        
+        for session in sessions:
+            # Skip if we've already sent a delayed follow-up
+            if session.meta_data.get("delayed_followup_sent"):
+                continue
+                
+            # Parse the acceptance timestamp
+            try:
+                accepted_at = datetime.fromisoformat(session.meta_data["game_accepted_at"])
+                # Check if it's been at least 3 hours
+                if now - accepted_at >= timedelta(hours=3):
+                    user = session.user
+                    game_title = session.meta_data.get("accepted_game_title", "the game")
+                    
+                    # Generate dynamic follow-up message using OpenAI
+                    from app.services.session_memory import SessionMemory
+                    from app.services.tone_engine import get_last_user_tone_from_session
+                    import openai
+                    
+                    session_memory = SessionMemory(session)
+                    memory_context_str = session_memory.to_prompt()
+                    last_user_tone = get_last_user_tone_from_session(session)
+                    
+                    prompt = f"""
+                    USER MEMORY & RECENT CHAT:
+                    {memory_context_str if memory_context_str else 'No prior user memory or recent chat.'}
+
+                    You are Thrum — an emotionally aware, tone-matching gaming companion.
+
+                    The user accepted your recommendation for {game_title} about 3 hours ago.
+                    Write ONE short, natural follow-up to check if they had a chance to try the game and how they liked it.
+                    If they haven't played it yet, ask if they'd like a different recommendation.
+
+                    Your response must:
+                    - Reflect the user's tone: {last_user_tone} (e.g., chill, genz, hype, unsure, etc.)
+                    - Use fresh and varied phrasing every time — never repeat past follow-up styles
+                    - Be no more than 25 words. If you reach 25 words, stop immediately.
+                    - Specifically ask about their experience with {game_title}
+                    - Include a question about whether they want something different if they haven't played
+                    - Avoid any fixed templates or repeated phrasing
+
+                    Tone must feel warm, casual, playful, or witty — depending on the user's tone.
+
+                    Only output one emotionally intelligent follow-up. Nothing else.
+                    """
+                    
+                    client = openai.AsyncOpenAI()
+                    response = await client.chat.completions.create(
+                        model=os.getenv("GPT_MODEL"),
+                        temperature=0.7,
+                        messages=[{"role": "user", "content": prompt.strip()}]
+                    )
+                    message = response.choices[0].message.content.strip()
+                    
+                    await send_whatsapp_message(user.phone_number, message)
+                    
+                    # Mark that we've sent the follow-up
+                    session.meta_data["delayed_followup_sent"] = True
+                    session.meta_data["delayed_followup_sent_at"] = now.isoformat()
+                    db.commit()
+            except (ValueError, TypeError, KeyError):
+                continue
+    finally:
+        db.close()
 
 FAREWELL_LINES = [
     "Ghost mode? Cool, I’ll be here later 👻",
