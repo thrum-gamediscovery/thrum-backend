@@ -5,6 +5,7 @@ from app.db.session import SessionLocal
 from app.db.models import Interaction, Session
 from app.db.models.enums import ResponseTypeEnum, PhaseEnum
 import json
+import os
 from app.utils.whatsapp import send_whatsapp_message
 from app.services.tone_classifier import classify_tone  
 from app.services.input_classifier import analyze_followup_feedback  
@@ -43,6 +44,18 @@ async def handle_followup_logic(db, session, user, user_input, classification):
     print(feedback)
     parsed = json.loads(feedback)
     intent = parsed.get("intent")
+    
+    # Set game_interest_confirmed flag when user shows interest in a game
+    if intent in ["game_accepted"]:
+        session.meta_data = session.meta_data or {}
+        session.meta_data["game_interest_confirmed"] = True
+        db.commit()
+    
+    # Set game_interest_confirmed flag if the intent indicates interest in the game
+    if intent in ["game_accepted", "game_interest_confirmed"]:
+        session.meta_data = session.meta_data or {}
+        session.meta_data["game_interest_confirmed"] = True
+        db.commit()
 
     # Check if user has accepted a game recommendation
     game_accepted = False
@@ -180,15 +193,45 @@ async def check_delayed_followups():
                     user = session.user
                     game_title = session.meta_data.get("accepted_game_title", "the game")
                     
-                    # Send follow-up message
-                    followup_messages = [
-                        f"Hey, did you get a chance to try {game_title}? How was it?",
-                        f"Checking in - were you able to play {game_title}? What did you think?",
-                        f"Curious if you had time to check out {game_title}? How'd it go?",
-                        f"Just wondering how {game_title} worked out for you?",
-                        f"Did {game_title} match your vibe? Would love to hear your thoughts!"
-                    ]
-                    message = random.choice(followup_messages)
+                    # Generate dynamic follow-up message using OpenAI
+                    from app.services.session_memory import SessionMemory
+                    from app.services.tone_engine import get_last_user_tone_from_session
+                    import openai
+                    
+                    session_memory = SessionMemory(session)
+                    memory_context_str = session_memory.to_prompt()
+                    last_user_tone = get_last_user_tone_from_session(session)
+                    
+                    prompt = f"""
+                    USER MEMORY & RECENT CHAT:
+                    {memory_context_str if memory_context_str else 'No prior user memory or recent chat.'}
+
+                    You are Thrum — an emotionally aware, tone-matching gaming companion.
+
+                    The user accepted your recommendation for {game_title} about 3 hours ago.
+                    Write ONE short, natural follow-up to check if they had a chance to try the game and how they liked it.
+                    If they haven't played it yet, ask if they'd like a different recommendation.
+
+                    Your response must:
+                    - Reflect the user's tone: {last_user_tone} (e.g., chill, genz, hype, unsure, etc.)
+                    - Use fresh and varied phrasing every time — never repeat past follow-up styles
+                    - Be no more than 25 words. If you reach 25 words, stop immediately.
+                    - Specifically ask about their experience with {game_title}
+                    - Include a question about whether they want something different if they haven't played
+                    - Avoid any fixed templates or repeated phrasing
+
+                    Tone must feel warm, casual, playful, or witty — depending on the user's tone.
+
+                    Only output one emotionally intelligent follow-up. Nothing else.
+                    """
+                    
+                    client = openai.AsyncOpenAI()
+                    response = await client.chat.completions.create(
+                        model=os.getenv("GPT_MODEL"),
+                        temperature=0.7,
+                        messages=[{"role": "user", "content": prompt.strip()}]
+                    )
+                    message = response.choices[0].message.content.strip()
                     
                     await send_whatsapp_message(user.phone_number, message)
                     

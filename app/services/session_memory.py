@@ -336,12 +336,27 @@ async def extract_discovery_signals(session) -> DiscoveryData:
         print("❌ Session not found.")
         return DiscoveryData()
 
+    # Check if user has confirmed interest in a game
+    game_interest_confirmed = False
+    if session.meta_data and session.meta_data.get("game_interest_confirmed"):
+        game_interest_confirmed = True
+
     mood = session.exit_mood or session.entry_mood
     genre = session.genre[-1] if session.genre else None
     platform = session.platform_preference[-1] if session.platform_preference else None
     story_pref = session.story_preference
 
-    print(f"🔍 Extracted from session — Mood: {mood}, Genre: {genre}, Platform: {platform}, story_preference : {story_pref}")
+    print(f"🔍 Extracted from session — Mood: {mood}, Genre: {genre}, Platform: {platform}, story_preference : {story_pref}, game_interest_confirmed: {game_interest_confirmed}")
+    
+    # If game interest is confirmed, mark all fields as complete to skip genre/vibe questions
+    if game_interest_confirmed:
+        return DiscoveryData(
+            mood=mood or "confirmed",  # Use placeholder if missing
+            genre=genre or "confirmed",
+            platform=platform or "confirmed",
+            story_pref=story_pref if story_pref is not None else True,
+        )
+    
     return DiscoveryData(
         mood=mood,
         genre=genre,

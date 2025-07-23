@@ -16,6 +16,14 @@ async def handle_discovery(db, session, user):
     if "session_phase" not in session.meta_data:
         session.meta_data["session_phase"] = "Onboarding"
     session.phase = PhaseEnum.DISCOVERY
+    
+    # Check if user has confirmed interest in a game
+    if session.meta_data.get("game_interest_confirmed"):
+        # Skip discovery questions and go straight to delivery
+        session.phase = PhaseEnum.DELIVERY
+        session.discovery_questions_asked = 0
+        return await deliver_game_immediately(db=db, user=user, session=session)
+        
     discovery_data = await extract_discovery_signals(session)
     if discovery_data.is_complete() and session.game_rejection_count < 2:
         session.phase = PhaseEnum.CONFIRMATION
