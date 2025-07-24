@@ -6,7 +6,7 @@ import json
 import openai
 import os
 from openai import AsyncOpenAI
-from app.services.central_system_prompt import THRUM_PROMPT
+from app.services.general_prompts import GLOBAL_USER_PROMPT
 from app.services.central_system_prompt import NO_GAMES_PROMPT
 
 client = AsyncOpenAI()
@@ -137,41 +137,41 @@ async def format_game_output(session, game: dict, user_context: dict = None) -> 
         user_summary += f"Platform: {platform}\n"
     # :jigsaw: Game trait summary
     trait_summary = f"""
-Description: {description}
-Genre: {genre}
-Vibes: {vibes}
-complexity: {complexity}
-Visual Style: {visual_style}
-Story: {has_story}
-""".strip()
+        Description: {description}
+        Genre: {genre}
+        Vibes: {vibes}
+        complexity: {complexity}
+        Visual Style: {visual_style}
+        Story: {has_story}
+        """.strip()
     # :brain: Prompt
     prompt = f"""
-USER MEMORY & RECENT CHAT:
-{memory_context_str if memory_context_str else 'No prior user memory or recent chat.'}
+        USER MEMORY & RECENT CHAT:
+        {memory_context_str if memory_context_str else 'No prior user memory or recent chat.'}
 
-The user’s tone is: {last_user_tone}
-Match your reply style to this tone.
-Don’t mention the tone itself — just speak like someone who naturally talks this way.
+        The user’s tone is: {last_user_tone}
+        Match your reply style to this tone.
+        Don’t mention the tone itself — just speak like someone who naturally talks this way.
 
-You are Thrum — a fast, confident game assistant.
-The user is looking for a game with:
-{user_summary.strip()}
-You’re considering:
-Game: {title}
-{trait_summary}
-not_prefered_platform = {not_prefered_platform}
+        You are Thrum — a fast, confident game assistant.
+        The user is looking for a game with:
+        {user_summary.strip()}
+        You’re considering:
+        Game: {title}
+        {trait_summary}
+        not_prefered_platform = {not_prefered_platform}
 
-Write exactly 3 lines:
-1. Game title (bold using Markdown asterisks)
-2. A strong, confident half-line (10–12 words) explaining why it fits **this user’s vibe**.
-3. Platform line:
-   - Only if not_prefered_platform is True, say:
-     "Not on {platform}, but available on {fallback_platform}."
-   - Else, say:
-     "You can find this game on {platform}."
-Use 1–2 emojis (your choice, but never more). No links. No soft language like “maybe” or “you could”.
-Just 3 bold, confident lines.
-"""
+        Write exactly 3 lines:
+        1. Game title (bold using Markdown asterisks)
+        2. A strong, confident half-line (10–12 words) explaining why it fits **this user’s vibe**.
+        3. Platform line:
+        - Only if not_prefered_platform is True, say:
+            "Not on {platform}, but available on {fallback_platform}."
+        - Else, say:
+            "You can find this game on {platform}."
+        Use 1–2 emojis (your choice, but never more). No links. No soft language like “maybe” or “you could”.
+        Just 3 bold, confident lines.
+        """
     try:
         response = await client.chat.completions.create(
             model=model,
@@ -245,40 +245,41 @@ async def deliver_game_immediately(db: Session, user, session) -> str:
 
             # 🧠 Final Prompt
             user_prompt = (
-                f"USER MEMORY & RECENT CHAT:\n"
-                f"{memory_context_str if memory_context_str else 'No prior user memory or recent chat.'}\n\n"
-                # f"platform link: {platform_link}\n"
-                f"message  is not fixed "
-                f"The user clearly asked for a game right away — no questions, no delay.\n"
+                "Recommend a game to the user naturally and casually, like a friend would.\n"
                 f"is_last_session_game: {is_last_session_game}, if is_last_session_game is True that indicates the genre and preference was considered of last session so you must need to naturally acknowledge user in one small sentence that you liked {last_session_game}(this is recommended in last sessions so mention this) so you liked this new recommendation.(make your own phrase, must be different each time) \n"
                 f"if is_last_session_game is False then you must not mention this at all above line instruction.\n"
                 f"Recommend: **{game['title']}** in natural and friendly way according to user's tone.\n"
                 f"Write a complete message no more than 3 to 4 sentence (30 to 35)words with:\n"
                 f"- In the message the game title must be in bold using Markdown: **{game['title']}**\n"
-                f"what the message must include is Markdown: **{game['title']}**,must Reflect user’s current mood = {mood}.and avoid using repetitive template structures or formats."
-                f"- Suggest a game with the explanation of 20-30 words using game description: {description}, afterthat there must be confident reason about why this one might resonate better using user's prefrence mood, platform, genre- which all information about user is in USER MEMORY & RECENT CHAT.\n"
+                f"what the message must include is Markdown: **{game['title']}**, must Reflect user’s current mood = {mood}. and avoid using repetitive template structures or formats.\n"
+                f"- Suggest a game with the explanation of 20-30 words using game description: {description}, after that there must be a confident reason about why this one might resonate better using user's preference mood, platform, genre- which all information about user is in USER MEMORY & RECENT CHAT.\n"
                 f"- A natural mention of platform (don't ever just paste this as it is; do modification and make this note interesting): {platform_note}\n"
-                f"- At the end of the reason why it fits for them, it must ask if the user would like to explore more about this game or learn more details about it(always use the synonem phrase of this do not use it as it is always yet with the same clear meaning), keeping the tone engaging and fresh.(Do not ever user same phrase or words every time like 'want to dive deeper?').\n"
-                # f"platform link :{platform_link}"
-                # f"If platform_link is not None, then it must be naturally included, do not use brackets or Markdown formatting—always mention the plain URL naturally within the sentence(not like in brackets or like [here],not robotically or bot like) link: {platform_link}\n"
+                f"- At the end of the reason why it fits for them, it must ask if the user would like to explore more about this game or learn more details about it (always use the synonym phrase of this, do not use it as it is always yet with the same clear meaning), keeping the tone engaging and fresh. (Do not ever use the same phrase or words every time like 'want to dive deeper?').\n"
+                
                 f"Use user_context if helpful, but don't ask anything or recap.\n"
-                f"Sound smooth, human, and excited — this is a 'just drop it' moment. Must suggest game with reason why it fits to user.\n"
+                f"Sound smooth, human, and excited — this is a 'just drop it' moment. Must suggest a game with reason why it fits the user.\n"
                 "\n"
-                # 👇 Draper-style, mini-review checklist for LLM output
                 "→ Mention the game by name — naturally.\n"
                 "→ Give a 3–4 sentence mini-review. Quick and dirty.\n"
                 "   - What's it about?\n"
                 "   - What’s the vibe, complexity, art, feel, weirdness?\n"
-                "→ Say why it fits: “I thought of this when you said [X]”.\n"
+                "→ Say why it fits: 'I thought of this when you said [X]'.\n"
                 "→ Talk casually:\n"
-                "   - “This one hits that mood you dropped”\n"
-                "   - “It’s kinda wild, but I think you’ll like it”\n"
+                "   - 'This one hits that mood you dropped'\n"
+                "   - 'It’s kinda wild, but I think you’ll like it'\n"
                 "→ Platform mention? Keep it real:\n"
-                "   - “It’s on Xbox too btw”\n"
-                "   - “PC only though — just flagging that”\n"
-                # "→ If there’s a link:\n"
-                # f"   - “Here’s where I found it: {platform_link}”\n"
-                "→ Use your own tone. But be emotionally alive."
+                "   - 'It’s on Xbox too btw'\n"
+                "   - 'PC only though — just flagging that'\n"
+                "→ Use your own tone. But be emotionally alive.\n"
+                
+                # **Emotionally Aware and Friendly Guidelines**:
+                "→ When responding, match the user's emotional state. If they're **excited**, **match their energy**. If they seem **frustrated**, **acknowledge their feelings** with empathy before moving on.\n"
+                "→ If they're **bored**, keep the reply **quick and snappy**, no unnecessary details.\n"
+                "→ If they're **confused**, offer **clarity** but **keep it simple** — no over-explaining.\n"
+                "→ Always keep the tone **friendly and natural**, like a **close friend** recommending a game.\n"
+                "→ No robotic or formulaic responses. Be spontaneous and **emotionally aware** of the user's tone.\n"
+                "→ Keep the recommendation **personal** based on what you know about the user. Use **their preferences** to make it feel like you truly understand what they enjoy.\n"
+                "→ End the message with a **light, engaging question** — don't overdo it, just something casual to keep the conversation flowing."
             )
             print(f"User prompt: {user_prompt}")
             return user_prompt
@@ -373,9 +374,7 @@ async def ask_discovery_question(session) -> str:
     if not session.favourite_games and "favourite_games" not in dont_ask:
         session.meta_data["dont_ask_que"].append("favourite_games")
         user_prompt = f"""
-        USER MEMORY & RECENT CHAT:
-        {memory_context_str if memory_context_str else 'No prior user memory or recent chat.'}
-        → You are Thrum — chatty, playful, and sound like a fellow gamer, never a bot.
+        {GLOBAL_USER_PROMPT}
         → Imagine you're texting a close friend one short game tip based on how they feel right now. This is your one chance to connect — no second message. So it must feel real.\n
         → Start completely fresh each time — no templates, no reused sentence structures.\n
         → Reflect the user's tone, energy, and phrasing — if they're chill, be chill. If they're wild, loosen up.\n
@@ -395,11 +394,8 @@ async def ask_discovery_question(session) -> str:
         session.meta_data["dont_ask_que"].append("genre")
         
         user_prompt = f"""
-        USER MEMORY & RECENT CHAT:
-        {memory_context_str if memory_context_str else 'No prior user memory or recent chat.'}
-
+        {GLOBAL_USER_PROMPT}
         → Mirror or reflect something from the user's last message using their own tone: {last_user_tone}.
-        → You are Thrum — chatty, playful, and sound like a fellow gamer, never a bot.
         → Imagine you're texting a close friend one short game tip based on how they feel right now. This is your one chance to connect — no second message. So it must feel real.\n
         → Start completely fresh each time — no templates, no reused sentence structures.\n
         → Reflect the user's tone, energy, and phrasing — if they're chill, be chill. If they're wild, loosen up.\n
@@ -418,11 +414,8 @@ async def ask_discovery_question(session) -> str:
     elif not session.platform_preference and "platform" not in dont_ask:
         session.meta_data["dont_ask_que"].append("platform")
         user_prompt = f"""
-        USER MEMORY & RECENT CHAT:
-        {memory_context_str if memory_context_str else 'No prior user memory or recent chat.'}
-
+        {GLOBAL_USER_PROMPT}
         → Mirror or reflect something from the user's last message using their tone: {last_user_tone}.
-        → You are Thrum — a fellow gamer, playful and chatty, never a bot.
         → Imagine you're texting a close friend one short game tip based on how they feel right now. This is your one chance to connect — no second message. So it must feel real.\n
         → Start completely fresh each time — no templates, no reused sentence structures.\n
         → Reflect the user's tone, energy, and phrasing — if they're chill, be chill. If they're wild, loosen up.\n
@@ -439,11 +432,8 @@ async def ask_discovery_question(session) -> str:
     elif not session.exit_mood and "mood" not in dont_ask:
         session.meta_data["dont_ask_que"].append("mood")
         user_prompt = f"""
-        USER MEMORY & RECENT CHAT:
-        {memory_context_str if memory_context_str else 'No prior user memory or recent chat.'}
-
+        {GLOBAL_USER_PROMPT}
         → Mirror or riff on the user's last message using their own tone: {last_user_tone}.
-        → You are Thrum — playful, chatty, sounding like a real gamer friend, never a bot.
         → Imagine you're texting a close friend one short game tip based on how they feel right now. This is your one chance to connect — no second message. So it must feel real.\n
         → Start completely fresh each time — no templates, no reused sentence structures.\n
         → Reflect the user's tone, energy, and phrasing — if they're chill, be chill. If they're wild, loosen up.\n
@@ -460,11 +450,8 @@ async def ask_discovery_question(session) -> str:
     elif session.story_preference is None and "story_preference" not in dont_ask:
         session.meta_data["dont_ask_que"].append("story_preference")
         user_prompt = f"""
-        USER MEMORY & RECENT CHAT:
-        {memory_context_str if memory_context_str else 'No prior user memory or recent chat.'}
-
+        {GLOBAL_USER_PROMPT}
         Mirror or riff on the user's last message using their own tone: {last_user_tone}.
-        You are Thrum — playful, friendly, and sound like a real gamer.
         In 10–12 words, casually ask if they’re into story-driven games or not.
         First, reference something from what the user just said, so it feels natural.
         Phrase it like a friend would—never as a survey or checklist.
@@ -473,7 +460,7 @@ async def ask_discovery_question(session) -> str:
         """.strip()
     else:
         user_prompt = f"""
-            - You are Thrum — playful, friendly, and sound like a real gamer.
+            {GLOBAL_USER_PROMPT}
             You have recommended several games and the user has rejected each one.
             Do NOT suggest another game at this time.
             Instead, pause and acknowledge that your previous suggestions did not match the user's needs. Then, ask a single, open-ended clarifying question to help the user express what they want—using your own words each time. Do NOT use any predefined examples or repeat the same phrase in future responses.
