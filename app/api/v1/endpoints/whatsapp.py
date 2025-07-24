@@ -21,6 +21,9 @@ router = APIRouter()
 # In-memory cache for recent messages (phone_number -> {message_hash: timestamp})
 recent_messages = {}
 
+# Track pending responses to cancel outdated ones
+pending_responses = {}  # phone_number -> latest_message_timestamp
+
 # 🔁 Handles session update and sends the bot reply to chat processor
 async def user_chat(request, db, user, Body):
     session = await update_or_create_session(db, user)
@@ -61,6 +64,9 @@ async def whatsapp_webhook(request: Request, From: str = Form(...), Body: str = 
     # Store current message
     recent_messages[From][message_hash] = now
     
+    # Track this as the latest message for this user
+    pending_responses[From] = now
+    
     user = db.query(UserProfile).filter(UserProfile.phone_number == From).first()
     user_input = Body
     
@@ -95,6 +101,9 @@ async def whatsapp_webhook(request: Request, From: str = Form(...), Body: str = 
     if len(session.interactions) == 0 or is_session_idle(session):
         await asyncio.sleep(5)
 
+    # Check if user sent additional messages while processing
+    if From in pending_responses and pending_responses[From] > now:
+        return  # Skip sending response - user sent newer message
     
     # 📩 Return final reply to WhatsApp
     await send_whatsapp_message(
