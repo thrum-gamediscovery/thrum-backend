@@ -205,7 +205,7 @@ async def deliver_game_immediately(db: Session, user, session) -> str:
             return await handle_discovery(db=db, session=session, user=user)
     else:
         game, _ = await game_recommendation(db=db, user=user, session=session)
-
+        print(f"Game recommendation: {game}")
         platform_link = None
         description = None
 
@@ -220,9 +220,9 @@ async def deliver_game_immediately(db: Session, user, session) -> str:
             session.last_recommended_game = game["title"]
             session_memory.last_game = game["title"]
             last_session_game = None
-            is_last_session_game = game.get("is_last_session_game", False)
+            is_last_session_game = game.get("last_session_game",{}).get("is_last_session_game") 
             if is_last_session_game:
-                last_session_game = game.get("last_session_game", {}).get("title", None)
+                last_session_game = game.get("last_session_game", {}).get("title")
             # Get user's preferred platform
             preferred_platforms = session.platform_preference or []
             user_platform = preferred_platforms[-1] if preferred_platforms else None
@@ -341,27 +341,12 @@ async def extract_discovery_signals(session) -> DiscoveryData:
         print("❌ Session not found.")
         return DiscoveryData()
 
-    # Check if user has confirmed interest in a game
-    game_interest_confirmed = False
-    if session.meta_data and session.meta_data.get("game_interest_confirmed"):
-        game_interest_confirmed = True
-
     mood = session.exit_mood or session.entry_mood
     genre = session.genre[-1] if session.genre else None
     platform = session.platform_preference[-1] if session.platform_preference else None
     story_pref = session.story_preference
 
-    print(f"🔍 Extracted from session — Mood: {mood}, Genre: {genre}, Platform: {platform}, story_preference : {story_pref}, game_interest_confirmed: {game_interest_confirmed}")
-    
-    # If game interest is confirmed, mark all fields as complete to skip genre/vibe questions
-    if game_interest_confirmed:
-        return DiscoveryData(
-            mood=mood or "confirmed",  # Use placeholder if missing
-            genre=genre or "confirmed",
-            platform=platform or "confirmed",
-            story_pref=story_pref if story_pref is not None else True,
-        )
-    
+    print(f"🔍 Extracted from session — Mood: {mood}, Genre: {genre}, Platform: {platform}, story_preference : {story_pref}")
     return DiscoveryData(
         mood=mood,
         genre=genre,

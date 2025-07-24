@@ -171,6 +171,10 @@ async def game_recommendation(db: Session, user, session):
                     "game_id": last_session_liked_game.game.game_id if last_session_liked_game else None
                 }
             }, False
+        
+    if last_session_game and last_session_liked_game:
+        base_query = base_query.filter(Game.game_id != last_session_liked_game.game_id)
+        print(f"[Step 3.3] Excluded last session liked game: {last_session_liked_game.game_id}")
 
     # Step 5: Filter by platform availability
     if platform:

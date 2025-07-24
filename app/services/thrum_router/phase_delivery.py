@@ -14,6 +14,7 @@ from app.services.central_system_prompt import NO_GAMES_PROMPT
 
 async def get_recommend(db, user, session):
     game, _ = await game_recommendation(db=db, session=session, user=user)
+    print(f"Game recommendation: {game}")
     session_memory = SessionMemory(session)
     memory_context_str = session_memory.to_prompt()
     platform_link = None
@@ -46,7 +47,7 @@ async def get_recommend(db, user, session):
     else:
         platform_note = f"Available on: {', '.join(game_platforms)}."
         # :brain: User Prompt (fresh rec after rejection, warm tone, 20–25 words)
-    is_last_session_game = game.get("is_last_session_game")
+    is_last_session_game = game.get("last_session_game",{}).get("is_last_session_game") 
     if is_last_session_game:
         last_session_game = game.get("last_session_game", {}).get("title")
     user_prompt = (

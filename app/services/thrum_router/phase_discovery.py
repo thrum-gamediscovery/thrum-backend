@@ -8,7 +8,6 @@ from app.services.session_memory import SessionMemory
 from app.services.central_system_prompt import NO_GAMES_PROMPT
 
 @safe_call("Hmm, I had trouble figuring out what to ask next. Let's try something fun instead! 🎮")
-@safe_call("Hmm, I had trouble figuring out what to ask next. Let's try something fun instead! :video_game:")
 async def handle_discovery(db, session, user):
     session_memory = SessionMemory(session)
     memory_context_str = session_memory.to_prompt()
@@ -16,14 +15,6 @@ async def handle_discovery(db, session, user):
     if "session_phase" not in session.meta_data:
         session.meta_data["session_phase"] = "Onboarding"
     session.phase = PhaseEnum.DISCOVERY
-    
-    # Check if user has confirmed interest in a game
-    if session.meta_data.get("game_interest_confirmed"):
-        # Skip discovery questions and go straight to delivery
-        session.phase = PhaseEnum.DELIVERY
-        session.discovery_questions_asked = 0
-        return await deliver_game_immediately(db=db, user=user, session=session)
-        
     discovery_data = await extract_discovery_signals(session)
     if discovery_data.is_complete() and session.game_rejection_count < 2:
         session.phase = PhaseEnum.CONFIRMATION
@@ -42,6 +33,7 @@ async def handle_discovery(db, session, user):
         session.discovery_questions_asked = 0
         
         game, _ = await game_recommendation(db=db, session=session, user=user)
+        print(f"Game recommendation: {game}")
         platform_link = None
         last_session_game = None
         description = None
@@ -72,9 +64,9 @@ async def handle_discovery(db, session, user):
             platform_note = f"Available on: {', '.join(game_platforms)}."
 
         # 🧠 User Prompt (fresh rec after rejection, warm tone, 20–25 words)
-        is_last_session_game = game.get("is_last_session_game", False)
+        is_last_session_game = game.get("last_session_game",{}).get("is_last_session_game") 
         if is_last_session_game:
-            last_session_game = game.get("last_session_game", {}).get("title", None)
+            last_session_game = game.get("last_session_game", {}).get("title")
         user_prompt = (
             f"USER MEMORY & RECENT CHAT:\n"
             f"{memory_context_str if memory_context_str else 'No prior user memory or recent chat.'}\n\n"
@@ -124,6 +116,7 @@ async def handle_user_info(db, user, classification, session, user_input):
             session.discovery_questions_asked = 0
 
             game, _ = await game_recommendation(db=db, user=user, session=session)
+            print(f"Game recommendation: {game}")
             platform_link = None
             description = None
             last_session_game = None
@@ -157,14 +150,14 @@ async def handle_user_info(db, user, classification, session, user_input):
                 platform_note = f"Available on: {', '.join(game_platforms)}."
 
             # Final user prompt for GPT
-            is_last_session_game = game.get("is_last_session_game", False)
+            is_last_session_game = game.get("last_session_game",{}).get("is_last_session_game") 
             if is_last_session_game:
-                last_session_game = game.get("last_session_game", {}).get("title", None)
+                last_session_game = game.get("last_session_game", {}).get("title")
             user_prompt = (
                 f"USER MEMORY & RECENT CHAT:\n"
                 f"{memory_context_str if memory_context_str else 'No prior user memory or recent chat.'}\n\n"
-                f"last_session_game: {last_session_game}, if last_session_game is True that indicates the genre and preference was considered of last session so you must need to naturally acknowledge user in one small sentence that you liked {last_session_game}(this is recommended in last sessions so mention this) so you liked this new recommendation.(make your own phrase, must be different each time) \n"
-                f"if last_session_game is False then you must not mention this at all above line instruction.\n"
+                f"is_last_session_game: {is_last_session_game}, if is_last_session_game is True that indicates the genre and preference was considered of last session so you must need to naturally acknowledge user in one small sentence that you liked {last_session_game}(this is recommended in last sessions so mention this) so you liked this new recommendation.(make your own phrase, must be different each time) \n"
+                f"if is_last_session_game is False then you must not mention this at all above line instruction.\n"
                 "→ Always reflect the user's current tone — keep it real and emotionally alive.\n"
                 f"Suggest the game **{game['title']}** to the user (title can appear anywhere in your message, no format restrictions).\n"
                 # Draper-style, mini-review checklist
