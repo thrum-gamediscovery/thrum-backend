@@ -308,7 +308,7 @@ async def diliver_similar_game(db: Session, user, session) -> str:
     if session.game_rejection_count >= 2:
         session.phase = PhaseEnum.DISCOVERY
         return await handle_discovery(db=db, session=session, user=user)
-    game, _ = await game_recommendation(db=db, user=user, session=session, similar_to_last=True)
+    game, _ = await game_recommendation(db=db, user=user, session=session)
     print(f"Similar game recommendation: {game}")
     if not game:
         user_prompt = f"""
