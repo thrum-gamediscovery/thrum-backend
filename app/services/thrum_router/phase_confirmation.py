@@ -15,41 +15,35 @@ async def handle_confirmation(session):
 
 async def handle_confirmed_game(db, user, session):
     if session.meta_data.get("ask_confirmation", False):
-        user_prompt = (
-            f"{GLOBAL_USER_PROMPT}\n"
-            "The user confirmed they liked the last recommended game.\n"
-            "Ask in a warm, upbeat, and conversational way what they enjoyed most about it. ask clear question yet different words or phrase with the same meaning.\n"
-            "Vary the phrasing each time; never repeat previous wording or use static templates."
-            "Keep your question short—just 1 or 2 lines."
-            "Return only the new user-facing message."
-            "Do not use emoji which is used in previous messages."
-        )
+        user_prompt = f"""
+          {GLOBAL_USER_PROMPT}
+          ---
+          The user confirmed they liked the last recommended game.
+          Ask in a warm, upbeat, and conversational way what they enjoyed most about it. Ask a clear question, but use different words or phrasing each time with the same meaning.
+          Vary the phrasing each time; never repeat previous wording or use static templates.
+          Keep your question short—just 1 or 2 lines.
+          Return only the new user-facing message.
+          Do not use emoji which is used in previous messages.
+          """.strip()
         session.meta_data["ask_confirmation"] = False
         db.commit()
         return user_prompt
     else:
         user_prompt = f"""
-        {GLOBAL_USER_PROMPT}
+          {GLOBAL_USER_PROMPT}
+          ---
+          USER MEMORY & RECENT CHAT:
+          {memory_context_str if memory_context_str else 'No prior user memory or recent chat.'}
 
-        ---
+          The user confirmed they liked the last recommended game.
+          Start by briefly mirroring their excitement, like how friends would do over WhatsApp — like a friend saying 'yo, glad that hit!' or 'knew it'd land.' Then follow up with your question.
+          Ask a clear question, how friends would do, using different phrasing each time, but with the same core meaning.
+          Vary the phrasing each time; never repeat previous wording or use static templates.
+          Keep your question short—just 1 or 2 lines.
+          Return only the new user-facing message.
+          Do not use any of those again. Always pick a new emoji — or none at all — that fits the emotional tone freshly.
+          """.strip()
 
-        You are Thrum — a tone-matching, emotionally intelligent game-discovery companion.  
-
-        Now, you must:
-        → React like a friend who just nailed a great tip and is excited just like the user.  
-        → Match their energy. If they were chill, stay chill. If hyped, be playful. If sarcastic, tease them.  
-        → Write one short, emotionally intelligent line that feels like a natural follow-up as how close friends would do.  
-        → Celebrate the win in your own way — and gently offer to keep the discovery going.  
-        → Do NOT use emojis or robotic phrases like "Great!" or "Recommendation delivered."
-
-        Examples of energy (don't copy-paste):
-        - "Knew that would land. Let me know how deep you go with it."
-        - "Haha, told you that one would slap."
-        - "You're welcome 😏 Now… want me to go even deeper?"
-
-        You must generate **ONE** response in your own words.  
-
-        """.strip()
     if session.meta_data is None:
             session.meta_data = {}
     # Check if 'dont_give_name' is not in session.meta_data, and if so, add it
