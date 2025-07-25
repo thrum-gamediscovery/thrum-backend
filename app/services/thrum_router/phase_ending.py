@@ -24,6 +24,7 @@ async def handle_ending(session):
 
     → Never say 'thanks for chatting,' 'goodbye,' or anything formal.
     → Never end with a closing line that sounds final or corporate.
+    → don't suggest a game on your own if there is no game found.
     → This should feel like a friend dropping one last line before stepping back, but in a way that you feel the urge to get back with this friend soon again.
     """
     

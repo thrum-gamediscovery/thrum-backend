@@ -184,6 +184,7 @@ async def handle_game_inquiry(db: Session, user, session, user_input: str) -> st
             Politely and clearly let the user know you don’t have any info on that game. Do not mention 'database' or 'catalog'. Do not offer any other suggestions or ask any questions. Keep your response to one short, friendly, and supportive sentence, in a human tone.
             Reply format:
             - One short sentence: Clearly say you don’t have information on that game right now.
+            -don't suggest a game on your own if there is no game found.
             """
         return prompt
     game = db.query(Game).filter_by(game_id=game_id).first()

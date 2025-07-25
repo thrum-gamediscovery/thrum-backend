@@ -293,6 +293,7 @@ async def confirm_input_summary(session) -> str:
         f"Do NOT suggest a game. This is just a friendly check-in to say 'I see you.'\n"
         f"Tone should feel emotionally aware and warmly human — like a friend who gets them."
         f"DO NOT message like thrum is asking something. Just confirm that user want this type of game."
+        f"don't suggest a game on your own if there is no game found.\n"
     )
     return user_prompt
     
@@ -480,6 +481,7 @@ async def ask_discovery_question(session) -> str:
 → Your tone must sound like WhatsApp — human, casual, emotionally aware, like how friends talk to each other out of interest.
 ❌ Do NOT use phrases like "vibe," "drop a word," "throw a dart," or anything robotic.
 ✅ You may be weird, sharp, random — as long as it feels like how friends joke.
+don't suggest a game on your own if there is no game found
 Only return one message, like one bubble in a chat.
 """.strip()
 
@@ -497,6 +499,7 @@ Only return one message, like one bubble in a chat.
 → Never greet or reset the chat. Just continue naturally like a friend texting mid-convo.
 → Sound curious — not like a form. Use one emoji if it fits.
 → Always improvise. Never repeat.
+don't suggest a game on your own if there is no game found
 """.strip()
 
     # 3. Ask for genre: only ever mention genres as examples in your own way (never say "genre")
@@ -516,6 +519,7 @@ Only return one message, like one bubble in a chat.
 → Keep it short (10–12 words max), playful, and casual.
 → Make the user feel like you're listening to them and responding to their last message.
 → Avoid repeated structure or rhythm from earlier in the chat.
+don't suggest a game on your own if there is no game found
 """.strip()
 
     # 4. Platform: never say "platform" or "device", always casual and varied
@@ -532,6 +536,7 @@ Only return one message, like one bubble in a chat.
 → Make it feel like a friend texting about where they game.
 → Keep it short (10–12 words max), in-sync, and always a new style.
 → Never repeat phrasing or structure.
+don't suggest a game on your own if there is no game found
 """.strip()
 
     # 5. Mood: casual, with example moods, but never survey style
@@ -548,6 +553,7 @@ Only return one message, like one bubble in a chat.
 → Keep it short (10–12 words max), emotionally present, and friendly. Use an emoji if it fits.
 → Never use intros, never repeat sentence structure or mood combos.
 → Improvise and vary, always.
+don't suggest a game on your own if there is no game found
 """.strip()
 
     # 6. Gameplay/story preference — never survey, never ask "Do you like story-driven games?"
@@ -566,6 +572,7 @@ Only return one message, like one bubble in a chat.
 → Use their last tone: {last_user_tone}.
 → Keep it short, playful, and unique every time.
 → Feels like a friend asking mid-conversation—not a UX form.
+don't suggest a game on your own if there is no game found
 """.strip()
 
     # 7. Fallback: after several rejections
@@ -588,6 +595,7 @@ Only return one message, like one bubble in a chat.
 → Never use words like "genre", "tag", "vibe", "preference", or "clarify".
 → Keep it casual, playful, short, and supportive—like you care.
 → Always a new style—never repeat phrasing or structure.
+don't suggest a game on your own if there is no game found
 """.strip()
 
     # 8. If all fields are filled: let LLM drive next step as a friend
@@ -601,4 +609,5 @@ Only return one message, like one bubble in a chat.
 → You already know: {session.to_prompt() if hasattr(session, 'to_prompt') else str(session)}
 → Take the next step in the conversation like a real friend, not a survey.
 → Be natural, casual, and improvisational. Never repeat yourself.
+don't suggest a game on your own if there is no game found
 """.strip()

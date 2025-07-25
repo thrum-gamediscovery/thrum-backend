@@ -199,6 +199,7 @@ async def handle_other_input(db, user, session, user_input: str) -> str:
         f"- Ask questions only if it fits the flow or keeps the chat real, like how friends talk in whatsapp — like how a friend would do it in a fun way to keep the conversation engaging.\n"
         f"- If the casual conversation about all sorts of topics beyond gaming seems to be wrapping up, and the user's mood feels open, suggest in a fun but warm way shifting to game discovery to continue further — but only if it feels natural, like how friends would do over whatsapp. Use USER MEMORY & RECENT CHAT to decide.\n"
         f"- Your goal: Be Thrum — real, lively, supportive, a little witty, and always in tune with the user's vibe, for any topic or mood."
+        f"- don't suggest a game on your own if there is no game found.\n"
         )
 
     return user_prompt
@@ -224,6 +225,7 @@ async def dynamic_faq_gpt(session, user_input=None):
         "- Never sound like a bot, FAQ, or template.\n"
         f"User asked: '{user_input or 'How does it work?'}'\n"
         "Reply naturally and with real personality, using any info you know about them."
+        "- don't suggest a game on your own if there is no game found.\n"
     )
 
 

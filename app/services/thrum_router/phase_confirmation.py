@@ -24,6 +24,7 @@ async def handle_confirmed_game(db, user, session):
             "Keep your question short—just 1 or 2 lines."
             "Return only the new user-facing message."
             "Do not use emoji which is used in previous messages."
+            "don't suggest a game on your own if there is no game found."
         )
         session.meta_data["ask_confirmation"] = False
         db.commit()
@@ -44,6 +45,8 @@ async def handle_confirmed_game(db, user, session):
         - Feels like a friend texting back after sharing something cool, and wants to make sure the other is heard (draper style) and get them emotionally attached since this was a success.
         - Has no hardcoded phrasing
         - Never uses robotic lines like "thanks for accepting" or "hope you enjoy"
+        - don't suggest a game on your own if there is no game found.
+        - Feels like a natural, human response, not a system message.
 
         Optional: you can hint that you'll check back later, but only if it feels natural, how friends would do this over whatsapp, but always ask if the user would appreciate that.
 
