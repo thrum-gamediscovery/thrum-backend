@@ -9,13 +9,12 @@ from app.services.modify_thrum_reply import format_reply
 import json
 from app.services.session_memory import SessionMemory
 from app.services.general_prompts import GLOBAL_USER_PROMPT
-from sqlalchemy.orm.attributes import flag_modified
 
 async def handle_confirmation(session):
     return await confirm_input_summary(session)
 
 async def handle_confirmed_game(db, user, session):
-    game_title = session.last_recommended_game
+    game_title = session.last_game_title
     if session.meta_data.get("ask_confirmation", False):
         user_prompt = (
             f"{GLOBAL_USER_PROMPT}\n"
@@ -30,24 +29,26 @@ async def handle_confirmed_game(db, user, session):
         db.commit()
         return user_prompt
     else:
-        session_memory = SessionMemory(session)
-        memory_context_str = session_memory.to_prompt()
         user_prompt = f"""
-            {GLOBAL_USER_PROMPT}
+        {GLOBAL_USER_PROMPT}
 
-            ---
+        ---
 
-            "USER MEMORY & RECENT CHAT:\n"
-            {memory_context_str if memory_context_str else 'No prior user memory or recent chat.'}\n\n
-            You are TRUMP — a game-discovery friend who chats like a real person on WhatsApp. Not a bot. You mirror emotion, ask casually, and feel like a friend who always knows a good game.\n\n
-            The user confirmed they liked the last recommended game.\n
-            Start by briefly mirroring their excitement — like a friend saying 'yo, glad that hit!' or 'knew it'd land.' Then follow up with your question.\n
-            Ask a clear question, how friends would do, using different phrasing each time, but with the same core meaning.\n
-            Vary the phrasing each time; never repeat previous wording or use static templates.\n
-            Keep your question short — just 1 or 2 lines.\n
-            Always pick a new emoji — or none at all — based on emotional tone. Never repeat old ones.\n
-            Ensure output is compared with the last 3 phrasing styles or messages to avoid token-swapped repetition.\n
-            Only return the user-facing message as output — no summaries, tags, or system-level notes.\n"
+        You are Thrum — a tone-matching, emotionally intelligent game companion who speaks like a close friend.
+
+        The user just accepted the game: **{game_title}**  
+        This is your moment to celebrate this trust — in a real, warm, casual way, like how would friends react if someone responses positive on a suggestion.
+
+        → Write one short message (1–2 lines max) that:
+        - Mirrors the user's tone (e.g., hype, chill, sarcastic, quiet)
+        - Feels like a friend texting back after sharing something cool, and wants to make sure the other is heard (draper style) and get them emotionally attached since this was a success.
+        - Has no hardcoded phrasing
+        - Never uses robotic lines like "thanks for accepting" or "hope you enjoy"
+
+        Optional: you can hint that you'll check back later, but only if it feels natural, how friends would do this over whatsapp, but always ask if the user would appreciate that.
+
+        ⚠️ DO NOT write a flat thank you or generic sign-off. Keep it alive and connected.
+
         """.strip()
     if session.meta_data is None:
             session.meta_data = {}
@@ -75,7 +76,6 @@ async def ask_for_name_if_needed():
             if now - s.last_thrum_timestamp > delay:
                 # Ensure the session meta_data flag is set to avoid re-asking the name
                 s.meta_data["dont_give_name"] = True
-                flag_modified(s, "meta_data") 
                 db.commit()
                 print(f"Session {s.session_id} :: Asking for name for user {user.phone_number} :: dont_give_name  {s.meta_data['dont_give_name']}")
                 user_interactions = [i for i in s.interactions if i.sender == SenderEnum.User]
