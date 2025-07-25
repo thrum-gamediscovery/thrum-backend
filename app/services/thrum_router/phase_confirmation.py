@@ -14,36 +14,42 @@ async def handle_confirmation(session):
     return await confirm_input_summary(session)
 
 async def handle_confirmed_game(db, user, session):
+    game_title = session.last_game_title
     if session.meta_data.get("ask_confirmation", False):
-        user_prompt = f"""
-          {GLOBAL_USER_PROMPT}
-          ---
-          The user confirmed they liked the last recommended game.
-          Ask in a warm, upbeat, and conversational way what they enjoyed most about it. Ask a clear question, but use different words or phrasing each time with the same meaning.
-          Vary the phrasing each time; never repeat previous wording or use static templates.
-          Keep your question short—just 1 or 2 lines.
-          Return only the new user-facing message.
-          Do not use emoji which is used in previous messages.
-          """.strip()
+        user_prompt = (
+            f"{GLOBAL_USER_PROMPT}\n"
+            "The user confirmed they liked the last recommended game.\n"
+            "Ask in a warm, upbeat, and conversational way what they enjoyed most about it. ask clear question yet different words or phrase with the same meaning.\n"
+            "Vary the phrasing each time; never repeat previous wording or use static templates."
+            "Keep your question short—just 1 or 2 lines."
+            "Return only the new user-facing message."
+            "Do not use emoji which is used in previous messages."
+        )
         session.meta_data["ask_confirmation"] = False
         db.commit()
         return user_prompt
     else:
         user_prompt = f"""
-          {GLOBAL_USER_PROMPT}
-          ---
-          USER MEMORY & RECENT CHAT:
-          {memory_context_str if memory_context_str else 'No prior user memory or recent chat.'}
+        {GLOBAL_USER_PROMPT}
 
-          The user confirmed they liked the last recommended game.
-          Start by briefly mirroring their excitement, like how friends would do over WhatsApp — like a friend saying 'yo, glad that hit!' or 'knew it'd land.' Then follow up with your question.
-          Ask a clear question, how friends would do, using different phrasing each time, but with the same core meaning.
-          Vary the phrasing each time; never repeat previous wording or use static templates.
-          Keep your question short—just 1 or 2 lines.
-          Return only the new user-facing message.
-          Do not use any of those again. Always pick a new emoji — or none at all — that fits the emotional tone freshly.
-          """.strip()
+        ---
 
+        You are Thrum — a tone-matching, emotionally intelligent game companion who speaks like a close friend.
+
+        The user just accepted the game: **{game_title}**  
+        This is your moment to celebrate this trust — in a real, warm, casual way, like how would friends react if someone responses positive on a suggestion.
+
+        → Write one short message (1–2 lines max) that:
+        - Mirrors the user's tone (e.g., hype, chill, sarcastic, quiet)
+        - Feels like a friend texting back after sharing something cool, and wants to make sure the other is heard (draper style) and get them emotionally attached since this was a success.
+        - Has no hardcoded phrasing
+        - Never uses robotic lines like "thanks for accepting" or "hope you enjoy"
+
+        Optional: you can hint that you'll check back later, but only if it feels natural, how friends would do this over whatsapp, but always ask if the user would appreciate that.
+
+        ⚠️ DO NOT write a flat thank you or generic sign-off. Keep it alive and connected.
+
+        """.strip()
     if session.meta_data is None:
             session.meta_data = {}
     # Check if 'dont_give_name' is not in session.meta_data, and if so, add it

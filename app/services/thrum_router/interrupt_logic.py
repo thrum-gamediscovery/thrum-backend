@@ -1,5 +1,5 @@
 from app.services.input_classifier import classify_user_intent
-from app.services.session_memory import deliver_game_immediately
+from app.services.session_memory import deliver_game_immediately, diliver_similar_game
 from app.services.thrum_router.phase_delivery import handle_reject_Recommendation
 from app.db.models.enums import PhaseEnum
 from app.services.thrum_router.phase_intro import handle_intro
@@ -72,5 +72,9 @@ async def check_intent_override(db, user_input, user, session, classification, i
     elif classification_intent.get("About_FAQ"):
         return await dynamic_faq_gpt(session, user_input)
 
+    if classification_intent.get("Request_Similar_Game"):
+        session.phase = PhaseEnum.DELIVERY
+        return await diliver_similar_game(db, user, session)
+    
     # Default handling if no specific intent is detected
     return None

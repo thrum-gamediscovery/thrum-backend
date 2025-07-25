@@ -20,6 +20,7 @@ client = openai.AsyncOpenAI()
 intents = [
     "Greet",
     "Phase_Discovery",
+    "Request_Similar_Game",
     "Request_Quick_Recommendation", 
     "Reject_Recommendation", 
     "Inquire_About_Game", 
@@ -68,6 +69,8 @@ Carefully consider the context of the conversation and the specific tone or dire
 ### Here are the intents to classify:
 - **Greet**: Triggered when the user greets the bot. This intent is **must not be triggered** if Thrum’s last message was already a greeting.
 - **Phase_Discovery**: Triggered only if Thrum's last reply is a greeting message, and the user gives a positive response (e.g., affirmatives like "yeah", "cool", "okay", "let's go", "yup"). This intent indicates that the user is ready to proceed to the discovery phase (in which we are going to ask questions) without needing any further prompting.
+
+- **Request_Similar_Game**: Triggered when the user asks for a game similar to one they already like or have played. This intent is activated when the user explicitly asks for a game that is similar to their preferences or past games. this intent is specifically for when the user is looking for a game that matches their previous interests or experiences, not just any game recommendation.
 
 - **Request_Quick_Recommendation**: Triggered when the user explicitly asks for a game suggestion at that time, OR asks for a suggestion on a different platform than last recommended, or asking for a game directly like "suggest a game","want a game", etc.
 - true ONLY when user clearly asks for a new game suggestion.
@@ -144,6 +147,7 @@ OUTPUT FORMAT (Strict JSON) strictly deny to add another text:
     "Greet": true/false,
     "Phase_Discovery": true/false,
     "Request_Quick_Recommendation": true/false,
+    "Request_Similar_Game": true/false,
     "Reject_Recommendation": true/false,
     "Inquire_About_Game": true/false,
     "Give_Info": true/false,
@@ -179,6 +183,7 @@ OUTPUT FORMAT (Strict JSON) strictly deny to add another text:
             return {
                 "Greet": False,
                 "Phase_Discovery": False,
+                "Request_Similar_Game": False,
                 "Request_Quick_Recommendation": False,
                 "Reject_Recommendation": False,
                 "Inquire_About_Game": False,
@@ -196,6 +201,7 @@ OUTPUT FORMAT (Strict JSON) strictly deny to add another text:
         return {
                 "Greet": False,
                 "Phase_Discovery": False,
+                "Request_Similar_Game": False,
                 "Request_Quick_Recommendation": False,
                 "Reject_Recommendation": False,
                 "Inquire_About_Game": False,
