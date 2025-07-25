@@ -434,13 +434,6 @@ def is_vague_reply(message):
     ]
     return any(word in (message or "").lower() for word in vague_words)
 
-def get_last_user_tone_from_session(session):
-    """
-    Placeholder—should extract the user's last emotional/tone signal from the session.
-    Essential for ThRUM: every prompt must match the user's energy, sarcasm, chill, etc.
-    """
-    return getattr(session, "last_user_tone", "neutral")
-
 async def ask_discovery_question(session) -> str:
     user_interactions = [i for i in session.interactions if i.sender == SenderEnum.User]
     last_user_message = user_interactions[-1].content if user_interactions else ""

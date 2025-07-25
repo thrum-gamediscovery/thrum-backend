@@ -4,21 +4,14 @@ from app.services.thrum_router.phase_delivery import handle_reject_Recommendatio
 from app.db.models.enums import PhaseEnum
 from app.services.thrum_router.phase_intro import handle_intro
 from app.services.thrum_router.phase_ending import handle_ending
-from app.services.tone_classifier import classify_tone
 from app.services.thrum_router.phase_confirmation import handle_confirmed_game
 from app.services.thrum_router.phase_discovery import dynamic_faq_gpt, handle_other_input
-from app.services.session_memory import SessionMemory
 
 async def check_intent_override(db, user_input, user, session, classification, intrection):
     from app.services.thrum_router.phase_discovery import handle_discovery
     from app.services.thrum_router.phase_followup import handle_game_inquiry
     # Classify the user's intent based on their input
     classification_intent = await classify_user_intent(user_input=user_input, session=session)
-    tone_tag = await classify_tone(user_input)
-    session_memory = SessionMemory(session)
-    session_memory.update(last_intent=classification_intent, tone=tone_tag)
-    session.last_tone = tone_tag
-    session.last_intent = classification_intent
     intrection.classification = {"input" : classification, "intent" : classification_intent}
     db.commit()
 

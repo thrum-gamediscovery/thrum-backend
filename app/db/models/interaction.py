@@ -36,7 +36,6 @@ class Interaction(Base):
 
     session = relationship("Session", back_populates="interactions")
     game = relationship("Game", back_populates="interactions")
-
-    tone_tag = Column(String, nullable=True)
+    
     classification = Column(JSON, nullable=True)
 

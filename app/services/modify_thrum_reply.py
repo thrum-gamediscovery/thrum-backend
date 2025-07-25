@@ -33,9 +33,6 @@ async def format_reply(session, user_input, user_prompt):
     else:
         last_game = None
 
-    # Get tone from last interaction
-    user_tone = thrum_interactions[-1].tone_tag if thrum_interactions else "neutral"
-
     # Create user_context dictionary with selected fields from session
     user_context = {
         "exit_mood": session.exit_mood or None,
