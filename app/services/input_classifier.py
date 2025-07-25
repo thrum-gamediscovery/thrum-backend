@@ -86,13 +86,14 @@ Carefully consider the context of the conversation and the specific tone or dire
   - Be especially strict and accurate in detecting when the user is rejecting a game. Do not miss it, even if the language is casual, short, or slang. Always classify these as Reject_Recommendation.
   - if user is giving the reason why they are rejecting the game then it, then at that time Request_Quick_Recommendation should be True or triggered, as user alrady provide the reason why they are rejecting the game. but if they do not provide the reason and just mean they did not like without reason then Request_Quick_Recommendation should be False and Reject_Recommendation must be true or triggered.
   - If the user’s rejection is not strongly negative, but instead is neutral or based on context. For example, the user might say “not right now” (meaning they’re interested but just not at the moment) or “too expensive” (meaning the price, not the game itself, is the issue). In these situations, the system should recognize that it’s not a true dislike of the game, but rather a situational or soft rejection, so this should not trigger Reject_Recommendation.
+  - If thrum's last message was to ask what they did not like about the game and user is giving the reason why they did not like the game then Request_Quick_Recommendation should be True or triggered.
 
 - **Inquire_About_Game**: must be set to true if:
     1. The user message contains the title of a specific game (matching the game catalog), OR
     2. The user asks for a link, platform, or store for any game, even if the main question is about the link.
     3. if the user has been asked that they want more information about game(in different phrase or words with this intention) and if they positively respond about they want the more information(not they like the game but want to know more) or they want to know more(then Inquire_About_Game must be true , Confirm_Game must be false in that case.), indicating they want to know more about it. The user expresses a desire to know more about a game, such as its features, gameplay mechanics, or storyline.
 
-- **Give_Info**: Triggered when the user provides information about their preferences, such as genre, mood, or game style. This includes providing keywords or short phrases like "action", "chill", or "strategy". The response should classify when the user provides any kind of self-description related to their preferences.
+- **Give_Info**: Triggered when the user provides information about their preferences, such as genre, mood, or game style. This includes providing keywords or short phrases like "action", "chill", or "strategy". The response should classify when the user provides any kind of self-description related to their preferences. if last thrum message is to ask about what user likes or dislikes about the game and user is giving the information about that then Give_Info should not be triggered.
 
 - **Share_Game**: Triggered when the user shows interest in sharing a game suggestion with others. This could include asking questions like "Can I share this with my friends?" or stating their intention to recommend a game to someone else.
 
@@ -100,12 +101,14 @@ Carefully consider the context of the conversation and the specific tone or dire
 
 - **Other_Question**: Triggered when the user asks any question related to themselves or about Thrum (for example, "what do you do?", "How are you?", "what makes you powerful" or any kind of general question).
 
-- **Confirm_Game**: Triggered when the user confirms their interest in a game that was previously recommended(if input is just "yes" then it might be for know more information depends on previous thrum message in that case Inquire_About_Game should be true.). The confirmation could be something like "like that game" or "I like that game." or "like that one" or similar to that, This is explicitly confirming the previous game suggestion, meaning that the user is showing interest in the exact game Thrum recommended they liked that.
+- **Confirm_Game**: Triggered when the user confirms their interest in a game that was previously recommended(if input is just "yes" then it might be for know more information depends on previous thrum message in that case Inquire_About_Game should be true.). The confirmation could be something like "like that game" or "I like that game." or "like that one" or similar to that, This is explicitly confirming the previous game suggestion, meaning that the user is showing interest in the exact game Thrum recommended they liked that. also triggered when user is giving the reason why they liked the game or what they liked about the game(so check thrum's last message and user's reply).
+
 - **Other**:  
   Triggered for any input that doesn’t match the above categories, or when user is input is just an statement which shares some information about the game.  
   This could include irrelevant or non-conversational responses, random input, or statements that do not fall within the intent framework.
   
 - **Bot_Error_Mentioned:** The user indicates the bot is lost, confused, or not understanding them ("you are lost", "you do not hear me", "you don’t know me", "why do you suggest if you don’t know who I am", etc.).
+
 - **About_FAQ**: Triggered when the user asks about what Thrum does, how it works, who you are, or any general FAQ about the service. Examples:
     - "how does it work?"
     - "what can you do?"
