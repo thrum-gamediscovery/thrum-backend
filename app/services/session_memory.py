@@ -430,6 +430,7 @@ def get_next_genres(session, k=None):
     return genres
 
 def is_vague_reply(message):
+    print('..............is_vague_reply..................', message)
     """
     Detects if user reply is vague/empty/non-committal.
     This triggers the special fallback the client requires—never lets the bot repeat, freeze, or act like a form.
