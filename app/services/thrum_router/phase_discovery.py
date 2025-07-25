@@ -87,6 +87,9 @@ async def handle_discovery(db, session, user):
             "→ Every reply should feel like: 'Whoa — that hit exactly right.'\n\n"
             f"- Do NOT mention the last game or say 'maybe.'\n"
             f"- Use warm, fresh energy, and show why this pick might actually be a better fit."
+            f"- Never start with phrases like Alright, So imagine, Picture this, Let me tell you, or anything generic or formal.\n"
+            f"- Always begin your message naturally, mid-thought, like a real friend dropping a quick comment.\n"
+            f"- Use different openers every time — never repeat the same structure or intro twice.\n"
         )
         return user_prompt
 
@@ -160,6 +163,9 @@ async def handle_user_info(db, user, classification, session, user_input):
                "- Let the message end with a friendly, tone-matching line, use draper style if needed, that invites them to respond — but never use the same phrase twice. Avoid robotic lines like 'want to explore more.' Make it feel like a close friend texting over whatsapp something fun, emotional, or playful. This final line must always be fully ai generative."
                 "→ Tone must be confident, warm, and human. Never use 'maybe', 'you might like', or robotic phrasing.\n"
                 "→ Your message must always explain *why* this game fits the user’s vibe, referencing their input."
+                f"- Never start with phrases like Alright, So imagine, Picture this, Let me tell you, or anything generic or formal.\n"
+                f"- Always begin your message naturally, mid-thought, like a real friend dropping a quick comment.\n"
+                f"- Use different openers every time — never repeat the same structure or intro twice.\n"
             )
             return user_prompt
 

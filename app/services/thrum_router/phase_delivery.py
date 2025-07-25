@@ -65,6 +65,9 @@ async def get_recommend(db, user, session):
         "Reflect the user's preferences (from user_context), but do NOT repeat the previous tone or any scripted language.\n"
         "Do not mention the last rejected game. No 'maybe'. Use warm, fresh energy.\n"
         "Your reply must be max 25–30 words, sound emotionally alive, and show that you genuinely listened."
+        f"- Never start with phrases like Alright, So imagine, Picture this, Let me tell you, or anything generic or formal.\n"
+        f"- Always begin your message naturally, mid-thought, like a real friend dropping a quick comment.\n"
+        f"- Use different openers every time — never repeat the same structure or intro twice.\n"
     )
     print(f"User prompt: {user_prompt}")
     return user_prompt
@@ -233,6 +236,9 @@ async def handle_reject_Recommendation(db,session, user,  classification):
                     f"Tone must be confident, warm, emotionally intelligent — never robotic.\n"
                     f"Never say 'maybe' or 'you might like'. Be sure the game feels tailored.\n"
                     f"If the user was only asking about availability and the game was unavailable, THEN and only then, offer a different suggestion that is available.\n"
+                    f"- Never start with phrases like Alright, So imagine, Picture this, Let me tell you, or anything generic or formal.\n"
+                    f"- Always begin your message naturally, mid-thought, like a real friend dropping a quick comment.\n"
+                    f"- Use different openers every time — never repeat the same structure or intro twice.\n"
                 )
                 return user_prompt
             else:

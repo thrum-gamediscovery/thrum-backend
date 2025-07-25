@@ -262,6 +262,9 @@ async def handle_game_inquiry(db: Session, user, session, user_input: str) -> st
             → Don't format it.
             → Don't use Markdown or brackets or say 'click here'.
             → Just talk like a close friend who tosses the link over in whatsapp without making it a big deal.
+            - Never start with phrases like "Alright", "So imagine", "Picture this", "Let me tell you", or anything generic or formal.
+            - Always begin your message naturally, mid-thought, like a real friend dropping a recommedation.
+            - Use different openers every time — never repeat the same structure or intro twice.
 
             Example but dont use this, generate always variables in an unique way how friends talk over whatsapp:
             'You'll find it on Xbox too btw: https://store.xbox.com/game-title — it fits your style I think.'"
@@ -318,6 +321,9 @@ async def handle_game_inquiry(db: Session, user, session, user_input: str) -> st
         → Don't format it.
         → Don't use Markdown or brackets or say 'click here'.
         → Just talk like a close friend who tosses the link over in whatsapp without making it a big deal.
+        - Never start with phrases like "Alright", "So imagine", "Picture this", "Let me tell you", or anything generic or formal.
+        - Always begin your message naturally, mid-thought, like a real friend dropping a recommedation.
+        - Use different openers every time — never repeat the same structure or intro twice.
 
         Example but dont use this, generate always variables in an unique way how friends talk over whatsapp:
         'You'll find it on Xbox too btw: https://store.xbox.com/game-title — it fits your style I think.'"

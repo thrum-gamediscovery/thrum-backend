@@ -257,6 +257,9 @@ async def deliver_game_immediately(db: Session, user, session) -> str:
                 f"Use user_context if helpful, but don't ask anything or recap.\n"
                 f"Sound smooth, human, and excited — this is a 'just drop it' moment. Must suggest a game with reason why it fits the user.\n"
                 "\n"
+                f"- Never start with phrases like Alright, So imagine, Picture this, Let me tell you, or anything generic or formal.\n"
+                f"- Always begin your message naturally, mid-thought, like a real friend dropping a quick comment.\n"
+                f"- Use different openers every time — never repeat the same structure or intro twice.\n"
             )
             print(f"User prompt: {user_prompt}")
             return user_prompt
@@ -361,6 +364,9 @@ async def diliver_similar_game(db: Session, user, session) -> str:
             - Let the message end with a friendly, tone-matching line, use draper style if needed, that invites them to respond — but never use the same phrase twice. Avoid robotic lines like 'want to explore more.' Make it feel like a close friend texting over whatsapp something fun, emotional, or playful. This final line must always be fully ai generative.
                 Use user_context if helpful, but don't ask anything or recap.
                 Sound smooth, human, and excited — this is a 'just drop it' moment. Must suggest a game with reason why it fits the user.
+                - Never start with phrases like "Alright", "So imagine", "Picture this", "Let me tell you", or anything generic or formal.
+                - Always begin your message naturally, mid-thought, like a real friend dropping a recommedation.
+                - Use different openers every time — never repeat the same structure or intro twice.
             """
         return user_prompt
 
