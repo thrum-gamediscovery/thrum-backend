@@ -465,6 +465,7 @@ async def ask_discovery_question(session, last_user_message="") -> str:
     dont_ask = session.meta_data.get("dont_ask_que") or []
 
     # 1. Handle vague/no-input at the top
+    print('...................Test...........', is_vague_reply(last_user_message))
     if is_vague_reply(last_user_message):
         return f"""
 {GLOBAL_USER_PROMPT}
