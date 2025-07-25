@@ -155,6 +155,7 @@ async def game_recommendation(db: Session, user, session):
             session.phase = PhaseEnum.FOLLOWUP
             # session.followup_triggered = True
             print(f"[Step 4] Early fallback: Random game recommended: {random_game.title}")
+            session.meta_data["ask_confirmation"] = True
             return {
                 "title": random_game.title,
                 "description": random_game.description if random_game.description else None,
@@ -360,6 +361,7 @@ async def game_recommendation(db: Session, user, session):
     # Step 15: Return recommendation info and age prompt flag
     print("availables game not random ................")
     print(f"[Step 15] Last session game is used: {last_session_liked_game.game.title if last_session_liked_game else None}")
+    session.meta_data["ask_confirmation"] = True
     return {
             "title": top_game.title,
             "description": top_game.description if top_game.description else None,

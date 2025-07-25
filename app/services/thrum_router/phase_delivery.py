@@ -10,7 +10,7 @@ from app.utils.whatsapp import send_whatsapp_message
 import openai
 from app.services.session_memory import SessionMemory
 from app.services.modify_thrum_reply import format_reply
-from app.services.central_system_prompt import NO_GAMES_PROMPT
+from app.services.general_prompts import GLOBAL_USER_PROMPT, NO_GAMES_PROMPT
 
 async def get_recommend(db, user, session):
     game, _ = await game_recommendation(db=db, session=session, user=user)
@@ -51,9 +51,7 @@ async def get_recommend(db, user, session):
     if is_last_session_game:
         last_session_game = game.get("last_session_game", {}).get("title")
     user_prompt = (
-        f"USER MEMORY & RECENT CHAT:\n"
-        f"{memory_context_str if memory_context_str else 'No prior user memory or recent chat.'}\n\n"
-        # f"{'platform link: ' + platform_link if platform_link else ''}"
+        f"{GLOBAL_USER_PROMPT}\n"
         f"is_last_session_game: {is_last_session_game}, if is_last_session_game is True that indicates the genre and preference was considered of last session so you must need to naturally acknowledge user in one small sentence that you liked {last_session_game}(this is recommended in last sessions so mention this) so you liked this new recommendation.(make your own phrase, must be different each time) \n"
         f"if is_last_session_game is False then you must not mention this at all above line instruction.\n"
         f"The user just rejected the last recommended game.\n"
@@ -156,6 +154,7 @@ async def recommend_game():
 
 
 async def handle_reject_Recommendation(db,session, user,  classification):
+
     session_memory = SessionMemory(session)
     memory_context_str = session_memory.to_prompt()
     
@@ -252,4 +251,3 @@ async def handle_reject_Recommendation(db,session, user,  classification):
         # else: 
         #     explanation_response = await explain_last_game_match(session=session)
         #     return explanation_response
-    
