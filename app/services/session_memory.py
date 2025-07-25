@@ -436,7 +436,7 @@ def is_vague_reply(message):
     This triggers the special fallback the client requires—never lets the bot repeat, freeze, or act like a form.
     """
     vague_words = [
-        "idk", "both", "not sure", "depends", "maybe", "whatever", "",
+        "idk", "both", "not sure", "depends", "maybe", "whatever",
         "no idea", "🤷", "🤷‍♂️", "🤷‍♀️", "help", "any", "anything", "dunno", "dunno 🤷"
     ]
     return any(word in (message or "").lower() for word in vague_words)
@@ -448,7 +448,10 @@ def get_last_user_tone_from_session(session):
     """
     return getattr(session, "last_user_tone", "neutral")
 
-async def ask_discovery_question(session, last_user_message="") -> str:
+async def ask_discovery_question(session) -> str:
+    user_interactions = [i for i in session.interactions if i.sender == SenderEnum.User]
+    last_user_message = user_interactions[-1].content if user_interactions else ""
+    
     """
     The one entry point for all ThRUM discovery/onboarding logic.
     - Always starts with GLOBAL_USER_PROMPT at the very top (client's "system bootloader" rule)
