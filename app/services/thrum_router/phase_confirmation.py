@@ -9,6 +9,7 @@ from app.services.modify_thrum_reply import format_reply
 import json
 from app.services.session_memory import SessionMemory
 from app.services.general_prompts import GLOBAL_USER_PROMPT
+from sqlalchemy.orm.attributes import flag_modified
 
 async def handle_confirmation(session):
     return await confirm_input_summary(session)
@@ -76,6 +77,7 @@ async def ask_for_name_if_needed():
             if now - s.last_thrum_timestamp > delay:
                 # Ensure the session meta_data flag is set to avoid re-asking the name
                 s.meta_data["dont_give_name"] = True
+                flag_modified(s, "meta_data") 
                 db.commit()
                 print(f"Session {s.session_id} :: Asking for name for user {user.phone_number} :: dont_give_name  {s.meta_data['dont_give_name']}")
                 user_interactions = [i for i in s.interactions if i.sender == SenderEnum.User]
