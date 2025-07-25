@@ -14,7 +14,7 @@ async def handle_confirmation(session):
     return await confirm_input_summary(session)
 
 async def handle_confirmed_game(db, user, session):
-    game_title = session.last_game_title
+    game_title = session.last_recommended_game
     if session.meta_data.get("ask_confirmation", False):
         user_prompt = (
             f"{GLOBAL_USER_PROMPT}\n"
