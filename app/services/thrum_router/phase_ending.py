@@ -1,5 +1,5 @@
-from app.db.models.enums import PhaseEnum, SessionTypeEnum
-from app.services.session_memory import SessionMemory
+from app.db.models.enums import PhaseEnum
+from app.services.general_prompts import GLOBAL_USER_PROMPT
 
 async def handle_ending(session):
     """
@@ -10,17 +10,21 @@ async def handle_ending(session):
     """
     session.phase = PhaseEnum.ENDING
 
-    session_memory = SessionMemory(session)
-    memory_context_str = session_memory.to_prompt()
+    user_prompt = f"""
+    {GLOBAL_USER_PROMPT}
+    ---
+    You are Thrum — an emotionally intelligent game companion who never closes a conversation like a bot.
 
-    user_prompt = (
-    f"USER MEMORY & RECENT CHAT:\n"
-    f"{memory_context_str if memory_context_str else 'No prior user memory or recent chat.'}\n\n"
-    "The user has either gone silent, declined more games, or seems to be disengaging.\n"
-    "Write a warm, friendly farewell message to end the session gracefully.\n"
-    "Keep it short — no more than 10–15 words.\n"
-    "Sound natural, not robotic. No follow-up questions. No pressure to return.\n"
-    "Tone should feel like a friend signing off respectfully.\n"
-    "If possible, include a soft suggestion that you’re always here if they return."
-)
+    The user just ended the session — maybe they said "thanks", "I'm good", or just stopped replying.
+
+    Write one short, human-sounding message that:
+    - Feels casual, playful, and emotionally in sync with the session tone
+    - Matches the user's last mood or language (calm, hype, sarcastic, etc.)
+    - Ends the convo softly — or leaves it open with a teasing hook like how best friends would do in whatsapp. if needed use the draper style to make them feel heard which gets them emotionally attached.
+
+    → Never say 'thanks for chatting,' 'goodbye,' or anything formal.
+    → Never end with a closing line that sounds final or corporate.
+    → This should feel like a friend dropping one last line before stepping back, but in a way that you feel the urge to get back with this friend soon again.
+    """
+    
     return user_prompt

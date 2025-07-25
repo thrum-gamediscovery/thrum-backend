@@ -13,6 +13,7 @@ from app.db.models.game_recommendations import GameRecommendation
 from app.db.models.game import Game
 from app.db.models.game_platforms import GamePlatform
 from app.services.session_memory import SessionMemory
+from app.services.general_prompts import GLOBAL_USER_PROMPT
 
 
 openai.api_key = os.getenv("OPENAI_API_KEY")
@@ -228,34 +229,57 @@ async def handle_game_inquiry(db: Session, user, session, user_input: str) -> st
     if game_id in recommended_ids:
         session.phase = PhaseEnum.FOLLOWUP
         db.commit()
-        return f"""
-            USER MEMORY & RECENT CHAT:
-            Generate friendly review with 1 emotional hook and platform tag. No repetition of pitch.
-            {memory_context_str if memory_context_str else 'No prior user memory or recent chat.'}
-            IMPORTANT INSTRUCTION: if the user has asked that want to know more about game or want more information about the game and user responded positively(which conclude that user want more information)then you must include link in the message if not None as well as additional information of the game(not the same which was provided before).
-            The user was already recommended the game **{game_info['title']}**, but now they have some follow-up questions.
-            Here are the game details to help you respond naturally:(game details)
-            - **Title**: {game_info['title']}
-            - **Description**: {game_info['description']}
-            - **Genre**: {game_info['genre']}
-            - **Vibes**: {game_info['vibes']}
-            - **complexity**: {game_info['complexity']}
-            - **Visual Style**: {game_info['visual_style']}
-            - **Story Focus**: This game {game_info['story_focus']}.
-            - **Emotional Fit**: {game_info['emotion']}
-            - **Mood Tags**: {game_info['mood_tags']}
-            - **available Platform**:{game_info['platforms']}
-            - **Platform_link**:{game_info['platform_link']}
-            Based on what the user asked: “{user_input}”, answer their query naturally — assume they already know the basics.
-            # Strict Instruction:
-            f"Strictly consider the user's tone, if they are questioning about the info you provide(like about genre, or platform or anything) then must change the tone to the polite or warn or humble and answer that and reply in a friendly, reflective tone."
-            f"If platform_link is not None, then it must be naturally included, do not use brackets or Markdown formatting—always mention the plain URL naturally within the sentence(not like in brackets or like [here],not robotically or bot like) link: {platform_link}\n"
-            provide the game information(between 20-30 words) which must be unique and different than previous information, in a friendly, human-like tone, as per the user's tone, and preferences using description:{game_info['description']}
-            if platform_link is None and it is asked in user input then you must just clearly tell them that there is no link we have for that game.
-            When providing a platform link, do not use brackets or Markdown formatting—always mention the plain URL naturally within the sentence.and must acknowledge that this link is for {platform_preference} platform.
-            If they ask about platforms, mention the available platforms (shown below).
-            If the user does not ask about links or platforms, do not mention them.
-            """.strip()
+        user_prompt = f"""
+            {GLOBAL_USER_PROMPT}
+            ---
+            🚨 THRUM — FRIEND MODE: ENABLED
+            You are not a chatbot. You are THRUM — the world’s most emotionally intelligent, tone-sensitive, human-feeling game discovery companion. You respond like a friend who *gets* the user’s vibe and tailors your tone, rhythm, and energy to match.
+            The user was already recommended the game **{game_info['title']}**, and now they’re back with follow-up questions.
+            🎯 Your job:
+            - Mirror their energy — hype, chill, skeptical, or playful.
+            - Respond like a real person texting a friend. Keep it short, warm, and emotionally tuned.
+            - Add one short, new description of the game (20–30 words) that’s not a repeat of earlier info.
+            - If they ask about platforms, mention them smoothly.
+            - If they ask for a link and one exists, include it casually (no Markdown, no brackets).
+            - If no link exists and they asked for one, say that clearly.
+            - Never sound like a system. Never list features.
+
+            "The user already knows this game and just asked: "{user_input}"
+            They seem curious or into it.
+
+            → Drop one fresh line about the game, how friends would inform further — something vivid, emotional, and not mentioned before.
+
+            → If they asked about platforms and you have a link, casually mention it like a friend would inform you over whatsapp.
+            Never say 'click here' — just drop it inside the sentence like a friend would."
+
+            → Don't repeat the old pitch
+            Say something different that hits differently, always try to be original."
+
+            "If the user asked about the platform and you have a link, casually drop it into the sentence.
+
+            → Don't explain it.
+            → Don't format it.
+            → Don't use Markdown or brackets or say 'click here'.
+            → Just talk like a close friend who tosses the link over in whatsapp without making it a big deal.
+
+            Example but dont use this, generate always variables in an unique way how friends talk over whatsapp:
+            'You'll find it on Xbox too btw: https://store.xbox.com/game-title — it fits your style I think.'"
+
+            Use this to guide your answer:
+            - Title: {game_info['title']}
+            - Description: {game_info['description']}
+            - Genre: {game_info['genre']}n
+            - Vibes: {game_info['vibes']}
+            - Complexity: {game_info['complexity']}
+            - Visual Style: {game_info['visual_style']}
+            - Story Focus: {game_info['story_focus']}
+            - Emotional Fit: {game_info['emotion']}
+            - Mood Tags: {game_info['mood_tags']}
+            - Platforms: {game_info['platforms']}
+            - Platform Link: {game_info['platform_link']}
+            User message: “{user_input}”
+        """.strip()
+        return user_prompt
     # Else, it’s a new inquiry → recommend + save + followup
     session.last_recommended_game = game_info["title"]
     session_memory.last_game = game.title
@@ -270,33 +294,45 @@ async def handle_game_inquiry(db: Session, user, session, user_input: str) -> st
     )
     db.add(game_rec)
     db.commit()
-    # 10-12 words on why it fits (you can replace with AI-generated or rule-based)
-    # reason_fit = f"{game_info['title']} is immersive, emotionally rich, and story-driven with strong vibes."
 
-    return f"""
-    USER MEMORY & RECENT CHAT:
-{memory_context_str if memory_context_str else 'No prior user memory or recent chat.'}
-the overall message size should no more than 18-20 words.
-The user asked about the game **{game_info['title']}**, which hasn’t been recommended yet.
-They seem curious, so go ahead and suggest it confidently.
-Describe in 10–12 words why this game fits someone curious about it. if game title is there in reply then it must be bold.
-if the platform link is None then do not mention that, and if there is link then it must be added in the message.
-When providing a platform link(when it is not None), do not use brackets or Markdown formatting—always mention the plain URL naturally within the sentence.and must acknowledge that this link is for {platform_preference} platform.
+    user_prompt = f"""
+        {GLOBAL_USER_PROMPT}
+        🚨 THRUM — FRIEND MODE: ENABLED
+        You are THRUM — the emotionally-aware, tone-matching game discovery companion who talks like a friend, not a system.
+        The user just brought up **{game_info['title']}** — a game they’re curious about but haven’t been pitched yet.
+        🎯 Your job:
+        - Drop one emotionally aware sentence (max 20 words) explaining why the game might vibe with them.
+        - Sound confident and human — like a text from someone who knows their taste.
+        - If the platform link exists, include it in the sentence casually — no Markdown, no brackets.
+        - If no link exists, skip it without explanation.
+        - Mention 1–2 platforms if helpful.
+        → Drop two fresh, emotionally warm lines about the game.
+        → Don't repeat earlier phrasing or vibe.
+        → Say it like someone texting a friend — casually, like you remembered something cool just now.
+        → No greetings. No intros. Just the sentence — full of tone and spark.
 
-No greeting, no filler — just the sentence.
-Make it sound friendly, emotionally aware, and natural.
-This game is available on: {game_info['platforms']}
-Details you can use to enrich your response:
-- **Title**: {game_info['title']}
-- **Description**: {game_info['description']}
-- **Genre**: {game_info['genre']}
-- **Vibes**: {game_info['vibes']}
-- **complexity**: {game_info['complexity']}
-- **Visual Style**: {game_info['visual_style']}
-- **Story Focus**: {game_info['story_focus']}
-- **Emotional Fit**: {game_info['emotion']}
-- **Mood Tags**: {game_info['mood_tags']}
-- **available Platform**:{game_info['platforms']}, just mention one or two platform.
-- **Platform_link**:{game_info['platform_link']}
-Now, answer the user’s message — “{user_input}” — and introduce this game like a friendly recommendation.
-""".strip()
+        "If the user asked about the platform and you have a link, casually drop it into the sentence.
+
+        → Don't explain it.
+        → Don't format it.
+        → Don't use Markdown or brackets or say 'click here'.
+        → Just talk like a close friend who tosses the link over in whatsapp without making it a big deal.
+
+        Example but dont use this, generate always variables in an unique way how friends talk over whatsapp:
+        'You'll find it on Xbox too btw: https://store.xbox.com/game-title — it fits your style I think.'"
+
+        Use this if you need to pull from:
+        - Title: {game_info['title']}
+        - Description: {game_info['description']}
+        - Genre: {game_info['genre']}
+        - Vibes: {game_info['vibes']}
+        - Complexity: {game_info['complexity']}
+        - Visual Style: {game_info['visual_style']}
+        - Story Focus: {game_info['story_focus']}
+        - Emotional Fit: {game_info['emotion']}
+        - Mood Tags: {game_info['mood_tags']}
+        - Platforms: {game_info['platforms']}
+        - Platform Link: {game_info['platform_link']}
+        User message: “{user_input}”
+    """.strip()
+    return user_prompt

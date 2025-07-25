@@ -91,6 +91,7 @@ async def whatsapp_webhook(request: Request, From: str = Form(...), Body: str = 
     db.commit()
 
     response_prompt = await generate_thrum_reply(db=db,user=user, session=session, user_input=user_input, intrection = intrection)
+    print('response_prompt........................................', response_prompt)
     reply = await format_reply(session=session,user_input=user_input, user_prompt=response_prompt)
     if len(session.interactions) == 0 or is_session_idle(session):
         await asyncio.sleep(5)
