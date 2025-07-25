@@ -20,11 +20,12 @@ async def handle_confirmed_game(db, user, session):
         f"USER MEMORY & RECENT CHAT:\n"
         f"{memory_context_str if memory_context_str else 'No prior user memory or recent chat.'}\n\n"
         "The user confirmed they liked the last recommended game.\n"
-        "Ask in a warm, upbeat, and conversational way what they enjoyed most about it. ask clear question yet different words or phrase with the same meaning.\n"
-        "Vary the phrasing each time; never repeat previous wording or use static templates."
-        "Keep your question short—just 1 or 2 lines."
-        "Return only the new user-facing message."
-        "Do not use emoji which is used in previous messages."
+        "Start by briefly mirroring their excitement, like how friends would do over whatsapp — like a friend saying 'yo, glad that hit!' or 'knew it'd land.' Then follow up with your question.\n"
+        "Ask a clear question, how friends would do, using different phrasing each time, but with the same core meaning.\n"
+        "Vary the phrasing each time; never repeat previous wording or use static templates.\n"
+        "Keep your question short—just 1 or 2 lines.\n"
+        "Return only the new user-facing message.\n"
+        "Do not use any of those again. Always pick a new emoji — or none at all — that fits the emotional tone freshly.\n"
     )
     
     if session.meta_data is None:

@@ -156,23 +156,31 @@ async def recommend_game():
 
 
 async def handle_reject_Recommendation(db,session, user,  classification):
+    session_memory = SessionMemory(session)
+    memory_context_str = session_memory.to_prompt()
     
     print("---------------:handle_reject_Recommendation:-----------------")
     user_prompt = (
-            f"Generate a friendly, casual, and conversational message asking the user why they decided to reject the previous game recommendation."
-            f"The question should never repeat wording from earlier messages and should feel genuinely curious—sometimes direct, sometimes more playful or empathetic."
-            f"Use a different phrasing and structure every time."
-            f"Mix up asking about game elements (like genre, mechanics, vibe, art style, or pacing) and open-ended curiosity (such as 'just wasn’t feeling it?' or 'anything in particular missing?')."
-            f"Generate a friendly, casual message in 1–2 lines asking the user why they decided to reject the previous game recommendation."
-            f"Vary tone: sometimes inquisitive, sometimes light-hearted, sometimes understanding."
-            f"Strictly do not repeat any phrase from previous examples or prompts."
-            f"Always use a new, natural phrasing and approach."
-            f"Do not use static templates or previously used examples."
-            f"Do not list options—ask in a conversational, free-flowing way."
-            f"Always make it easy for the user to share honest feedback, no matter how small."
-            f"Never blame or pressure the user—just encourage open sharing."
-            f"Never use the same emoji."
-        )
+        f"USER MEMORY & RECENT CHAT:\n"
+        f"{memory_context_str if memory_context_str else 'No prior user memory or recent chat.'}\n\n"
+        "Generate a friendly, casual message in 1–2 lines asking the user why they decided to reject the previous game recommendation, like how friends would discuss this in whatsapp.\n"
+        "Vary tone: sometimes inquisitive, sometimes light-hearted, sometimes understanding.\n"
+        "Mix up asking about game elements (like genre, mechanics, gameplay, art style, or pacing) and open-ended curiosity (such as these examples but never the same ever 'just wasn't feeling it?' or 'anything in particular missing?').\n"
+        "The question should never repeat wording from earlier messages and should feel genuinely curious—sometimes direct, sometimes more playful or empathetic.\n"
+        "Use a different phrasing and structure every time.\n"
+        "Strictly do not repeat any phrase from previous examples or prompts.\n"
+        "Always use a new, natural phrasing and approach.\n"
+        "Do not use static templates or previously used examples.\n"
+        "Do not list options—ask in a conversational, free-flowing way.\n"
+        "Always make it easy for the user to share honest feedback, no matter how small, like how friends talk in whatsapp.\n"
+        "Never blame or pressure the user—just encourage open sharing, just make them feel heard, draper style.\n"
+        "Never use the same emoji.\n"
+        "If the user doesn't give a reason for rejecting the game, respond with emotional awareness, make them feel heard or use the draper style — not robotic fallback.\n"
+        "Mirror their tone. If they seemed chill, stay chill. If they sounded annoyed or bored, reflect that lightly but warmly, but try to re-engage them like how friends do over whatsapp.\n"
+        "Then casually re-open the conversation, like a friend would. You can tease gently, show curiosity, or just move the convo forward.\n"
+        "Never say the same fallback line twice. Never use: 'Want me to find another?' or 'Shall I try again?'.\n"
+        "Instead, rotate tone and phrasing. Stay dynamic. Keep it real.\n"
+    )
     print(":handle_reject_Recommendation prompt :",user_prompt)
     return user_prompt
     # from app.services.thrum_router.phase_discovery import handle_discovery
