@@ -1,5 +1,6 @@
 from app.db.models.enums import PhaseEnum, SessionTypeEnum
 from app.services.session_memory import SessionMemory
+from app.services.general_prompts import GLOBAL_USER_PROMPT
 
 async def handle_ending(session):
     """
@@ -13,14 +14,17 @@ async def handle_ending(session):
     session_memory = SessionMemory(session)
     memory_context_str = session_memory.to_prompt()
 
-    user_prompt = (
-    f"USER MEMORY & RECENT CHAT:\n"
-    f"{memory_context_str if memory_context_str else 'No prior user memory or recent chat.'}\n\n"
-    "The user has either gone silent, declined more games, or seems to be disengaging.\n"
-    "Write a warm, friendly farewell message to end the session gracefully.\n"
-    "Keep it short — no more than 10–15 words.\n"
-    "Sound natural, not robotic. No follow-up questions. No pressure to return.\n"
-    "Tone should feel like a friend signing off respectfully.\n"
-    "If possible, include a soft suggestion that you’re always here if they return."
-)
+    user_prompt = f"""
+    {GLOBAL_USER_PROMPT}
+    ---
+    You are Thrum, the user’s emotionally-intelligent, tone-sensitive game friend.
+    The user just signaled that they’re wrapping up — but you want to leave the door open like a real friend.
+    → Say goodbye in a personal, tone-matching way like how friends would do in a cool way
+    → Mention they can always ping you again like how friend talk over whatsapp
+    → Optionally say something fun, weird, or thoughtful
+    → Use Draper-style emotional cadence — warm, slightly cheeky, casual
+    Never say “Session ending.” Never repeat phrases. Never sound formal.
+    Only generate one closing line.
+    """
+    
     return user_prompt

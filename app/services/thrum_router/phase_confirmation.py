@@ -8,25 +8,48 @@ from app.utils.whatsapp import send_whatsapp_message
 from app.services.modify_thrum_reply import format_reply
 import json
 from app.services.session_memory import SessionMemory
+from app.services.general_prompts import GLOBAL_USER_PROMPT
 
 async def handle_confirmation(session):
     return await confirm_input_summary(session)
 
 async def handle_confirmed_game(db, user, session):
-    session_memory = SessionMemory(session)
-    memory_context_str = session_memory.to_prompt()
+    if session.meta_data.get("ask_confirmation", False):
+        user_prompt = (
+            f"{GLOBAL_USER_PROMPT}\n"
+            "The user confirmed they liked the last recommended game.\n"
+            "Ask in a warm, upbeat, and conversational way what they enjoyed most about it. ask clear question yet different words or phrase with the same meaning.\n"
+            "Vary the phrasing each time; never repeat previous wording or use static templates."
+            "Keep your question short—just 1 or 2 lines."
+            "Return only the new user-facing message."
+            "Do not use emoji which is used in previous messages."
+        )
+        session.meta_data["ask_confirmation"] = False
+        db.commit()
+        return user_prompt
+    else:
+        user_prompt = f"""
+        {GLOBAL_USER_PROMPT}
 
-    user_prompt = (
-        f"USER MEMORY & RECENT CHAT:\n"
-        f"{memory_context_str if memory_context_str else 'No prior user memory or recent chat.'}\n\n"
-        "The user confirmed they liked the last recommended game.\n"
-        "Ask in a warm, upbeat, and conversational way what they enjoyed most about it. ask clear question yet different words or phrase with the same meaning.\n"
-        "Vary the phrasing each time; never repeat previous wording or use static templates."
-        "Keep your question short—just 1 or 2 lines."
-        "Return only the new user-facing message."
-        "Do not use emoji which is used in previous messages."
-    )
-    
+        ---
+
+        You are Thrum — a tone-matching, emotionally intelligent game-discovery companion.  
+
+        Now, you must:
+        → React like a friend who just nailed a great tip and is excited just like the user.  
+        → Match their energy. If they were chill, stay chill. If hyped, be playful. If sarcastic, tease them.  
+        → Write one short, emotionally intelligent line that feels like a natural follow-up as how close friends would do.  
+        → Celebrate the win in your own way — and gently offer to keep the discovery going.  
+        → Do NOT use emojis or robotic phrases like "Great!" or "Recommendation delivered."
+
+        Examples of energy (don't copy-paste):
+        - "Knew that would land. Let me know how deep you go with it."
+        - "Haha, told you that one would slap."
+        - "You're welcome 😏 Now… want me to go even deeper?"
+
+        You must generate **ONE** response in your own words.  
+
+        """.strip()
     if session.meta_data is None:
             session.meta_data = {}
     # Check if 'dont_give_name' is not in session.meta_data, and if so, add it

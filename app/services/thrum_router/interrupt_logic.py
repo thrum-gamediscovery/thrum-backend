@@ -8,7 +8,6 @@ from app.services.tone_classifier import classify_tone
 from app.services.thrum_router.phase_confirmation import handle_confirmed_game
 from app.services.thrum_router.phase_discovery import dynamic_faq_gpt, handle_other_input
 from app.services.session_memory import SessionMemory
-from app.services.central_system_prompt import NO_GAMES_PROMPT
 
 async def check_intent_override(db, user_input, user, session, classification, intrection):
     from app.services.thrum_router.phase_discovery import handle_discovery
