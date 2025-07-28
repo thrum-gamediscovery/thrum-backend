@@ -211,7 +211,6 @@ async def deliver_game_immediately(db: Session, user, session) -> str:
             user_prompt = NO_GAMES_PROMPT
             return user_prompt
         else:
-            session.last_recommended_game = game["title"]
             session_memory.last_game = game["title"]
             last_session_game = None
             is_last_session_game = game.get("last_session_game",{}).get("is_last_session_game") 
@@ -316,7 +315,6 @@ async def diliver_similar_game(db: Session, user, session) -> str:
         user_prompt = NO_GAMES_PROMPT
         return user_prompt
     else:
-        session.last_recommended_game = game["title"]
         session_memory.last_game = game["title"]
         # Get user's preferred platform
         preferred_platforms = session.platform_preference or []

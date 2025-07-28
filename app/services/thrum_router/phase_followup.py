@@ -254,7 +254,8 @@ async def handle_game_inquiry(db: Session, user, session, user_input: str) -> st
             GameRecommendation.game_id == game_id,
             GameRecommendation.accepted == True
         )
-    if game_id in liked_game.game_id:
+    liked_game_ids = [g.game_id for g in liked_game]
+    if game_id in liked_game_ids:
         print(f"liked game #############################")
         user_prompt = f"""
                 {GLOBAL_USER_PROMPT}
@@ -349,7 +350,6 @@ async def handle_game_inquiry(db: Session, user, session, user_input: str) -> st
 
 
     # Else, it’s a new inquiry → recommend + save + followup
-    session.last_recommended_game = game_info["title"]
     session_memory.last_game = game.title
     # Save recommendation
     game_rec = GameRecommendation(

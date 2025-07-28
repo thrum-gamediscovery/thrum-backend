@@ -151,6 +151,7 @@ async def game_recommendation(db: Session, user, session):
                 accepted=None
             )
             db.add(game_rec)
+            session.last_recommended_game = random_game.title
             db.commit()
             session.phase = PhaseEnum.FOLLOWUP
             # session.followup_triggered = True
@@ -362,6 +363,7 @@ async def game_recommendation(db: Session, user, session):
     print("availables game not random ................")
     print(f"[Step 15] Last session game is used: {last_session_liked_game.game.title if last_session_liked_game else None}")
     session.meta_data["ask_confirmation"] = True
+    session.last_recommended_game = top_game.title
     return {
             "title": top_game.title,
             "description": top_game.description if top_game.description else None,
