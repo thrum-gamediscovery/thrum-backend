@@ -38,6 +38,20 @@ class SessionMemory:
         for k, v in kwargs.items():
             if hasattr(self, k):
                 setattr(self, k, v)
+    
+    def flush(self):
+        self.user_name = ""
+        self.region = ""
+        self.mood = None
+        self.genre = None
+        self.platform = None
+        self.story_preference = None
+        self.tone = None
+        self.rejections = []
+        self.likes = []
+        self.last_game = None
+        self.last_intent = None
+        self.history = []
 
     def to_prompt(self):
         # Summarize memory into a context string for LLM system prompt
