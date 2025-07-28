@@ -76,7 +76,8 @@ def update_tone_in_history(session, tone: str):
         # Ensure that meta_data and tone_history exist
         session.meta_data = session.meta_data or {}
         session.meta_data["tone_history"] = session.meta_data.get("tone_history", [])
-
+        session.meta_data["tone"] = tone
+        
         # Update the last entry in tone_history with the new tone and timestamp
         if session.meta_data["tone_history"]:
             # Replace the last entry in the list

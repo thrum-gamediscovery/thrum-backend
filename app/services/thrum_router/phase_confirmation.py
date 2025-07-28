@@ -7,6 +7,7 @@ from sqlalchemy import Boolean
 from app.utils.whatsapp import send_whatsapp_message
 from app.services.modify_thrum_reply import format_reply
 import json
+from sqlalchemy.orm.attributes import flag_modified
 from app.services.session_memory import SessionMemory
 from app.services.general_prompts import GLOBAL_USER_PROMPT
 
@@ -15,21 +16,7 @@ async def handle_confirmation(session):
 
 async def handle_confirmed_game(db, user, session):
     game_title = session.last_recommended_game
-    if session.meta_data.get("ask_confirmation", False):
-        user_prompt = (
-            f"{GLOBAL_USER_PROMPT}\n"
-            "The user confirmed they liked the last recommended game.\n"
-            "Ask in a warm, upbeat, and conversational way what they enjoyed most about it. ask clear question yet different words or phrase with the same meaning.\n"
-            "Vary the phrasing each time; never repeat previous wording or use static templates."
-            "Keep your question short—just 1 or 2 lines."
-            "Return only the new user-facing message."
-            "Do not use emoji which is used in previous messages."
-            "don't suggest a game on your own if there is no game found."
-        )
-        session.meta_data["ask_confirmation"] = False
-        db.commit()
-        return user_prompt
-    else:
+    if not session.meta_data.get("played_yet", False):
         tone = session.meta_data.get("tone", "friendly")
         user_prompt = f"""
 
@@ -49,11 +36,37 @@ async def handle_confirmed_game(db, user, session):
 
             DON’T reset the conversation. Keep it alive and real.
         """.strip()
+    else:
+        if session.meta_data.get("ask_confirmation", True):
+            user_prompt = (
+                f"{GLOBAL_USER_PROMPT}\n"
+                f"The user confirmed they liked the last recommended game.\n"
+                "Ask in a warm, upbeat, and conversational way what they enjoyed most about it. ask clear question yet different words or phrase with the same meaning.\n"
+                "Vary the phrasing each time; never repeat previous wording or use static templates."
+                "Keep your question short—just 1 or 2 lines."
+                "Return only the new user-facing message."
+                "Do not use emoji which is used in previous messages."
+                "don't suggest a game on your own if there is no game found."
+            )
+            session.meta_data["ask_confirmation"] = False
+            db.commit()
+        else:
+            user_prompt = (
+                f"{GLOBAL_USER_PROMPT}\n"
+                "user just confirmed they liked the last recommended game.\n"
+                "Reply in a warm, humble, and sweet manner, expressing happiness that the user liked the thrum's recommended game. Keep the message open and engaging, avoiding any language that closes or ends the conversation. Make the response concise—no more than one or two lines—and maintain a friendly, inviting tone."
+                "reply should not be more than 2 sentence or 25 words."
+                "Return only the new user-facing message."
+                "Do not use emoji which is used in previous messages."
+                "don't suggest a game on your own if there is no game found."
+            )
     if session.meta_data is None:
             session.meta_data = {}
     # Check if 'dont_give_name' is not in session.meta_data, and if so, add it
-    if "dont_give_name" not in session.meta_data:
+    if "dont_give_name" not in session.meta_data :
         session.meta_data["dont_give_name"] = False
+    if 'ask_for_rec_friend' not in session.meta_data:
+        session.meta_data['ask_for_rec_friend'] = True
     db.commit()
     return user_prompt
 
@@ -69,7 +82,7 @@ async def ask_for_name_if_needed():
     for s in sessions:
         user = s.user
          # ✅ EARLY SKIP if flag is already True (safety net)
-        if s.meta_data.get("dont_give_name", False):
+        if s.meta_data.get("dont_give_name", True):
             continue
         if user.name is None:
             delay = timedelta(seconds=15)
@@ -78,6 +91,8 @@ async def ask_for_name_if_needed():
             if now - s.last_thrum_timestamp > delay:
                 # Ensure the session meta_data flag is set to avoid re-asking the name
                 s.meta_data["dont_give_name"] = True
+                s.meta_data["ask_for_rec_friend"] = True
+                flag_modified(s, "meta_data")
                 db.commit()
                 print(f"Session {s.session_id} :: Asking for name for user {user.phone_number} :: dont_give_name  {s.meta_data['dont_give_name']}")
                 user_interactions = [i for i in s.interactions if i.sender == SenderEnum.User]

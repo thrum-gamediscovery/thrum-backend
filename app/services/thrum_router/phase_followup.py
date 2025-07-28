@@ -267,8 +267,8 @@ async def handle_game_inquiry(db: Session, user, session, user_input: str) -> st
                 → Celebrate the win. Mirror their tone: excited? chill? intrigued?
                 → Drop a new angle — something vivid, surprising, emotional, or playful.
                 → If the user asks about a platform or store link, drop it inside a natural, friend-style sentence — no formatting, no 'click here'. It should sound like something casually texted, not delivered as info.
-                → End with a curiosity ping that fits the emotional rhythm — something a friend would say to keep the convo going. It must feel alive, unpredictable, and connected to the last message. Avoid questions like “What do you want?” — instead, tease a next moment, drop a wild detail, or spark intrigue.
-
+                → End with a curiosity ping that fits the tone of the chat — it should feel like a real friend nudging them to go try it now. If a platform or store link is available, always include it inside the sentence in a natural, unformatted way — the way someone would text it. No “click here.” No instructions. Just drop it casually in flow. Use their emotional tone — chill, hype, dry, chaotic — and speak like someone excited to see what happens next.
+                
                 Reference:
                 - Title: {game_info['title']}
                 - Description: {game_info['description']}

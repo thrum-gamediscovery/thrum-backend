@@ -29,6 +29,7 @@ intents = [
     "Opt_Out", 
     "Other_Question", 
     "Confirm_Game",
+    "want_to_share_friend"
     "Other",
     "Bot_Error_Mentioned",
     "About_FAQ"
@@ -74,6 +75,18 @@ Carefully consider the context of the conversation and the specific tone or dire
 
 - **Request_Quick_Recommendation**: Triggered when the user explicitly asks for a game suggestion at that time, OR asks for a suggestion on a different platform than last recommended, or asking for a game directly like "suggest a game","want a game", etc.
 - true ONLY when user clearly asks for a new game suggestion.
+- if user just looking for some specific game then do not trigger it(for eg, user say im'm looking for genre, or any scpecification then do not trigger it.). untill they want game immediately, or directly ask for a game suggestion.
+- Do not Trigger it as True when user is not asking for a new game recommendation and user just giving information about game or user input is just an statement which is not include the intent for new or other game.
+- Do NOT trigger if user is just inquiring about platform availability or requesting a store/platform link for a specific game.
+- "for mobile?" or "on Android?" only triggers if it's an explicit request for a new rec, not just checking if a game is available.
+  This intent is activated for phrases like:
+    - "give me a game"
+    - "suggest one for me"
+
+- **Request_Quick_Recommendation**: Triggered when the user explicitly asks for a game suggestion at that time, OR asks for a suggestion on a different platform than last recommended, or asking for a game directly like "suggest a game","want a game", etc.
+- true ONLY when user clearly asks for a new game suggestion.
+- if user just looking for some specific game then do not trigger it.(for eg, user say im'm looking for genre, or any scpecification then do not trigger it.)
+- Do not trigger this intent if the user is just giving information about a game or if the user is just stating something that does not include the intent for new or other game.
 - Do not Trigger it as True when user is not asking for a new game recommendation and user just giving information about game or user input is just an statement which is not include the intent for new or other game.
 - Do NOT trigger if user is just inquiring about platform availability or requesting a store/platform link for a specific game.
 - "for mobile?" or "on Android?" only triggers if it's an explicit request for a new rec, not just checking if a game is available.
@@ -94,7 +107,8 @@ Carefully consider the context of the conversation and the specific tone or dire
     3. if the user has been asked that they want more information about game(in different phrase or words with this intention) and if they positively respond about they want the more information(not they like the game but want to know more) or they want to know more(then Inquire_About_Game must be true , Confirm_Game must be false in that case.), indicating they want to know more about it. The user expresses a desire to know more about a game, such as its features, gameplay mechanics, or storyline.
 
 - **Give_Info**: Triggered when the user provides information about their preferences, such as genre, mood, or game style. This includes providing keywords or short phrases like "action", "chill", or "strategy". The response should classify when the user provides any kind of self-description related to their preferences. if last thrum message is to ask about what user likes or dislikes about the game and user is giving the information about that then Give_Info should not be triggered.
-
+  - if the user input is containing any information about preferred genre, vibe, mood, or platform, and do not specify to want direct game then this Give_Info intent must be set to true.
+  
 - **Share_Game**: Triggered when the user shows interest in sharing a game suggestion with others. This could include asking questions like "Can I share this with my friends?" or stating their intention to recommend a game to someone else.
 
 - **Opt_Out**: Triggered when the user opts out or indicates they no longer wish to continue the conversation. This intent is activated when phrases like "I'm done," "Stop," "Not interested," or "Leave me alone" are used to end or discontinue the conversation.
@@ -102,6 +116,8 @@ Carefully consider the context of the conversation and the specific tone or dire
 - **Other_Question**: Triggered when the user asks any question related to themselves or about Thrum (for example, "what do you do?", "How are you?", "what makes you powerful" or any kind of general question).
 
 - **Confirm_Game**: Triggered when the user confirms their interest in a game that was previously recommended(if input is just "yes" then it might be for know more information depends on previous thrum message in that case Inquire_About_Game should be true.). The confirmation could be something like "like that game" or "I like that game." or "like that one" or similar to that, This is explicitly confirming the previous game suggestion, meaning that the user is showing interest in the exact game Thrum recommended they liked that. also triggered when user is giving the reason why they liked the game or what they liked about the game(so check thrum's last message and user's reply).
+
+- **want_to_share_friend**: Triggered when the user expresses a desire to share Thrum with friends. This intent is activated when the user says something like "I want to share this with my friends".
 
 - **Other**:  
   Triggered for any input that doesn’t match the above categories, or when user is input is just an statement which shares some information about the game.  
@@ -158,6 +174,7 @@ OUTPUT FORMAT (Strict JSON) strictly deny to add another text:
     "Opt_Out": true/false,
     "Other_Question": true/false,
     "Confirm_Game": true/false,
+    "want_to_share_friend": true/false,
     "Other": true/false,
     "Bot_Error_Mentioned": true/false,
     "About_FAQ": true/false
@@ -195,6 +212,7 @@ OUTPUT FORMAT (Strict JSON) strictly deny to add another text:
                 "Opt_Out": False,
                 "Other_Question": False,
                 "Confirm_Game": False,
+                "want_to_share_friend": False,
                 "Other": True,
                 "Bot_Error_Mentioned": False,
                 "About_FAQ": False
@@ -213,6 +231,7 @@ OUTPUT FORMAT (Strict JSON) strictly deny to add another text:
                 "Opt_Out": False,
                 "Other_Question": False,
                 "Confirm_Game": False,
+                "want_to_share_friend": False,
                 "Other": True,
                 "Bot_Error_Mentioned": False,
                 "About_FAQ": False
@@ -405,6 +424,12 @@ You must infer from both keywords and tone—even if the user is casual, brief, 
   → Do NOT skip implied dislikes or features the user reacts negatively to, even if not directly stated as “dislike.”
   → Return all such terms as an array of strings; if not present, return [].
 
+  17. played_yet (boolean or "None")
+  → Determine whether the user has actually played the game or is only reacting to it, based strictly on their current input.
+  → Return true if the user’s message clearly indicates personal gameplay experience through their words, tone, or described actions.
+  → Return false if the user is only commenting based on impressions, appearance, or what they have heard about the game, without indicating they have played it.
+  → If the input does not refer to a specific game, or if it cannot be determined from the input, return "None".
+
 ---
 
 🧠 RULES:
@@ -437,7 +462,8 @@ You must infer from both keywords and tone—even if the user is casual, brief, 
   "find_game":"...",
   "gameplay_elements": ["..."],
   "preferred_keywords": ["..."],
-  "disliked_keywords": ["..."]
+  "disliked_keywords": ["..."],
+  "played_yet": true/false/None
 }}
 
 🧠 HINTS:
@@ -494,7 +520,8 @@ Now classify into the format below.
                 "find_game":"None",
                 "gameplay_elements": [],
                 "preferred_keywords": [],
-                "disliked_keywords": []
+                "disliked_keywords": [],
+                "played_yet": False
             }
 
         print(f"Classification Result: {result}")
@@ -519,7 +546,8 @@ Now classify into the format below.
                 "find_game":"None",
                 "gameplay_elements": [],
                 "preferred_keywords": [],
-                "disliked_keywords": []
+                "disliked_keywords": [],
+                "played_yet": False
             }
 
     print(f"Classification Result: {result}")

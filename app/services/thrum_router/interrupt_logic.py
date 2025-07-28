@@ -5,7 +5,7 @@ from app.db.models.enums import PhaseEnum
 from app.services.thrum_router.phase_intro import handle_intro
 from app.services.thrum_router.phase_ending import handle_ending
 from app.services.thrum_router.phase_confirmation import handle_confirmed_game
-from app.services.thrum_router.phase_discovery import dynamic_faq_gpt, handle_other_input
+from app.services.thrum_router.phase_discovery import dynamic_faq_gpt, handle_other_input, share_thrum_ping, share_thrum_message
 
 async def check_intent_override(db, user_input, user, session, classification, intrection):
     from app.services.thrum_router.phase_discovery import handle_discovery
@@ -14,6 +14,13 @@ async def check_intent_override(db, user_input, user, session, classification, i
     classification_intent = await classify_user_intent(user_input=user_input, session=session)
     intrection.classification = {"input" : classification, "intent" : classification_intent}
     db.commit()
+
+    print(f"ask_for rec friend {session.meta_data.get('ask_for_rec_friend')}")
+    print(f"ask_for rec friend condition {session.meta_data.get('ask_for_rec_friend') and (classification_intent.get('Give_Info') or classification_intent.get('Other'))}")
+    if session.meta_data.get("ask_for_rec_friend")  and (classification_intent.get("Give_Info") or classification_intent.get("Other")):
+        session.meta_data["ask_for_rec_friend"] = False
+        session.phase = PhaseEnum.DISCOVERY
+        return await share_thrum_ping(session)
 
     # Check if the user is in the discovery phase
     if classification_intent.get("Phase_Discovery"):
@@ -47,6 +54,10 @@ async def check_intent_override(db, user_input, user, session, classification, i
     elif classification_intent.get("Confirm_Game"):
         session.phase = PhaseEnum.CONFIRMATION
         return await handle_confirmed_game(db, user, session)
+    
+    elif classification_intent.get("want_to_share_friend"):
+        session.phase = PhaseEnum.DISCOVERY
+        return await share_thrum_message(session)
     
     elif classification_intent.get("Greet"):
         session.phase = PhaseEnum.INTRO
