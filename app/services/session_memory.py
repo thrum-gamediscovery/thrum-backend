@@ -198,7 +198,6 @@ async def deliver_game_immediately(db: Session, user, session) -> str:
         str: GPT-formatted game message
     """
     session_memory = SessionMemory(session)
-    memory_context_str = session_memory.to_prompt()
     if session.game_rejection_count >= 2:
             session.phase = PhaseEnum.DISCOVERY
             return await handle_discovery(db=db, session=session, user=user)
@@ -209,11 +208,7 @@ async def deliver_game_immediately(db: Session, user, session) -> str:
         description = None
 
         if not game:
-            user_prompt = f"""
-                USER MEMORY & RECENT CHAT:
-                {memory_context_str if memory_context_str else 'No prior user memory or recent chat.'}
-                {NO_GAMES_PROMPT}
-                """ 
+            user_prompt = NO_GAMES_PROMPT
             return user_prompt
         else:
             session.last_recommended_game = game["title"]
@@ -241,27 +236,31 @@ async def deliver_game_immediately(db: Session, user, session) -> str:
                 )
             else:
                 platform_note = f"Available on: {', '.join(game_platforms) or 'many platforms'}."
-
+            tone = session.meta_data.get("tone", "neutral")
             # 🧠 Final Prompt
-            user_prompt = (
-                f"{GLOBAL_USER_PROMPT}\n"
-                f"Recommend a game to the user naturally and casually, like a friend would.\n"
-                f"If is_last_session_game is True, mention **{last_session_game}** naturally — like a close friend remembering what they loved. Do not say 'you liked X so you'll like Y.' Create a new emotional line that fits the tone of the user, using the draper style, every time in a dynamic way.\n"
-                f"Recommend: **{game['title']}** in natural and friendly way according to user's tone.\n"
-                "Let the full message flow naturally, like how close friends do on whatsapp — 2 to 4 emotionally charged sentences that sound like a real friend texting. Match the user's energy and mood, use the draper style if needed. Be brief if they're chill. Go deep if they're curious. No robotic length limits — just emotional pacing to make them feel heard and engaged."
-                f"- In the message the game title must be in bold using Markdown: **{game['title']}**\n"
-                f"what the message must include is Markdown: **{game['title']}**, must Reflect user’s current mood = {mood}. and avoid using repetitive template structures or formats.\n"
-                f"- Introduce the game using a short Draper-style hook — a confident, emotional mini-story based on this description: {description}. Make it feel alive and mood-matched, not like marketing copy, always unique and never boring to get them engaged and emotionally attached."
-                f"- Somewhere in the message, include the platform info ({platform_note}) in a relaxed, friend-style tone. Never say 'Available on X' or 'Play it on Y' directly. Make it feel like a casual insert how friends would inform each other, like how someone would drop it into over in whatsapp with personality."
-                "- Let the message end with a friendly, tone-matching line, use draper style if needed, that invites them to respond — but never use the same phrase twice. Avoid robotic lines like 'want to explore more.' Make it feel like a close friend texting over whatsapp something fun, emotional, or playful. This final line must always be fully ai generative."
-                f"Use user_context if helpful, but don't ask anything or recap.\n"
-                f"Sound smooth, human, and excited — this is a 'just drop it' moment. Must suggest a game with reason why it fits the user.\n"
-                "\n"
-                f"- Never start with phrases like Alright, So imagine, Picture this, Let me tell you, or anything generic or formal.\n"
-                f"- Always begin your message naturally, mid-thought, like a real friend dropping a quick comment.\n"
-                f"- Use different openers every time — never repeat the same structure or intro twice.\n"
-            )
-            print(f"User prompt: {user_prompt}")
+            user_prompt = f"""
+                {GLOBAL_USER_PROMPT}
+                ---
+                THRUM — FRIEND MODE: GAME RECOMMENDATION
+
+                You are THRUM — the friend who remembers what’s been tried and never repeats. You drop game suggestions naturally, like someone texting their best friend.
+
+                → Recommend **{game['title']}** using {mood} mood and {tone} tone.
+                → Use this game description for inspiration: {description}
+
+                INCLUDE:
+                - A Draper-style mini-story (3–4 lines max)
+                - Platform info ({platform_note}) added in a casual, friend-like way
+                - Bold the title: **{game['title']}**
+                - End with a fun, playful, or emotionally tone-matched line that also invites a reply — a soft question, nudge, or spark that fits the current rhythm. Never use robotic prompts like “want more?” — make it sound like something a real friend would ask to keep the chat going.(never templated)
+
+                NEVER:
+                - Use robotic phrasing or generic openers
+                - Mention genres, filters, or system logic
+                - Say “I recommend” or “available on…”
+
+                Start mid-thought, like texting a friend.
+            """.strip()
             return user_prompt
 
 
@@ -314,11 +313,7 @@ async def diliver_similar_game(db: Session, user, session) -> str:
     game, _ = await game_recommendation(db=db, user=user, session=session)
     print(f"Similar game recommendation: {game}")
     if not game:
-        user_prompt = f"""
-            USER MEMORY & RECENT CHAT:
-            {memory_context_str if memory_context_str else 'No prior user memory or recent chat.'}
-            {NO_GAMES_PROMPT}
-            """
+        user_prompt = NO_GAMES_PROMPT
         return user_prompt
     else:
         session.last_recommended_game = game["title"]
@@ -345,6 +340,26 @@ async def diliver_similar_game(db: Session, user, session) -> str:
         user_prompt = f"""
             {GLOBAL_USER_PROMPT}\n
             ---
+                THRUM — FRIEND MODE: GAME RECOMMENDATION
+
+                You are THRUM — the friend who remembers what’s been tried and never repeats. You drop game suggestions naturally, like someone texting their best friend.
+
+                → Recommend **{game['title']}** using {mood} mood and {tone} tone.
+                → Use this game description for inspiration: {description}
+
+                INCLUDE:
+                - A Draper-style mini-story (3–4 lines max)
+                - Platform info ({platform_note}) added in a casual, friend-like way
+                - Bold the title: **{game['title']}**
+                - End with a fun, playful, or emotionally tone-matched line that also invites a reply — a soft question, nudge, or spark that fits the current rhythm. Never use robotic prompts like “want more?” — make it sound like something a real friend would ask to keep the chat going.(never templated)
+
+                NEVER:
+                - Use robotic phrasing or generic openers
+                - Mention genres, filters, or system logic
+                - Say “I recommend” or “available on…”
+
+                Start mid-thought, like texting a friend.
+            ---
             You are Thrum — an emotionally aware game companion who remembers what clicked.
             The user just asked for something similar to the last game they liked.
             Step 1: Think about the logic of *why* the last game worked — based on tone, mood, structure, emotional appeal. Use session memory if available.
@@ -353,20 +368,6 @@ async def diliver_similar_game(db: Session, user, session) -> str:
             → Never just repeat genre or tags.
             → Never say "Here's another action game you might like."
             → Speak like someone who *understands the feeling* of the user, make them feel heard and gets them more engaged if needed, not just the mechanics. Let them know there is always more where this came from in a fun way how friends would get other emtionally attached.
-            ----
-            -Recommend a game to the user naturally and casually, like a friend would.
-            - Recommend: **{game['title']}** in natural and friendly way according to user's tone.
-            -Let the full message flow naturally, like how close friends do on whatsapp — 2 to 4 emotionally charged sentences that sound like a real friend texting. Match the user's energy and mood, use the draper style if needed. Be brief if they're chill. Go deep if they're curious. No robotic length limits — just emotional pacing to make them feel heard and engaged.
-            - In the message the game title must be in bold using Markdown: **{game['title']}**
-                what the message must include is Markdown: **{game['title']}**, must Reflect user’s current mood = {mood}. and avoid using repetitive template structures or formats.
-            - Introduce the game using a short Draper-style hook — a confident, emotional mini-story based on this description: {description}. Make it feel alive and mood-matched, not like marketing copy, always unique and never boring to get them engaged and emotionally attached.
-            - Somewhere in the message, include the platform info ({platform_note}) in a relaxed, friend-style tone. Never say 'Available on X' or 'Play it on Y' directly. Make it feel like a casual insert how friends would inform each other, like how someone would drop it into over in whatsapp with personality.
-            - Let the message end with a friendly, tone-matching line, use draper style if needed, that invites them to respond — but never use the same phrase twice. Avoid robotic lines like 'want to explore more.' Make it feel like a close friend texting over whatsapp something fun, emotional, or playful. This final line must always be fully ai generative.
-                Use user_context if helpful, but don't ask anything or recap.
-                Sound smooth, human, and excited — this is a 'just drop it' moment. Must suggest a game with reason why it fits the user.
-                - Never start with phrases like "Alright", "So imagine", "Picture this", "Let me tell you", or anything generic or formal.
-                - Always begin your message naturally, mid-thought, like a real friend dropping a recommedation.
-                - Use different openers every time — never repeat the same structure or intro twice.
             """
         return user_prompt
 
@@ -604,7 +605,6 @@ don't suggest a game on your own if there is no game found
 
 → You are Thrum — an emotionally-aware, memory-driven game-discovery companion.
 → The user’s recent tone: {last_user_tone}
-→ You already know: {session.to_prompt() if hasattr(session, 'to_prompt') else str(session)}
 → Take the next step in the conversation like a real friend, not a survey.
 → Be natural, casual, and improvisational. Never repeat yourself.
 don't suggest a game on your own if there is no game found

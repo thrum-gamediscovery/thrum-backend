@@ -30,28 +30,24 @@ async def handle_confirmed_game(db, user, session):
         db.commit()
         return user_prompt
     else:
+        tone = session.meta_data.get("tone", "friendly")
         user_prompt = f"""
-        {GLOBAL_USER_PROMPT}
 
-        ---
+            THRUM — FRIEND MODE: GAME ACCEPTED
 
-        You are Thrum — a tone-matching, emotionally intelligent game companion who speaks like a close friend.
+            User just accepted **{game_title}**.
+            You’re not a system — you’re their close friend. This is your win too.
 
-        The user just accepted the game: **{game_title}**  
-        This is your moment to celebrate this trust — in a real, warm, casual way, like how would friends react if someone responses positive on a suggestion.
+            → Respond in 1–2 short lines.
+            → Reflect their tone ({tone}) — hype, chill, sarcastic, etc.
+            → Never say “hope you enjoy” or “thanks.”
+            → Be playful, warm, or proud — like a friend who feels the win too.
+            Say something real that celebrates the moment — a cheeky comment, a proud line, or a low-key fist bump.
+            Then drop a soft nudge to keep the chat going — like “you better tell me how it goes” or “should I check back on you in an hour?”
+            Don’t pitch. Don’t close, never templated. Just stay in the moment like a friend would.
 
-        → Write one short message (1–2 lines max) that:
-        - Mirrors the user's tone (e.g., hype, chill, sarcastic, quiet)
-        - Feels like a friend texting back after sharing something cool, and wants to make sure the other is heard (draper style) and get them emotionally attached since this was a success.
-        - Has no hardcoded phrasing
-        - Never uses robotic lines like "thanks for accepting" or "hope you enjoy"
-        - don't suggest a game on your own if there is no game found.
-        - Feels like a natural, human response, not a system message.
 
-        Optional: you can hint that you'll check back later, but only if it feels natural, how friends would do this over whatsapp, but always ask if the user would appreciate that.
-
-        ⚠️ DO NOT write a flat thank you or generic sign-off. Keep it alive and connected.
-
+            DON’T reset the conversation. Keep it alive and real.
         """.strip()
     if session.meta_data is None:
             session.meta_data = {}
@@ -72,6 +68,9 @@ async def ask_for_name_if_needed():
 
     for s in sessions:
         user = s.user
+         # ✅ EARLY SKIP if flag is already True (safety net)
+        if s.meta_data.get("dont_give_name", False):
+            continue
         if user.name is None:
             delay = timedelta(seconds=15)
             # Check if the delay time has passed since the last interaction
@@ -94,6 +93,8 @@ async def ask_for_name_if_needed():
                 )
                 
                 reply = await format_reply(session=s, user_input=last_user_reply, user_prompt=response_prompt)
+                if reply is None:
+                    reply = "what's your name? so I can remember for next time."
                 await send_whatsapp_message(user.phone_number, reply)
 
     db.close()  # Close the DB session

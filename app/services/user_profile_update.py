@@ -82,6 +82,8 @@ async def update_game_feedback_from_json(db, user_id: UUID, session,feedback_dat
             user.dislikes["dislike"].append(str(matched_game_id))
             if str(matched_game_id) not in session.rejected_games:
                 session.rejected_games.append(str(matched_game_id))
+                flag_modified(session, "rejected_games")
+                print(f"👎 Added to session rejected games: {matched_game_id}")
             print(f"👎 Added to dislikes: {matched_game_id}")
         user.last_updated["game_feedback"] = str(datetime.utcnow())
     db.commit()
