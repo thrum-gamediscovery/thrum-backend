@@ -56,7 +56,9 @@ async def check_intent_override(db, user_input, user, session, classification, i
         if session.shared_with_friend:
             classification_intent["Other"] = True
         else:
+            session.shared_with_friend = True
             session.phase = PhaseEnum.DISCOVERY
+            db.commit()
             return await share_thrum_message(session)
     
     elif classification_intent.get("Greet"):
