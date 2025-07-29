@@ -2,10 +2,19 @@ from app.services.input_classifier import have_to_recommend
 from app.services.thrum_router.phase_delivery import explain_last_game_match
 from app.services.session_memory import confirm_input_summary, deliver_game_immediately, ask_discovery_question , extract_discovery_signals
 from app.db.models.enums import PhaseEnum
+import json
+import os
+import openai
 from app.utils.error_handler import safe_call
 from app.services.game_recommend import game_recommendation
 from app.services.session_memory import SessionMemory
 from app.services.general_prompts import GLOBAL_USER_PROMPT, NO_GAMES_PROMPT
+
+# Set API Key
+openai.api_key = os.getenv("OPENAI_API_KEY")
+model= os.getenv("GPT_MODEL")
+
+client = openai.AsyncOpenAI()
 
 @safe_call("Hmm, I had trouble figuring out what to ask next. Let's try something fun instead! 🎮")
 async def handle_discovery(db, session, user):
@@ -173,41 +182,180 @@ async def handle_user_info(db, user, classification, session, user_input):
             explanation_response = await explain_last_game_match(session=session)
             return explanation_response
     
+async def classify_intent(user_input, memory_context_str):
+    prompt = f"""
+        You are a conversation intent classifier for a tone-sensitive assistant called Thrum.
+
+        USER MEMORY & RECENT CHAT:
+        {memory_context_str if memory_context_str else 'No prior user memory or recent chat.'}
+        User message: "{user_input}"
+
+        Classify the message as one of:
+        - SMALLTALK
+        - META_FAQ
+        - GENRE_REQUEST
+        - PLATFORM_REQUEST
+        - GAME_DISCOVERY
+        - REJECTION
+        - VAGUE
+        - OTHER
+
+        Reply ONLY with the label.
+        """    
+    try:
+        response = await client.chat.completions.create(
+            model=model,
+            messages=[
+                {"role": "user", "content": prompt.strip()}
+            ],
+            temperature=0,
+        )
+        res = response.choices[0].message.content
+        if not res:
+            return "OTHER"
+        res = res.strip().upper()
+        return res.strip()
+    except Exception as e:
+        print(f"Error classifying intent: {e}")
+        return "OTHER"
+    
+
+async def build_smalltalk_prompt(user_input, tone):
+    return f"""
+    {GLOBAL_USER_PROMPT}
+    ---------
+THRUM — SMALLTALK MOMENT
+
+User said: "{user_input}"  
+Tone: {tone}
+
+→ The user just sent a casual or emotionally open message — this counts as SMALLTALK.  
+→ No request for a game. No strong intent. Just light conversation, vibe, or emotional check-in.  
+
+Your job:
+→ Mirror their emotional tone naturally — like a real friend.  
+→ Use recent memory if it fits (mood, last chat, genre, vibe), but only lightly.  
+→ Never reset the thread. Never suggest a game — unless discovery was already active.  
+→ NEVER start with “hey [name]” or use generic phrasing.  
+→ NEVER reuse lines, emoji, sentence structure, or rhythm from earlier replies in the conversation.  
+→ Every reply must feel fresh, real, and human like a close friend.
+
+Length: Max 2 sentences.  
+If the mood feels open, you may drop a **subtle curiosity hook** (not a pitch).  
+If not, just stay present and emotionally real.
+
+Goal: Keep the emotional rhythm alive — like texting with someone who gets you.
+"""
+
+async def build_meta_prompt(user_input, tone):
+    return f"""
+    {GLOBAL_USER_PROMPT}
+    ---------
+THRUM — META MOMENT
+
+User asked: "{user_input}"  
+Tone: {tone}  
+
+→ This is a question about what you are, what you do, or how you work.  
+→ Reply like a close friend would — short, chill, and human.  
+→ Mention mood, genre, or platform only if you *naturally know it* from memory or recent chat.  
+→ NEVER list features. NEVER use FAQ tone. NEVER repeat phrasing from earlier replies.  
+→ Do NOT suggest a game — unless discovery was already active.  
+→ Maximum 3 lines. Every phrasing must feel emotionally real and rhythmically different.
+
+Goal: Make the user curious — not sold. Make them want to keep talking.
+"""
+
+async def build_genre_prompt(user_input, memory):
+    seen = memory.get("genre", [])
+    return f"""
+    {GLOBAL_USER_PROMPT}
+    ---------
+THRUM — GENRE REQUEST
+
+User asked: "{user_input}"  
+Genres they've already seen: {seen}  
+
+→ Suggest 4–5 genres that Thrum supports — but avoid repeating any from memory or recent chats.  
+→ Use {seen} to exclude genres they’ve already encountered.  
+→ Ask casually which one sounds fun — like a close friend would, not like a filter list.  
+→ DO NOT suggest a specific game. This is about opening up curiosity.  
+→ Keep the tone natural, rhythmic, and warm — no bullet lists or static phrasing.
+
+Goal: Re-open discovery through curiosity. Make them lean in — not scroll past.
+"""
+
+async def build_platform_prompt(user_input):
+    return f"""
+    {GLOBAL_USER_PROMPT}
+    ---------
+THRUM — PLATFORM REPLY
+
+User asked: "{user_input}"  
+
+→ Thrum works with PC, PS4, PS5, Xbox One, Series X/S, Nintendo Switch, iOS, Android, Steam, Game Pass, Epic Games Store, Ubisoft+, and more.  
+→ Only list platforms if it fits the flow — make it feel like a casual flex, not a bullet point.  
+→ End with something warm — maybe ask what they’re playing on these days, or what’s been fun about it.
+
+Goal: Make the platform chat feel personal — not like a settings menu.
+"""
+
+async def build_vague_prompt(user_input, tone):
+    return f"""
+    {GLOBAL_USER_PROMPT}
+    ---------
+THRUM — VAGUE OR UNCLEAR INPUT
+
+User said: "{user_input}"  
+Tone: {tone}
+
+→ The user just sent a vague input — something short, low-effort, or emotionally flat.  
+→ It might reflect boredom, indecision, or quiet frustration.  
+→ Your job is to keep the emotional thread alive without pushing or asking for clarification.  
+→ Mirror their tone gently. Stay emotionally present like how friends would do.  
+→ DO NOT ask “what do you mean?” or suggest a game.  
+→ Use warmth, quiet humor, or light reflection — like a close friend who’s fine sitting in the silence.
+
+Goal: Defuse the fog. Keep the door open. Let them lean in when they’re ready.
+"""
+
+async def build_default_prompt(user_input):
+    return f"""
+    {GLOBAL_USER_PROMPT}
+    ---------
+    THRUM — DEFAULT CATCH
+
+    User said: "{user_input}"  
+
+    → The user’s message doesn’t match any known intent — but it still matters.  
+    → Reply like a close friend who’s keeping the conversation alive, even without a clear topic.  
+    → Mirror any tone you can detect — even if it’s vague.  
+    → Never reset the conversation or sound like a system.  
+    → Use warmth, curiosity, or light humor to hold the connection open.  
+    → Do NOT suggest a game unless discovery was already in progress.  
+    → Do NOT repeat phrasing, emoji, or sentence structure from earlier replies.  
+    → Keep it natural, real, and emotionally alive — like a true friend would.
+
+    Goal: Protect the vibe until the next move becomes clear. Make them feel seen, even when they don’t say much."""
 
 async def handle_other_input(db, user, session, user_input: str) -> str:
-    """
-    Builds a user_prompt for format_reply() when the user's input is vague, emotional,
-    reactive, or general (e.g., 'hello?', 'what?', 'explain?', etc.).
+    session_memory = SessionMemory(session)
+    memory = session_memory.to_prompt()
+    intent = await classify_intent(user_input, memory)
+    tone = session.meta_data.get("tone", "neutral")
 
-    Guides GPT to interpret the input using prior Thrum reply context and respond
-    warmly, intelligently, and concisely.
-    """
-    
-    user_prompt = (
-        f"{GLOBAL_USER_PROMPT}\n"
-        f"The user just said: “{user_input}”\n"
-        f"Instructions for Thrum:\n"
-        f"- STRICT INSTRUCTION :never repeat the same lines, emoji or wordings as last time. each time the message should be unique and fresh.\n"
-        f"- Do not start with hey then name, make it unique each time.\n"
-        f"- do not ever suggest the different game if on your own.\n"
-        f"- Treat every input as valid — from direct questions (about games, platforms, Thrum itself, or life), to casual talk, jokes, doubts, or even random comments.\n"
-        f"- Always reply with human warmth, empathy, and confidence — like a real friend, never a bot.\n"
-        f"- Use all available context: user's profile (name, platform, genre, vibe), recent conversation, and the emotional tone of their message.\n"
-        f"- For greetings or small talk (e.g., 'how are you?', 'what's up?'), reply naturally with a touch of personality, never stiff or scripted.\n"
-        f"- For meta or challenging questions (e.g., 'why are you so sure?', 'are you real?'), reply honestly and playfully — own your confidence, but make it human.\n"
-        f"- If you detect confusion, frustration, or negativity, acknowledge it gently before moving forward. Never sound apologetic or formal.\n"
-        f"- If the user asks about the available genres, Respond with a rotating selection of genres Thrum supports. Don't repeat the full list. Pick ones the user hasn't seen yet if possible.\n"
-        f"- If the user asks to try different genres or ask to recommend game for different genre, then ask them to clarify which genre they want you can use some of the available genres, Respond with a rotating selection of genres Thrum supports. Don't repeat the full list. Pick ones the user hasn't seen yet if possible.\n"
-        f"- If the user asks about the available platforms, respond by listing some of the platforms you support: PC, PS4, PS5, Xbox One, Xbox Series X/S, Nintendo Switch, iOS, Android.\n"
-        f"- If the input is unclear or vague, respond kindly, keep the convo going, but never demand clarification unless the user seems open to it.\n"
-        f"- Always keep replies short (max 2 sentences, 12-18 words). Never repeat yourself or sound generic.\n"
-        f"- Ask questions only if it fits the flow or keeps the chat real, like how friends talk in whatsapp — like how a friend would do it in a fun way to keep the conversation engaging.\n"
-        f"- If the casual conversation about all sorts of topics beyond gaming seems to be wrapping up, and the user's mood feels open, suggest in a fun but warm way shifting to game discovery to continue further — but only if it feels natural, like how friends would do over whatsapp. Use USER MEMORY & RECENT CHAT to decide.\n"
-        f"- Your goal: Be Thrum — real, lively, supportive, a little witty, and always in tune with the user's vibe, for any topic or mood."
-        f"- don't suggest a game on your own if there is no game found.\n"
-        )
-
-    return user_prompt
+    if intent == "SMALLTALK":
+        return await build_smalltalk_prompt(user_input, tone)
+    elif intent == "META_FAQ":
+        return await build_meta_prompt(user_input, tone)
+    elif intent == "GENRE_REQUEST":
+        return await build_genre_prompt(user_input, memory)
+    elif intent == "PLATFORM_REQUEST":
+        return await build_platform_prompt(user_input)
+    elif intent == "VAGUE":
+        return await build_vague_prompt(user_input, tone)
+    else:
+        return await build_default_prompt(user_input)
 
 async def dynamic_faq_gpt(session, user_input=None):
     """

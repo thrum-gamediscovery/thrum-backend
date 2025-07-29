@@ -205,6 +205,15 @@ async def handle_game_inquiry(db: Session, user, session, user_input: str) -> st
         gp_row = db.query(GamePlatform).filter_by(game_id=game_id, platform=platform_preference).first()
         if gp_row:
             platform_link = gp_row.link  # This is the URL/link for the user's preferred platform
+    else:
+        print(f"`No preferred platform found for user #############`")
+        gp_row = (
+            db.query(GamePlatform)
+            .filter(GamePlatform.game_id == game_id, GamePlatform.link.isnot(None))
+            .first()
+        )
+        platform_link = gp_row.link if gp_row else None
+
     # Check if already recommended
     recommended_ids = set(
         str(r[0]) for r in db.query(GameRecommendation.game_id).filter(
@@ -269,7 +278,7 @@ async def handle_game_inquiry(db: Session, user, session, user_input: str) -> st
                 → If the user asks about a platform or store link, drop it inside a natural, friend-style sentence — no formatting, no 'click here'. It should sound like something casually texted, not delivered as info.
                 → Always add a link of a platform, website or a store
                 → End with a curiosity ping that fits the tone of the chat — it should feel like a real friend nudging them to go try it now. If a platform or store link is available, always include it inside the sentence in a natural, unformatted way — the way someone would text it. No “click here.” No instructions. Just drop it casually in flow. Use their emotional tone — chill, hype, dry, chaotic — and speak like someone excited to see what happens next.
-
+                → If the user's input shows they want more info, and a link is available (not shared before and not None), casually include the link in your reply the way a friend would—never with robotic phrases like “click here” or “check this out.”
                 Reference:
                 - Title: {game_info['title']}
                 - Description: {game_info['description']}
@@ -286,7 +295,7 @@ async def handle_game_inquiry(db: Session, user, session, user_input: str) -> st
         GameRecommendation.user_id == user.user_id,
         GameRecommendation.session_id == session.session_id).order_by(GameRecommendation.timestamp.desc()).first()
         
-        if last_rec.game.game_id == game_id:
+        if str(last_rec.game.game_id) == game_id:
             # If the last recommended game is the same as the one being inquired about, return a follow-up prompt
             
             session.phase = PhaseEnum.FOLLOWUP
@@ -310,6 +319,8 @@ async def handle_game_inquiry(db: Session, user, session, user_input: str) -> st
                 → If no platform or store link exists and they asked, reply casually — as if you were texting a friend who just asked. Be warm, dry, or playful depending on their tone. Never list, explain, or apologize. Just keep it flowing naturally like “huh, maybe not there tho” — but always write your own version.
                 → End with a warm follow-up or curiosity ping that invites the user to reply again — never flat.
                 → NEVER pitch or repeat the earlier recommendation. Don’t list features. Don’t sound like you’re teaching.
+                → if link is not provided before and is not None then you must provide the link:{platform_link} in the response, casually like a friend would do.(not like a bot like "click here" or "check this out")
+
 
                 Use this Reference to guide your answer:
                 - Title: {game_info['title']}
@@ -340,6 +351,7 @@ async def handle_game_inquiry(db: Session, user, session, user_input: str) -> st
                 → Emotionally validate their interest — as if it’s a personal memory between friends.
                 → Drop one fresh take, short and sparkly. Mention platform only if asked.
                 → End with a soft nudge that fits the tone of the chat — something that feels like your friend is still into the convo and just keeping it going. Could be curious, teasing, or low-key reflective. Never a templated question. Always a fresh, emotionally in-character line that flows from what just happened.
+                → if link is not provided before and is not None then you must provide the link in the response, casually like a friend would do.(not like a bot like "click here" or "check this out")
 
                 Reference:
                 - Title: {game_info['title']}
