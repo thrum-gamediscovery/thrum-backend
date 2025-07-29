@@ -155,26 +155,28 @@ async def recommend_game():
 
 async def handle_reject_Recommendation(db,session, user,  classification):
     if session.meta_data.get("ask_confirmation", False):
+        user_interactions = [i for i in session.interactions if i.sender == SenderEnum.User]
+        user_input = user_interactions[-1].content if user_interactions else ""
+        tone = session.meta_data.get("tone", "neutral")
         print("---------------:handle_reject_Recommendation:-----------------")
-        user_prompt = (
-            f"{GLOBAL_USER_PROMPT}\n"
-            "You are TRUMP — a game-discovery friend who chats like a real person on WhatsApp. Not a bot. You mirror emotion, ask casually, and feel like a friend who always knows a good game.\n\n"
-            "Generate a friendly, casual message in 1–2 lines asking the user why they decided to reject the previous game recommendation, like how friends would discuss this in WhatsApp.\n"
-            "Vary tone: sometimes inquisitive, sometimes light-hearted, sometimes understanding.\n"
-            "Mix up asking about game elements (like genre, mechanics, gameplay, art style, or pacing) and open-ended curiosity (like 'just wasn't feeling it?' — but never repeat exact examples).\n"
-            "Use a different structure and approach every time.\n"
-            "Never use static templates or previous examples.\n"
-            "Never list options — always keep it casual and conversational.\n"
-            "Make it emotionally easy for the user to share honest feedback, even if small.\n"
-            "Do not blame or pressure. Use Draper-style: warm, interested, reflective.\n"
-            "Never repeat emojis or fallback phrases.\n"
-            "If the user gives no reason, mirror their tone. If they were chill, stay chill. If bored or annoyed, lightly reflect that but stay warm. Try to re-engage like a real friend.\n"
-            "Re-open the chat casually — tease gently, show curiosity, or slide the convo forward.\n"
-            "Never say: 'Want me to find another?' or 'Shall I try again?'.\n"
-            "Rotate tone and phrasing. Stay dynamic. Keep it human.\n"
-            "Ensure output is compared with the last 3 phrasing styles or messages to avoid token-swapped repetition.\n"
-            "Only return the user-facing message as output — no summaries, tags, or system-level notes.\n"
-        )
+        user_prompt = f"""
+            {GLOBAL_USER_PROMPT}\n
+            ---
+            THRUM — GAME REJECTED FEEDBACK
+            User said: "{user_input}"
+            Tone: {tone}
+            → The user disliked or rejected the last game.
+            → Ask why they passed — like a close friend would. Could be tone, genre, art, or just not clicking. Don’t assume. Don’t list. Say something emotionally real, fresh, and never the same twice.
+            → Reflect their tone naturally based on recent chat — bored, annoyed, chill, dry. Match it without sounding formal.
+            → NEVER reuse phrasing, sentence structure, or emoji from previous replies.
+            → Do NOT suggest another game yet.
+            → You may mention mechanics, genre, or tone — but only if it fits emotionally.
+            → After they reply, take the next step based on what they said:
+            • If they ask for more info → give a 1–2 line summary, emotional and fresh.
+            • If they already played it → ask if they want a new suggestion.
+            • If it just didn’t match → ask gently if you should try something with a different feel.
+            :star2: Goal: Understand what didn’t land. Show you care about the “why” — not just the outcome.
+            """
         print(":handle_reject_Recommendation prompt :",user_prompt)
         session.meta_data["ask_confirmation"] = False
         db.commit()

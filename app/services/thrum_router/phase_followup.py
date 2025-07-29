@@ -250,11 +250,18 @@ async def handle_game_inquiry(db: Session, user, session, user_input: str) -> st
             → Mention platform only if asked — keep it natural and never system-like.
             → End with a fun soft-pitch or question to re-engage their interest without pushing.
 
-            Reference:
-            - Title: {game_info['title']}
-            - Emotion: {game_info['emotion']}
-            - Mood: {game_info['mood_tags']}
-            - Platform Link: {game_info['platform_link']}
+            Use this Reference to guide your answer:
+                - Title: {game_info['title']}
+                - Description: {game_info['description']}
+                - Genre: {game_info['genre']}
+                - Vibes: {game_info['vibes']}
+                - Complexity: {game_info['complexity']}
+                - Visual Style: {game_info['visual_style']}
+                - Story Focus: {game_info['story_focus']}
+                - Emotional Fit: {game_info['emotion']}
+                - Mood Tags: {game_info['mood_tags']}
+                - Platforms: {game_info['platforms']}
+                - Platform Link: {game_info['platform_link']}
             """
         return user_prompt
     # If user inquires about a game they already liked
@@ -279,11 +286,16 @@ async def handle_game_inquiry(db: Session, user, session, user_input: str) -> st
                 → Always add a link of a platform, website or a store
                 → End with a curiosity ping that fits the tone of the chat — it should feel like a real friend nudging them to go try it now. If a platform or store link is available, always include it inside the sentence in a natural, unformatted way — the way someone would text it. No “click here.” No instructions. Just drop it casually in flow. Use their emotional tone — chill, hype, dry, chaotic — and speak like someone excited to see what happens next.
                 → If the user's input shows they want more info, and a link is available (not shared before and not None), casually include the link in your reply the way a friend would—never with robotic phrases like “click here” or “check this out.”
-                Reference:
+                Use this Reference to guide your answer:
                 - Title: {game_info['title']}
                 - Description: {game_info['description']}
-                - Visuals: {game_info['visual_style']}
+                - Genre: {game_info['genre']}
                 - Vibes: {game_info['vibes']}
+                - Complexity: {game_info['complexity']}
+                - Visual Style: {game_info['visual_style']}
+                - Story Focus: {game_info['story_focus']}
+                - Emotional Fit: {game_info['emotion']}
+                - Mood Tags: {game_info['mood_tags']}
                 - Platforms: {game_info['platforms']}
                 - Platform Link: {game_info['platform_link']}
             """.strip()
@@ -304,28 +316,17 @@ async def handle_game_inquiry(db: Session, user, session, user_input: str) -> st
             user_prompt = f"""
                 {GLOBAL_USER_PROMPT}
                 ---
-
-                🚨 THRUM — FRIEND MODE: GAME FOLLOW-UP
-
-                The user already got recommended **{game_info['title']}**, and now they’re asking more: “{user_input}”
-
-                → You are THRUM — a real friend, not a chatbot. Emotionally tuned, tone-matching, rhythm-aware.
-                → The user is engaged. This is your chance to keep the spark going — casually, vividly, never robotic.
-
-                Your task:
-                → Drop one or two new lines about the game — different from anything shared before. Make it vivid, emotional, short (max 25–30 words).
-                → Mirror their tone from earlier messages — hype means hype, dry means dry. Respond with emotional memory, not explanation or system logic.
-                → If they asked about platforms, stores, or links — mention it casually like a friend would. Drop the link or platform inside the sentence, the way people do on WhatsApp. Never say “click here”, never format it, never explain it.
-                → If no platform or store link exists and they asked, reply casually — as if you were texting a friend who just asked. Be warm, dry, or playful depending on their tone. Never list, explain, or apologize. Just keep it flowing naturally like “huh, maybe not there tho” — but always write your own version.
-                → End with a warm follow-up or curiosity ping that invites the user to reply again — never flat.
-                → NEVER pitch or repeat the earlier recommendation. Don’t list features. Don’t sound like you’re teaching.
-                → if link is not provided before and is not None then you must provide the link:{platform_link} in the response, casually like a friend would do.(not like a bot like "click here" or "check this out")
-
-
+                → The user wants more info about the suggested game — maybe where to play, what it’s about, how it feels, or who made it.
+                → Answer like a real friend would: warm, real, and in the flow. Never robotic.
+                → Weave in details casually — no lists, no formal phrasing. Just vibe through it.
+                → Drop a store or platform link — but slide it in naturally. Say it like you’d send a link to a friend, not like a pop-up message.
+                → Feel free to build light hype — a bit of excitement, a dash of curiosity — but never oversell.
+                → Vary rhythm, phrasing, and sentence structure every time. No recycled emoji, tone, or templates.
+                :star2: Goal: Make it feel like you're texting someone who just asked “wait, what’s this game?” — and you’re giving them the scoop with a grin.
                 Use this Reference to guide your answer:
                 - Title: {game_info['title']}
                 - Description: {game_info['description']}
-                - Genre: {game_info['genre']}n
+                - Genre: {game_info['genre']}
                 - Vibes: {game_info['vibes']}
                 - Complexity: {game_info['complexity']}
                 - Visual Style: {game_info['visual_style']}
@@ -353,10 +354,17 @@ async def handle_game_inquiry(db: Session, user, session, user_input: str) -> st
                 → End with a soft nudge that fits the tone of the chat — something that feels like your friend is still into the convo and just keeping it going. Could be curious, teasing, or low-key reflective. Never a templated question. Always a fresh, emotionally in-character line that flows from what just happened.
                 → if link is not provided before and is not None then you must provide the link in the response, casually like a friend would do.(not like a bot like "click here" or "check this out")
 
-                Reference:
+                Use this Reference to guide your answer:
                 - Title: {game_info['title']}
-                - Emotion: {game_info['emotion']}
+                - Description: {game_info['description']}
+                - Genre: {game_info['genre']}
                 - Vibes: {game_info['vibes']}
+                - Complexity: {game_info['complexity']}
+                - Visual Style: {game_info['visual_style']}
+                - Story Focus: {game_info['story_focus']}
+                - Emotional Fit: {game_info['emotion']}
+                - Mood Tags: {game_info['mood_tags']}
+                - Platforms: {game_info['platforms']}
                 - Platform Link: {game_info['platform_link']}
                 """.strip()
             return user_prompt

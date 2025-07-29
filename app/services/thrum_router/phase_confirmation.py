@@ -6,9 +6,9 @@ from datetime import datetime, timedelta
 from sqlalchemy import Boolean
 from app.utils.whatsapp import send_whatsapp_message
 from app.services.modify_thrum_reply import format_reply
-import json
 from sqlalchemy.orm.attributes import flag_modified
-from app.services.session_memory import SessionMemory
+from app.db.models.game import Game
+from app.db.models.game_platforms import GamePlatform
 from app.services.general_prompts import GLOBAL_USER_PROMPT
 from app.services.central_system_prompt import THRUM_PROMPT
 
@@ -27,8 +27,34 @@ async def handle_confirmed_game(db, user, session):
     - Keep it playful, curious, or chill based on their tone
     """
     game_title = session.last_recommended_game
+    game_id = db.query(Game).filter_by(title=game_title).first().game_id if game_title else None
     tone = session.meta_data.get("tone", "friendly")
-    
+    user_input = session.interactions[-1].content if session.interactions else ""
+    platform_rows = db.query(GamePlatform.platform).filter_by(game_id=game_id).all()
+    platform_list = [p[0] for p in platform_rows] if platform_rows else []
+    # Get user's preferred platform (last non-empty entry in the array)
+    platform_preference = None
+    if session.platform_preference:
+        non_empty = [p for p in session.platform_preference if p]
+        if non_empty:
+            platform_preference = non_empty[-1]
+    else:
+        gameplatform_row = db.query(GamePlatform).filter_by(game_id=game_id).first()
+        platform_preference = gameplatform_row.platform
+    # Fetch the platform link for that game and platform
+    platform_link = None
+    if platform_preference:
+        gp_row = db.query(GamePlatform).filter_by(game_id=game_id, platform=platform_preference).first()
+        if gp_row:
+            platform_link = gp_row.link  # This is the URL/link for the user's preferred platform
+    else:
+        print(f"`No preferred platform found for user #############`")
+        gp_row = (
+            db.query(GamePlatform)
+            .filter(GamePlatform.game_id == game_id, GamePlatform.link.isnot(None))
+            .first()
+        )
+        platform_link = gp_row.link if gp_row else None
     # Get memory context for personalization
     memory_context = ""
     if session.meta_data:
@@ -38,44 +64,38 @@ async def handle_confirmed_game(db, user, session):
         genre_dislikes = session.meta_data.get("genre_dislikes", [])
         
         memory_context = f"""
-Memory context:
-- Name: {name}
-- Platform: {platform}
-- Likes: {genre_likes}
-- Dislikes: {genre_dislikes}
-- User tone: {tone}
-"""
+            Memory context:
+            - Name: {name}
+            - Platform: {platform}
+            - Likes: {genre_likes}
+            - Dislikes: {genre_dislikes}
+            - User tone: {tone}
+            """
     
     if not session.meta_data.get("played_yet", False):
+        
         # First time accepting this game
         user_prompt = f"""
-{THRUM_PROMPT}
-
-SITUATION: User just accepted **{game_title}**.
-{memory_context}
-
-BEHAVIOR RULES:
-→ 1–2 lines max. Keep it playful, curious, or chill — whatever matches their tone ({tone}).
-→ Never say "I'll check in" or "I'll follow up later" — that's fake-friend energy.
-→ Always invite *them* to share back later — keep it light, not needy, like how friends would ask.
-→ You can mention there might be more like this — "If that one clicks, there's more where that came from" — but never pitch.
-
-WHAT NEVER TO DO:
-❌ Don't say "Hope you enjoy" or "Thanks for accepting" — too robotic.
-❌ Don't ask "Want another?" — that's system logic.
-❌ Don't suggest another game immediately.
-❌ Don't recycle emoji, phrasing, or sentence rhythm from earlier replies.
-
-VIBE: Like a friend who just got a nod and smiles — warm, curious, emotionally vivid.
-You're not closing the chat — you're leaving the door open by asking the kind of question that makes someone want to answer later.
-
-Examples of the invite-back style (don't copy exactly):
-- "Let me know how it hits when you've played it."
-- "Curious what you think after a few minutes in."
-- "Lmk if it actually slaps or just looks good 😅"
-
-Match their {tone} tone and create a moment that feels like a real friend celebrating with them.
-""".strip()
+            {GLOBAL_USER_PROMPT}\n
+            ---
+            THRUM — GAME LIKED FEEDBACK
+            User said: "{user_input}"
+            Tone: {tone}
+            → The user liked the game you recommended.
+            → Respond like a close friend — curious, warm, and totally in the moment.
+            → First: ask what made it click — gameplay, tone, mechanics, art, pace — whatever fits. Make it sound emotionally real, not scripted.
+            → Mirror their tone: dry? Teasing? Hyped? Chill? Match it naturally.
+            → Do NOT reuse lines, phrasing, or emojis from earlier. Every reply must be new in rhythm and structure.
+            → No structured list — just talk like someone who *gets* them.
+            → Once they reply, reflect back in Draper style — warm, sharp, and emotionally tuned to what they shared — and slide the follow-up into the same message, keeping the rhythm natural and human:
+            • If platform is known: casually offer a direct link ("Wanna play it on {platform_preference}? Here’s where to grab it.")  
+            - Platform link: {platform_link if platform_link else "No link available"}
+            • If platform is unknown: offer 1–2 likely platform options based on availability. Ask like a friend who’s just excited to help.
+                Examples:
+                - “Think it’d slap harder on mobile or Game Pass?”
+                - “Wanna try it on Steam or Switch?”
+            :star2: Goal: Make them feel seen. Use this moment to bond deeper — and casually invite them to play if the vibe feels open.
+        """.strip()
         
         # Mark that we've handled first acceptance
         if session.meta_data is None:
@@ -85,21 +105,25 @@ Match their {tone} tone and create a moment that feels like a real friend celebr
     else:
         # They've played and are giving feedback
         if session.meta_data.get("ask_confirmation", True):
-            user_prompt = f"""
-{THRUM_PROMPT}
-
-SITUATION: User confirmed they liked **{game_title}**.
-{memory_context}
-
-Ask in a warm, conversational way what they enjoyed most about it.
-→ Keep question short—just 1-2 lines
-→ Match their {tone} tone
-→ Vary phrasing each time; never repeat previous wording
-→ Be genuinely curious like a friend who wants to hear the story
-→ Don't suggest a game on your own if there is no game found
-
-Return only the new user-facing message.
-""".strip()
+            user_prompt = (f"""
+                {GLOBAL_USER_PROMPT}\n
+                ---
+                THRUM — GAME ALREADY PLAYED
+                User said: "{user_input}"
+                Tone: {tone}
+                → The user already played the game you recommended.
+                → Ask casually how they felt about it — gameplay, vibe, story, pace — whatever fits. Don’t assume they liked or disliked it.
+                → Mirror their tone: dry? nostalgic? hype? Reflect it naturally.
+                → NEVER reuse lines, sentence rhythm, or emoji from earlier.
+                → Use Draper style — curious, sharp, tuned in emotionally.
+                → Once they answer, follow up lightly: ask if they’re open to something similar — a follow-up rec, same vibe, or something adjacent.
+                → Don’t ask “do you want another?”
+                → Ask like a close friend would:
+                - “Want me to find something with that same vibe?”
+                - “Wanna see what else kinda hits like that?”
+                - “Feel like playing something in that zone again?”
+                :star2: Goal: Use their memory as the hook — reflect back emotionally, then glide into a similar recommendation request like a friend who gets their taste.
+            """)
             
             session.meta_data["ask_confirmation"] = False
             
@@ -125,7 +149,8 @@ Return only the new user-facing message.
         session.meta_data = {}
     
     # Set default values
-    if "dont_give_name" not in session.meta_data:
+    if "dont_give_name" not in session.meta_data and not session.meta_data.get("ask_for_rec_friend", True):
+        print("Setting default metadata for session")
         session.meta_data["dont_give_name"] = False
     if 'ask_for_rec_friend' not in session.meta_data:
         session.meta_data['ask_for_rec_friend'] = True

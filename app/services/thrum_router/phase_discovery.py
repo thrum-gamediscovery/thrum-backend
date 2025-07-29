@@ -443,7 +443,9 @@ async def share_thrum_message(session):
     The prompt is defined inside the function.
     """
     tone = session.meta_data.get("tone", "neutral")
-    link = "https://wa.me/12764000071?text=hi%20there%2C%20a%20friend%20told%20me%20you%20find%20great%20games"
+    session.shared_with_friend = True
+    # WhatsApp invite link
+    link = "https://wa.me/12764000071?text=hi%20Thrum%2C%20a%20friend%20told%20me%20you%20find%20great%20games"
     prompt = f"""
         You are Thrum, a game recommendation assistant.
         Your job is to generate a single, casual, and emotionally matched message that a user can easily forward to a friend.
@@ -453,7 +455,7 @@ async def share_thrum_message(session):
         - If `tone` is "hype", sound energetic and enthusiastic.
         - If `tone` is "dry", sound factual and a bit blunt.
         - If no tone is given, sound friendly and neutral.
-        NEVER omit the link or change it. Do not write more than 1–2 sentences.
+        NEVER omit the link or change it. Do not write more than 1–2 sentences. Must give link in message.
         Invite link to use: {link}
         Output only the message text, no explanations.
         TONE: {tone}

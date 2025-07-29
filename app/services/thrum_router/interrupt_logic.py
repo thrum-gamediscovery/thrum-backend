@@ -53,8 +53,11 @@ async def check_intent_override(db, user_input, user, session, classification, i
         return await handle_confirmed_game(db, user, session)
     
     elif classification_intent.get("want_to_share_friend"):
-        session.phase = PhaseEnum.DISCOVERY
-        return await share_thrum_message(session)
+        if session.shared_with_friend:
+            classification_intent["Other"] = True
+        else:
+            session.phase = PhaseEnum.DISCOVERY
+            return await share_thrum_message(session)
     
     elif classification_intent.get("Greet"):
         session.phase = PhaseEnum.INTRO
