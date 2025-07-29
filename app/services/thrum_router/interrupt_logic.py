@@ -14,9 +14,6 @@ async def check_intent_override(db, user_input, user, session, classification, i
     classification_intent = await classify_user_intent(user_input=user_input, session=session)
     intrection.classification = {"input" : classification, "intent" : classification_intent}
     db.commit()
-
-    print(f"ask_for rec friend {session.meta_data.get('ask_for_rec_friend')}")
-    print(f"ask_for rec friend condition {session.meta_data.get('ask_for_rec_friend') and (classification_intent.get('Give_Info') or classification_intent.get('Other'))}")
     if session.meta_data.get("ask_for_rec_friend")  and (classification_intent.get("Give_Info") or classification_intent.get("Other")):
         session.meta_data["ask_for_rec_friend"] = False
         session.phase = PhaseEnum.DISCOVERY

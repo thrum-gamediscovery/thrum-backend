@@ -143,6 +143,7 @@ async def ask_for_name_if_needed():
     ).all()
 
     for s in sessions:
+        s = db.query(Session).filter(Session.session_id == s.session_id).one()
         user = s.user
          # ✅ EARLY SKIP if flag is already True (safety net)
         if s.meta_data.get("dont_give_name", True):
@@ -157,6 +158,7 @@ async def ask_for_name_if_needed():
                 s.meta_data["ask_for_rec_friend"] = True
                 flag_modified(s, "meta_data")
                 db.commit()
+                db.refresh(s) 
                 print(f"Session {s.session_id} :: Asking for name for user {user.phone_number} :: dont_give_name  {s.meta_data['dont_give_name']}")
                 user_interactions = [i for i in s.interactions if i.sender == SenderEnum.User]
                 last_user_reply = user_interactions[-1].content if user_interactions else ""

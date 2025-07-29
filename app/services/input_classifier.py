@@ -70,7 +70,9 @@ Carefully consider the context of the conversation and the specific tone or dire
 ### Here are the intents to classify:
 - **Greet**: Triggered when the user greets the bot. This intent is **must not be triggered** if Thrum’s last message was already a greeting.
 - **Phase_Discovery**: Triggered only if Thrum's last reply is a greeting message, and the user gives a positive response (e.g., affirmatives like "yeah", "cool", "okay", "let's go", "yup"). This intent indicates that the user is ready to proceed to the discovery phase (in which we are going to ask questions) without needing any further prompting.
-
+  - Phase_Discovery must be True when Thrum's last reply is a greeting message, and according the thrum's question user does not ask directly game recommendation or not asking for a game suggestion immediately, but rather giving information about their preferences or interests. if it is not clear that user want game immediately in the reply of greeting message then Phase_Discovery must be True.
+  -Phase_Discovery must be set to True when Thrum's last reply is a greeting and the user's response is not a direct request for a game suggestion. If the user’s reply does not clearly ask for a game, or simply shares a preference, mood, or gives a neutral/curious reply, always set Phase_Discovery to True.
+  
 - **Request_Similar_Game**: Triggered when the user asks for a game similar to one they already like or have played. This intent is activated when the user explicitly asks for a game that is similar to their preferences or past games. this intent is specifically for when the user is looking for a game that matches their previous interests or experiences, not just any game recommendation.
 
 - **Request_Quick_Recommendation**: Triggered when the user explicitly asks for a game suggestion at that time, OR asks for a suggestion on a different platform than last recommended, or asking for a game directly like "suggest a game","want a game", etc.
@@ -107,22 +109,17 @@ Carefully consider the context of the conversation and the specific tone or dire
     3. if the user has been asked that they want more information about game(in different phrase or words with this intention) and if they positively respond about they want the more information(not they like the game but want to know more) or they want to know more(then Inquire_About_Game must be true , Confirm_Game must be false in that case.), indicating they want to know more about it. The user expresses a desire to know more about a game, such as its features, gameplay mechanics, or storyline.
 
 - **Give_Info**: Triggered when the user provides information about their preferences, such as genre, mood, or game style. This includes providing keywords or short phrases like "action", "chill", or "strategy". The response should classify when the user provides any kind of self-description related to their preferences. if last thrum message is to ask about what user likes or dislikes about the game and user is giving the information about that then Give_Info should not be triggered.
-  - if the user input is containing any information about preferred genre, vibe, mood, or platform, and do not specify to want direct game then this Give_Info intent must be set to true.
-  
+  - If the user’s reply relates to Thrum’s previous question about preferences or interests—whether the user provides specific details, indicates uncertainty, or chooses not to answer—map the response to the question and set Give_Info to true, unless a direct game request is made.
+  - If the user input contains any information about preferred genre, vibe, mood, or platform, and does not specifically ask for a game, then Give_Info must be set to true.
+
 - **Share_Game**: Triggered when the user shows interest in sharing a game suggestion with others. This could include asking questions like "Can I share this with my friends?" or stating their intention to recommend a game to someone else.
 
 - **Opt_Out**: Triggered when the user opts out or indicates they no longer wish to continue the conversation. This intent is activated when phrases like "I'm done," "Stop," "Not interested," or "Leave me alone" are used to end or discontinue the conversation.
-
-- **Other_Question**: Triggered when the user asks any question related to themselves or about Thrum (for example, "what do you do?", "How are you?", "what makes you powerful" or any kind of general question).
 
 - **Confirm_Game**: Triggered when the user confirms their interest in a game that was previously recommended(if input is just "yes" then it might be for know more information depends on previous thrum message in that case Inquire_About_Game should be true.). The confirmation could be something like "like that game" or "I like that game." or "like that one" or similar to that, This is explicitly confirming the previous game suggestion, meaning that the user is showing interest in the exact game Thrum recommended they liked that. also triggered when user is giving the reason why they liked the game or what they liked about the game(so check thrum's last message and user's reply).
 
 - **want_to_share_friend**: Triggered when the user expresses a desire to share Thrum with friends. This intent is activated when the user says something like "I want to share this with my friends".
 
-- **Other**:  
-  Triggered for any input that doesn’t match the above categories, or when user is input is just an statement which shares some information about the game.  
-  This could include irrelevant or non-conversational responses, random input, or statements that do not fall within the intent framework.
-  
 - **Bot_Error_Mentioned:** The user indicates the bot is lost, confused, or not understanding them ("you are lost", "you do not hear me", "you don’t know me", "why do you suggest if you don’t know who I am", etc.).
 
 - **About_FAQ**: Triggered when the user asks about what Thrum does, how it works, who you are, or any general FAQ about the service. Examples:
@@ -137,19 +134,22 @@ Carefully consider the context of the conversation and the specific tone or dire
     - "how does Thrum find games?"
   Only set to true if the question is about Thrum or the game recommendation process itself.
 
----
+- **Other_Question**: Triggered when the user asks a question that is not directly related to game or recommendation.
 
+- **Other**:
+  Must Triggerd when chat is not relted to any game or game recommendation, or when user is giving information about game or user input is just an statement which is not include the intent for new or other game. so must check the user input and thrum's last message.
+  Triggered for any input that doesn’t match the above categories, or when user is input is just an statement which shares some information about the game.
+  This could include irrelevant or non-conversational responses, random input, or statements that do not fall within the intent framework.
+---
 **Guidelines:**
 - Focus on the **current context and user emotion**—is the user happy, confused, annoyed, or giving feedback? Reflect that in the intent.
 - Classify negative feedback about the bot as `Bot_Error_Mentioned` to enable better handling and recovery.
 - Use `Other_Question` only for meta-questions about user or bot.
 - Use `Other` **only** for irrelevant or off-topic input.
 - **Only one intent can be true per turn.** All others must be false.
-
 ---
-
 ### Steps for classification:
-1. **Look at Thrum’s last response** and consider the context — did Thrum greet the user, recommend a game, or ask for more information?
+1. **Must Look at Thrum’s last response** and consider the context — did Thrum greet the user, recommend a game, or ask for more information?
 2. **Identify the user’s intent** based on their response, matching it with the most relevant intent category.
 3. **Check for continuity** — If Thrum’s last message was a greeting, do not classify the user’s greeting as a "Greet". If Thrum gave a recommendation, check if the user confirms or rejects it.
 4. **Ensure exclusivity** — Set only one intent to true based on the user's response in the given context. The user may express multiple intents, but the classification should strictly match the most relevant one.
