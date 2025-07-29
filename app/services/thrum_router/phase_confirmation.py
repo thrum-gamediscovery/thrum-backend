@@ -149,7 +149,7 @@ Return only the new user-facing message.
         session.meta_data = {}
     
     # Set default values
-    if "dont_give_name" not in session.meta_data and not session.meta_data.get("ask_for_rec_friend", True):
+    if "dont_give_name" not in session.meta_data:
         print("Setting default metadata for session")
         session.meta_data["dont_give_name"] = False
     if 'ask_for_rec_friend' not in session.meta_data:
