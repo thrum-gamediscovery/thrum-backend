@@ -10,63 +10,126 @@ import json
 from sqlalchemy.orm.attributes import flag_modified
 from app.services.session_memory import SessionMemory
 from app.services.general_prompts import GLOBAL_USER_PROMPT
+from app.services.central_system_prompt import THRUM_PROMPT
 
 async def handle_confirmation(session):
     return await confirm_input_summary(session)
 
 async def handle_confirmed_game(db, user, session):
+    """
+    Handle when user accepts a game recommendation.
+    
+    Following client specs:
+    - 1-2 lines max
+    - Match user's emotional tone
+    - Ask them to share back later (creates emotional stickiness)
+    - Never say "hope you enjoy" or "thanks"
+    - Keep it playful, curious, or chill based on their tone
+    """
     game_title = session.last_recommended_game
+    tone = session.meta_data.get("tone", "friendly")
+    
+    # Get memory context for personalization
+    memory_context = ""
+    if session.meta_data:
+        name = session.meta_data.get("name", "")
+        platform = session.meta_data.get("platform", "")
+        genre_likes = session.meta_data.get("genre_likes", [])
+        genre_dislikes = session.meta_data.get("genre_dislikes", [])
+        
+        memory_context = f"""
+Memory context:
+- Name: {name}
+- Platform: {platform}
+- Likes: {genre_likes}
+- Dislikes: {genre_dislikes}
+- User tone: {tone}
+"""
+    
     if not session.meta_data.get("played_yet", False):
-        tone = session.meta_data.get("tone", "friendly")
+        # First time accepting this game
         user_prompt = f"""
+{THRUM_PROMPT}
 
-            THRUM — FRIEND MODE: GAME ACCEPTED
+SITUATION: User just accepted **{game_title}**.
+{memory_context}
 
-            User just accepted **{game_title}**.
-            You’re not a system — you’re their close friend. This is your win too.
+BEHAVIOR RULES:
+→ 1–2 lines max. Keep it playful, curious, or chill — whatever matches their tone ({tone}).
+→ Never say "I'll check in" or "I'll follow up later" — that's fake-friend energy.
+→ Always invite *them* to share back later — keep it light, not needy, like how friends would ask.
+→ You can mention there might be more like this — "If that one clicks, there's more where that came from" — but never pitch.
 
-            → Respond in 1–2 short lines.
-            → Reflect their tone ({tone}) — hype, chill, sarcastic, etc.
-            → Never say “hope you enjoy” or “thanks.”
-            → Be playful, warm, or proud — like a friend who feels the win too.
-            Say something real that celebrates the moment — a cheeky comment, a proud line, or a low-key fist bump.
-            Then drop a soft nudge to keep the chat going — like “you better tell me how it goes” or “should I check back on you in an hour?”
-            Don’t pitch. Don’t close, never templated. Just stay in the moment like a friend would.
+WHAT NEVER TO DO:
+❌ Don't say "Hope you enjoy" or "Thanks for accepting" — too robotic.
+❌ Don't ask "Want another?" — that's system logic.
+❌ Don't suggest another game immediately.
+❌ Don't recycle emoji, phrasing, or sentence rhythm from earlier replies.
 
+VIBE: Like a friend who just got a nod and smiles — warm, curious, emotionally vivid.
+You're not closing the chat — you're leaving the door open by asking the kind of question that makes someone want to answer later.
 
-            DON’T reset the conversation. Keep it alive and real.
-        """.strip()
-    else:
-        if session.meta_data.get("ask_confirmation", True):
-            user_prompt = (
-                f"{GLOBAL_USER_PROMPT}\n"
-                f"The user confirmed they liked the last recommended game.\n"
-                "Ask in a warm, upbeat, and conversational way what they enjoyed most about it. ask clear question yet different words or phrase with the same meaning.\n"
-                "Vary the phrasing each time; never repeat previous wording or use static templates."
-                "Keep your question short—just 1 or 2 lines."
-                "Return only the new user-facing message."
-                "Do not use emoji which is used in previous messages."
-                "don't suggest a game on your own if there is no game found."
-            )
-            session.meta_data["ask_confirmation"] = False
-            db.commit()
-        else:
-            user_prompt = (
-                f"{GLOBAL_USER_PROMPT}\n"
-                "user just confirmed they liked the last recommended game.\n"
-                "Reply in a warm, humble, and sweet manner, expressing happiness that the user liked the thrum's recommended game. Keep the message open and engaging, avoiding any language that closes or ends the conversation. Make the response concise—no more than one or two lines—and maintain a friendly, inviting tone."
-                "reply should not be more than 2 sentence or 25 words."
-                "Return only the new user-facing message."
-                "Do not use emoji which is used in previous messages."
-                "don't suggest a game on your own if there is no game found."
-            )
-    if session.meta_data is None:
+Examples of the invite-back style (don't copy exactly):
+- "Let me know how it hits when you've played it."
+- "Curious what you think after a few minutes in."
+- "Lmk if it actually slaps or just looks good 😅"
+
+Match their {tone} tone and create a moment that feels like a real friend celebrating with them.
+""".strip()
+        
+        # Mark that we've handled first acceptance
+        if session.meta_data is None:
             session.meta_data = {}
-    # Check if 'dont_give_name' is not in session.meta_data, and if so, add it
-    if "dont_give_name" not in session.meta_data :
+        session.meta_data["played_yet"] = True
+        
+    else:
+        # They've played and are giving feedback
+        if session.meta_data.get("ask_confirmation", True):
+            user_prompt = f"""
+{THRUM_PROMPT}
+
+SITUATION: User confirmed they liked **{game_title}**.
+{memory_context}
+
+Ask in a warm, conversational way what they enjoyed most about it.
+→ Keep question short—just 1-2 lines
+→ Match their {tone} tone
+→ Vary phrasing each time; never repeat previous wording
+→ Be genuinely curious like a friend who wants to hear the story
+→ Don't suggest a game on your own if there is no game found
+
+Return only the new user-facing message.
+""".strip()
+            
+            session.meta_data["ask_confirmation"] = False
+            
+        else:
+            user_prompt = f"""
+{THRUM_PROMPT}
+
+SITUATION: User confirmed they liked **{game_title}**.
+{memory_context}
+
+Reply in a warm, humble manner expressing happiness that they liked your recommendation.
+→ Keep message open and engaging
+→ Avoid language that closes or ends conversation
+→ No more than 2 sentences or 25 words
+→ Match their {tone} tone
+→ Make it feel like a friend who's genuinely happy their suggestion worked out
+
+Return only the new user-facing message.
+""".strip()
+    
+    # Initialize metadata if needed
+    if session.meta_data is None:
+        session.meta_data = {}
+    
+    # Set default values
+    if "dont_give_name" not in session.meta_data:
         session.meta_data["dont_give_name"] = False
     if 'ask_for_rec_friend' not in session.meta_data:
         session.meta_data['ask_for_rec_friend'] = True
+    
     db.commit()
     return user_prompt
 
