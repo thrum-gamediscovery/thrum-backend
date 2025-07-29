@@ -267,7 +267,7 @@ Goal: Make the user curious — not sold. Make them want to keep talking.
 """
 
 async def build_genre_prompt(user_input, memory):
-    seen = memory.get("genre", [])
+    seen = getattr(memory, "genre", [])
     return f"""
     {GLOBAL_USER_PROMPT}
     ---------
@@ -349,7 +349,7 @@ async def handle_other_input(db, user, session, user_input: str) -> str:
     elif intent == "META_FAQ":
         return await build_meta_prompt(user_input, tone)
     elif intent == "GENRE_REQUEST":
-        return await build_genre_prompt(user_input, memory)
+        return await build_genre_prompt(user_input, session_memory)
     elif intent == "PLATFORM_REQUEST":
         return await build_platform_prompt(user_input)
     elif intent == "VAGUE":
