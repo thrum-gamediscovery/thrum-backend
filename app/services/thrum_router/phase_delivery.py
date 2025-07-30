@@ -175,6 +175,7 @@ async def handle_reject_Recommendation(db,session, user,  classification):
             • If they ask for more info → give a 1–2 line summary, emotional and fresh.
             • If they already played it → ask if they want a new suggestion.
             • If it just didn’t match → ask gently if you should try something with a different feel.
+            → Never suggest a game on your own if there is no game found
             🌟  Goal: Understand what didn’t land. Show you care about the “why” — not just the outcome.
             """
         print(":handle_reject_Recommendation prompt :",user_prompt)
@@ -231,6 +232,7 @@ async def handle_reject_Recommendation(db,session, user,  classification):
                 → Use the description below to build a Draper-style hook that fits their current vibe: {description}
                 → Mention platform casually in the message: {platform_note}
                 → End with a line that keeps the chat alive — a soft nudge, tease, or question that fits the emotional rhythm.
+                → Never suggest a game on your own if there is no game found
 
                 DON’T:
                 - Apologize or explain

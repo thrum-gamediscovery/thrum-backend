@@ -96,6 +96,7 @@ async def handle_confirmed_game(db, user, session):
                 Examples:
                 - “Think it’d slap harder on mobile or Game Pass?”
                 - “Wanna try it on Steam or Switch?”
+             → Never suggest a game on your own if there is no game found
             🌟  Goal: Make them feel seen. Use this moment to bond deeper — and casually invite them to play if the vibe feels open.
         """.strip()
         
@@ -124,6 +125,7 @@ async def handle_confirmed_game(db, user, session):
                 - “Want me to find something with that same vibe?”
                 - “Wanna see what else kinda hits like that?”
                 - “Feel like playing something in that zone again?”
+                → Never suggest a game on your own if there is no game found
                 🌟  Goal: Use their memory as the hook — reflect back emotionally, then glide into a similar recommendation request like a friend who gets their taste.
             """)
             
@@ -197,6 +199,7 @@ async def ask_for_name_if_needed():
                     "Ensure it doesn’t feel forced, just a simple request to know their name.\n"
                     "Output only the question, no extra explanations or examples."
                     "Do not use emoji. Ask like Thrum wants to remember for next time."
+                    "→ Never suggest a game on your own if there is no game found"
                 )
                 
                 reply = await format_reply(session=s, user_input=last_user_reply, user_prompt=response_prompt)
@@ -227,7 +230,7 @@ async def generate_low_effort_response(session):
         → NEVER ask “do you want another?” or “should I try again?”  
         → NEVER repeat any phrasing, emoji, or fallback line from earlier chats.  
         → Let this feel like natural conversation drift — like two friends texting, one goes quiet, and the other drops a playful line or two to keep it going.  
-
+        → Never suggest a game on your own if there is no game found
         🌟 Goal: Reopen the door without sounding robotic. Be warm, real, and emotionally alert — like someone who cares about the moment to open the door to a new game discovery.
         """.strip()
     return user_prompt

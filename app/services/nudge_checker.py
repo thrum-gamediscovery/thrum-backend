@@ -101,7 +101,7 @@ async def check_for_nudge():
                 → NEVER ask “do you want another?” or “should I try again?”  
                 → NEVER repeat any phrasing, emoji, or fallback line from earlier chats.  
                 → Let this feel like natural conversation drift — like two friends texting, one goes quiet, and the other drops a playful line or two to keep it going.  
-
+                - Never suggest a new game on your own if there is no game found
                 🌟 Goal: Reopen the door without sounding robotic. Be warm, real, and emotionally alert — like someone who cares about the moment to open the door to a new game discovery.
             """
             

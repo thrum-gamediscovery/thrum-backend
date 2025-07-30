@@ -185,9 +185,48 @@ def is_session_idle_or_fading(session) -> bool:
 
     return False
 
-def detect_tone_shift(session) -> bool:
-    tones = [
-        i.tone_tag for i in session.interactions[-5:]
-        if i.tone_tag and i.sender == SenderEnum.User
-    ]
-    return len(set(tones)) > 1 if len(tones) >= 3 else False
+
+# Example: group similar engaged tones together
+ENGAGED_TONES = {"warm", "enthusiastic", "excited", "friendly", "playful", "curious", "cheerful", "encouraging"}
+DISENGAGED_TONES = {"cold", "bored", "disengaged", "impatient", "dismissive", "sarcastic", "vague"}
+
+def tone_group(tone_tag: str) -> str:
+    if tone_tag in ENGAGED_TONES:
+        return "engaged"
+    elif tone_tag in DISENGAGED_TONES:
+        return "disengaged"
+    else:
+        return "neutral"
+
+def detect_tone_shift(session, window: int = 5, disengage_threshold: int = 2) -> bool:
+    """
+    Detects a meaningful negative tone shift in recent user messages.
+    - window: How many recent user messages to check.
+    - disengage_threshold: Minimum number of 'disengaged' tones required to trigger a flag.
+    Returns True if a negative shift/disengagement is detected, else False.
+    """
+    if not hasattr(session, "interactions") or not session.interactions:
+        return False
+
+    # Get recent user interactions (latest first)
+    user_interactions = [i for i in session.interactions[-window:] if getattr(i, "sender", None) == SenderEnum.User.value]
+    if len(user_interactions) < 3:
+        return False  # Not enough data
+
+    # Map to tone groups
+    tone_groups = [tone_group(getattr(i, "tone_tag", "")) for i in user_interactions if getattr(i, "tone_tag", None)]
+
+    # Count disengaged tones in the window
+    disengaged_count = sum(1 for t in tone_groups if t == "disengaged")
+    engaged_count = sum(1 for t in tone_groups if t == "engaged")
+
+    # Rule: If at least `disengage_threshold` disengaged in recent window, and engaged is low, trigger shift
+    if disengaged_count >= disengage_threshold and engaged_count < disengage_threshold:
+        return True
+
+    # Optional: Trigger if the most recent 2-3 user tones are all "disengaged"
+    if tone_groups[-3:] == ["disengaged"] * 3:
+        return True
+
+    return False
+

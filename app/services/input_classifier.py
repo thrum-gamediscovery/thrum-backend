@@ -284,13 +284,13 @@ You must infer from both keywords and tone—even if the user is casual, brief, 
    → The user's first name. e.g., “I'm Alex” → "Alex".  
    → If not mentioned, return "None".
 
-2. mood (string)  
+2. mood (list of strings)  
    → Emotion or energy. e.g., relaxed, excited, tired, focused, bored, sad, hyped.  
    → Use tone, emojis, or even context like “long day” → “tired”.  
    → If unsure, return "None".
    → if user input contains mood from the given list, then directly return from this [happy,sad,angry,anxious,relaxed,excited,bored,focused,restless,playful,cozy,lonely,confident,insecure,curious,frustrated,romantic,tired,energized,melancholic,nostalgic,competitive,peaceful,social,introverted,extroverted,motivated,lazy,grateful,moody,overwhelmed,optimistic,pessimistic,calm,stressed,hopeful,ashamed,proud,guilty,shy,fearful,inspired,jealous,empathetic,creative,apathetic,sarcastic,weird,neutral,excitable]
    
-3. game_vibe (string)  
+3. game_vibe (list of strings)  
    → How the game should feel: relaxing, intense, wholesome, adventurous, spooky, cheerful, emotional, mysterious, dark, fast-paced, thoughtful.
    → If not mentioned, return "None".
    → if user directly give vibe then directly return from this [adventurous,beautiful,challenging,cheerful,comedic,contemplative,creative,dark,destructive,disconcerting,energetic,epic,exciting,ingenious,laidback,liberating,light-hearted,morbid,mysterious,optimistic,"power fantasy",relaxing,sentimental,serious,surreal,suspenseful,tragic,wholesome]
@@ -322,7 +322,7 @@ You must infer from both keywords and tone—even if the user is casual, brief, 
 → Your response must only be the game title as a string (no explanation or extra text).
 → If unclear or not mentioned, return "None".
   
-6. platform_pref (string)
+6. platform_pref (list of strings)
    → Use platform **exactly as provided** if it matches one of these:
      Android, Linux, Macintosh, "Meta Quest 2", "New Nintendo 3DS", "Nintendo 3DS",
      "Nintendo Switch", "Nintendo Switch 2", "Nintendo Wii U", "Oculus Quest",
@@ -353,7 +353,7 @@ You must infer from both keywords and tone—even if the user is casual, brief, 
    → “I skip cutscenes” = False.  
    → If unclear, return null.
 
-10. playtime_pref (string)(** strict rule**)
+10. playtime_pref (list of strings)(** strict rule**)
    → if the user input is like user not like the recommended game then 
    → When they usually play: evenings, weekends, mornings, after work, before bed, “in short breaks”.  
    → Detect direct and subtle mentions.  
@@ -394,7 +394,7 @@ You must infer from both keywords and tone—even if the user is casual, brief, 
    ]
    → Can be empty list if no feedback.
 
-13. find_game(title of the game)
+13. find_game(title of the game)(string)
    → if user is asking for a specific game title or name in last message, then put that game title in find_game variable
    → if user is specifying that find me game by giving the title of the game in last message then put that game in find_game variable
    → if user want specific game and give name or title for recommend (if user i saying something like"i don't like xyz game" then dont add that in this, only add when you find user want this specific game or want to know about this game)
@@ -446,15 +446,15 @@ You must infer from both keywords and tone—even if the user is casual, brief, 
 
 {{
   "name": "...",
-  "mood": "...",
-  "game_vibe": "...",
+  "mood": ["..."],
+  "game_vibe": ["..."],
   "genre": ["..."],
   "favourite_games": ["..."],
-  "platform_pref": "...",
+  "platform_pref": ["..."],
   "region": "...",
   "age": "...",
   "story_pref": true/false/null,
-  "playtime_pref": "...",
+  "playtime_pref": ["..."],
   "reject_tags": ["..."],
   "game_feedback": [
     {{
@@ -510,14 +510,14 @@ Now classify into the format below.
         except Exception:
             result = {
                 "name": "None",
-                "mood": "None",
-                "game_vibe": "None",
+                "mood": [],
+                "game_vibe": [],
                 "genre": [],
                 "favourite_games": [],
-                "platform_pref": "None",
+                "platform_pref": [],
                 "region": "None",
                 "age": "None",
-                "story_pref": None,
+                "story_pref": "None",
                 "playtime_pref": "None",
                 "reject_tags": [],
                 "game_feedback": [],
@@ -533,17 +533,16 @@ Now classify into the format below.
 
     except OpenAIError as e:
         print(f"⚠️ OpenAI Error: {e}")
-        
         result = {
                 "name": "None",
-                "mood": "None",
-                "game_vibe": "None",
+                "mood": [],
+                "game_vibe": [],
                 "genre": [],
                 "favourite_games": [],
-                "platform_pref": "None",
+                "platform_pref": [],
                 "region": "None",
                 "age": "None",
-                "story_pref": None,
+                "story_pref": "None",
                 "playtime_pref": "None",
                 "reject_tags": [],
                 "game_feedback": [],
@@ -656,14 +655,14 @@ async def have_to_recommend(db: Session, user, classification: dict, session) ->
             db.commit()
             return True  # Genre mismatch, new recommendation needed
     
-    # Check if the mood in classification matches the user's last mood
-    if user_mood:
-        today = datetime.utcnow().date().isoformat()
-        if user.mood_tags.get(today) != last_rec_mood:
-            last_rec.accepted = False
-            last_rec.reason = f"want game of specific {user_mood}"
-            db.commit()
-            return True  # Mood mismatch, new recommendation needed
+    # # Check if the mood in classification matches the user's last mood
+    # if user_mood:
+    #     today = datetime.utcnow().date().isoformat()
+    #     if user.mood_tags.get(today) != last_rec_mood:
+    #         last_rec.accepted = False
+    #         last_rec.reason = f"want game of specific {user_mood}"
+    #         db.commit()
+    #         return True  # Mood mismatch, new recommendation needed
 
     # Check if the platform preference matches any of the platforms in last_rec_platforms
     if user_platform:

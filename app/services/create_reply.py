@@ -10,6 +10,7 @@ from app.services.session_manager import detect_tone_shift
 from app.utils.error_handler import safe_call
 from app.db.models.session import Session
 from app.db.models.enums import PhaseEnum
+from app.services.tone_shift_detection import emotion_fusion
 
 @safe_call()
 async def generate_thrum_reply(db: Session, user_input: str, session, user, intrection) -> str:
@@ -18,6 +19,7 @@ async def generate_thrum_reply(db: Session, user_input: str, session, user, intr
     classification = await classify_user_input(session=session, user_input=user_input)
     await update_user_from_classification(db=db, user=user, classification=classification, session=session)
     
+    fusion = await emotion_fusion(db,session, user)
     if detect_tone_shift(session):
         session.tone_shift_detected = True
         db.commit()

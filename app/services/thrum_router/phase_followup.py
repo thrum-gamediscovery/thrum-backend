@@ -183,6 +183,7 @@ async def handle_game_inquiry(db: Session, user, session, user_input: str) -> st
             Politely and clearly let the user know you don’t have any info on that game. Do not mention 'database' or 'catalog'. Do not offer any other suggestions or ask any questions. Keep your response to one short, friendly, and supportive sentence, in a human tone.
             Reply format:
             - One short sentence: Clearly say you don’t have information on that game right now.
+            - Never suggest a game on your own if there is no game found
             -don't suggest a game on your own if there is no game found.
             """
         return prompt
@@ -249,7 +250,7 @@ async def handle_game_inquiry(db: Session, user, session, user_input: str) -> st
             → Drop one new line about the game — fresh angle, no features, no repeats.
             → Mention platform only if asked — keep it natural and never system-like.
             → End with a fun soft-pitch or question to re-engage their interest without pushing.
-
+            - Never suggest a game on your own if there is no game found
             Use this Reference to guide your answer:
                 - Title: {game_info['title']}
                 - Description: {game_info['description']}
@@ -298,6 +299,7 @@ async def handle_game_inquiry(db: Session, user, session, user_input: str) -> st
                 - Mood Tags: {game_info['mood_tags']}
                 - Platforms: {game_info['platforms']}
                 - Platform Link: {game_info['platform_link']}
+                - Never suggest a game on your own if there is no game found
             """.strip()
         return user_prompt
 
@@ -322,6 +324,7 @@ async def handle_game_inquiry(db: Session, user, session, user_input: str) -> st
                 → Drop a store or platform link — but slide it in naturally. Say it like you’d send a link to a friend, not like a pop-up message.
                 → Feel free to build light hype — a bit of excitement, a dash of curiosity — but never oversell.
                 → Vary rhythm, phrasing, and sentence structure every time. No recycled emoji, tone, or templates.
+                - Never suggest a game on your own if there is no game found
                 🌟  Goal: Make it feel like you're texting someone who just asked “wait, what’s this game?” — and you’re giving them the scoop with a grin.
                 Use this Reference to guide your answer:
                 - Title: {game_info['title']}
@@ -353,7 +356,7 @@ async def handle_game_inquiry(db: Session, user, session, user_input: str) -> st
                 → Drop one fresh take, short and sparkly. Mention platform only if asked.
                 → End with a soft nudge that fits the tone of the chat — something that feels like your friend is still into the convo and just keeping it going. Could be curious, teasing, or low-key reflective. Never a templated question. Always a fresh, emotionally in-character line that flows from what just happened.
                 → if link is not provided before and is not None then you must provide the link in the response, casually like a friend would do.(not like a bot like "click here" or "check this out")
-
+                - Never suggest a new game on your own if there is no game found
                 Use this Reference to guide your answer:
                 - Title: {game_info['title']}
                 - Description: {game_info['description']}
@@ -400,7 +403,7 @@ async def handle_game_inquiry(db: Session, user, session, user_input: str) -> st
         → Mention platform casually if it helps. If there’s a link, weave it into the sentence. If no link, skip it with grace.
         → End with a question or light hook to re-engage. This is about vibe, not info.
         → Never explain the game. Never format anything. Never say “click here” or list features.
-
+        - Never suggest a new game on your own if there is no game found
         Use this if you need to pull from:
         - Title: {game_info['title']}
         - Description: {game_info['description']}

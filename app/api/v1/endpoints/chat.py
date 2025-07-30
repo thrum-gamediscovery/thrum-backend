@@ -5,11 +5,9 @@ from datetime import datetime
 
 # DB models and dependencies
 from app.db.deps import get_db
-from app.db.models.enums import SenderEnum, ResponseTypeEnum
+from app.db.models.enums import SenderEnum
 from app.services.interactions import create_interaction
-from app.db.models.interaction import Interaction
 from app.db.models.session import Session
-from app.services.tone_engine import detect_tone_cluster
 from app.services.tone_engine import detect_tone_cluster, update_tone_in_history
 
 router = APIRouter()
@@ -39,8 +37,8 @@ async def user_chat_with_thrum(
     if not session:
         raise HTTPException(status_code=404, detail="Session not found.")
     
-    tone = await detect_tone_cluster(payload.user_input)
-    update_tone_in_history(session, tone) 
+    tone, confidence = await detect_tone_cluster(payload.user_input)
+    update_tone_in_history(session, tone, confidence) 
 
     interaction = create_interaction(
         session = session,
@@ -79,7 +77,7 @@ async def bot_chat_with_thrum(
     if not session:
         raise HTTPException(status_code=404, detail="Session not found.")
     
-    tone = await detect_tone_cluster(bot_reply)
+    tone, confidence = await detect_tone_cluster(bot_reply)
 
     interaction = create_interaction(
         session=session,

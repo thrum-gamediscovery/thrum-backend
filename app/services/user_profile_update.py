@@ -5,16 +5,15 @@ from app.db.models.session import Session
 from sqlalchemy.dialects.postgresql import UUID
 from app.db.models.game_recommendations import GameRecommendation
 from app.db.models.user_profile import UserProfile
+from app.db.models.enums import SenderEnum
 from app.db.models import Game
 from typing import Dict
 from datetime import date
 from sqlalchemy.orm.attributes import flag_modified
 from app.services.mood_engine import detect_mood_from_text
-from app.services.session_manager import update_or_create_session_mood
 from app.utils.genre import get_best_genre_match 
 from app.utils.platform_utils import get_best_platform_match, get_default_platform
 from app.services.session_memory import SessionMemory
-from app.services.semantic_similarity import check_semantic_similarity
 
 # ✅ Update user profile with parsed classification fields
 async def update_game_feedback_from_json(db, user_id: UUID, session,feedback_data: list) -> None:
@@ -95,25 +94,26 @@ async def update_game_feedback_from_json(db, user_id: UUID, session,feedback_dat
 # ✅ Update user profile with parsed classification fields
 async def update_user_from_classification(db: Session, user, classification: dict,session):
     today = date.today().isoformat()
-
+    user_interactions = [i for i in session.interactions if i.sender == SenderEnum.User]
+    user_input = user_interactions[-1].content if user_interactions else ""
     if not isinstance(classification, dict):
         print(f"[BUG] update_user_from_classification: classification is not dict: {classification}")
         return
     print('classification', classification)
 
-    name = classification.get("name")
-    mood = classification.get("mood")
-    game_vibe = classification.get("game_vibe")
-    favourite_games = classification.get("favourite_games")
-    genres = classification.get("genre")
-    platform = classification.get("platform_pref")
-    region = classification.get("region")
-    age = classification.get("age")
-    story_pref = classification.get("story_pref")
-    playtime = classification.get("playtime_pref")
+    name = classification.get("name", None)
+    mood = classification.get("mood", [])
+    game_vibe = classification.get("game_vibe", [])
+    favourite_games = classification.get("favourite_games", [])
+    genres = classification.get("genre", [])
+    platforms = classification.get("platform_pref", [])
+    region = classification.get("region", None)
+    age = classification.get("age", None)
+    story_pref = classification.get("story_pref", None)
+    playtime = classification.get("playtime_pref", [])
     reject_tags = classification.get("reject_tags", [])
     game_feedback = classification.get("game_feedback", [])
-    find_game_title = classification.get("find_game")
+    find_game_title = classification.get("find_game", None)
     gameplay_elements = classification.get("gameplay_elements", [])
     preferred_keywords = classification.get("preferred_keywords", [])
     disliked_keywords = classification.get("disliked_keywords", [])
@@ -134,23 +134,31 @@ async def update_user_from_classification(db: Session, user, classification: dic
         flag_modified(user, "name")
 
     # -- Mood
-    if mood and mood != "None":
-        mood_result = await detect_mood_from_text(db, mood)
-        user.mood_tags[today] = mood_result
+    if isinstance(mood, list) and isinstance(game_vibe, list):
+        mood_list = []
+        game_vibe_list = []
+        for mood_item in mood:
+            if mood_item.strip().lower() != "none":
+                mood_list.append(mood_item.strip().lower())
+        for game_vibe_item in game_vibe:
+            if game_vibe_item.strip().lower() != "none":
+                game_vibe_list.append(game_vibe_item.strip().lower())
+        moods = ', '.join(mood_list).strip().lower() if mood_list else None
+        game_vibes = ', '.join(game_vibe_list).strip().lower() if game_vibe_list else None
+        if moods is not None and game_vibes is not None :
+            mood_tag = f"{moods.strip().lower()}_{game_vibes.strip().lower()}"
+        elif moods and moods is not None:
+            mood_tag = moods.strip().lower()
+        elif game_vibes and game_vibes is not None:
+            mood_tag = game_vibes.strip().lower()
+        else:
+            mood_tag = f"{user_input.strip().lower()}"
+        mood_result, mood_score = await detect_mood_from_text(db, mood_tag)
+        user.mood_tags[today] = {mood_result: mood_score}
         if not session.entry_mood:
             session.entry_mood = mood_result
         session.exit_mood = mood_result
         session.meta_data["mood"] = mood_result
-        flag_modified(user, "mood_tags")
-        user.last_updated["mood_tags"] = str(datetime.utcnow())
-        
-    if game_vibe and game_vibe != "None":
-        vibe_result = await detect_mood_from_text(db, game_vibe)
-        user.mood_tags[today] = vibe_result
-        if not session.entry_mood:
-            session.entry_mood = vibe_result
-        session.exit_mood = vibe_result
-        session.meta_data["mood"] = vibe_result
         flag_modified(user, "mood_tags")
         user.last_updated["mood_tags"] = str(datetime.utcnow())
     
@@ -225,42 +233,51 @@ async def update_user_from_classification(db: Session, user, classification: dic
                     user.last_updated["genre_prefs"] = str(datetime.utcnow())
 
     # -- Platform Preferences
-    if platform and platform != "None":
-        def_promt = get_default_platform(platform)
-        matched_platform = await get_best_platform_match(db=db, user_input=def_promt)
-        
-        if matched_platform:
-            user.platform_prefs.setdefault(today, [])
-            if matched_platform not in user.platform_prefs[today]:
-                user.platform_prefs[today].append(matched_platform)
-                print(f"✅ Added platform '{matched_platform}' to user.platform_prefs[{today}]")
+    if isinstance(platforms, list):
+        print(f"[✅ Raw platform: {platforms}")
+        # Ensure all elements are strings and clean them
+        for platform in platforms:
+            if platform.strip().lower() != "none":
+                default_platform = await get_default_platform(platform)
+                matched_platform = await get_best_platform_match(db=db, user_input=default_platform)
+                print(f"update matched platform : {matched_platform}")
+                if matched_platform:
+                    # Ensure session.platform is initialized as a list if it's None
+                    if session.platform_preference is None:
+                        session.platform_preference = []
+                        print("✅ Initialized session.platform as an empty list.")
+                    user.platform_prefs.setdefault(today, [])
+                    if matched_platform in user.platform_prefs[today]:
+                        user.platform_prefs[today].remove(matched_platform)
+                    user.platform_prefs[today].append(matched_platform)
+                    print(f"✅ Added platform '{matched_platform}' to user.platform_prefs[{today}]")
 
-            # ✅ Remove from user.reject_tags["platform"]
-            if matched_platform in user.reject_tags.get("platform", []):
-                user.reject_tags["platform"].remove(matched_platform)
-                print(f"🧹 Removed platform '{matched_platform}' from user.reject_tags")
+                    # ✅ Remove from user.reject_tags["platform"]
+                    if matched_platform in user.reject_tags.get("platform", []):
+                        user.reject_tags["platform"].remove(matched_platform)
+                        print(f"🧹 Removed platform '{matched_platform}' from user.reject_tags")
 
-            # ✅ Remove from session.meta_data["reject_tags"]["platform"]
-            if session and session.meta_data and "reject_tags" in session.meta_data:
-                reject_data = session.meta_data["reject_tags"]
-                if matched_platform in reject_data.get("platform", []):
-                    reject_data["platform"].remove(matched_platform)
-                    print(f"🧹 Removed platform '{matched_platform}' from session.meta_data['reject_tags']['platform']")
+                    # ✅ Remove from session.meta_data["reject_tags"]["platform"]
+                    if session and session.meta_data and "reject_tags" in session.meta_data:
+                        reject_data = session.meta_data["reject_tags"]
+                        if matched_platform in reject_data.get("platform", []):
+                            reject_data["platform"].remove(matched_platform)
+                            print(f"🧹 Removed platform '{matched_platform}' from session.meta_data['reject_tags']['platform']")
 
-            # ✅ Add to session.platform_preference
-            if session:
-                session_platforms = session.platform_preference or []
-                if matched_platform in session_platforms:
-                    session_platforms.remove(matched_platform)
-                session_platforms.append(matched_platform)
-                session.platform_preference = session_platforms
-                    # ✅ :white_check_mark: Ensure SQLAlchemy detects the change
-                flag_modified(session, "platform_preference")
-                print(f"[:✅ white_check_mark: Platform added to session]: {session_platforms}")
-            else:
-                print("❌ Session object is missing or invalid.")
+                    # ✅ Add to session.platform_preference
+                    if session:
+                        session_platforms = session.platform_preference or []
+                        if matched_platform in session_platforms:
+                            session_platforms.remove(matched_platform)
+                        session_platforms.append(matched_platform)
+                        session.platform_preference = session_platforms
+                        flag_modified(session, "platform_preference")
 
-            user.last_updated["platform_prefs"] = str(datetime.utcnow())
+                        print(f"[✅ platform added to session]: {session_platforms}")
+                    else:
+                        print("❌ Session object is missing or invalid.")
+
+                    user.last_updated["platform_prefs"] = str(datetime.utcnow())
 
     # -- Region
     if region and region != "None":
@@ -281,10 +298,14 @@ async def update_user_from_classification(db: Session, user, classification: dic
         user.last_updated["story_pref"] = str(datetime.utcnow())
 
     # -- Playtime
-    if playtime and playtime != "None":
-        user.playtime = playtime.strip().lower()
-        flag_modified(user, "playtime")
-        user.last_updated["playtime"] = str(datetime.utcnow())
+    if isinstance(playtime, list):
+        print(f"[✅ Raw platform]: {playtime}")
+        # Ensure all elements are strings and clean them
+        for playtime_tag in playtime:
+            if playtime_tag and playtime_tag is not None and playtime_tag.strip().lower() != "none":
+                user.playtime = playtime_tag.strip().lower()
+                flag_modified(user, "playtime")
+                user.last_updated["playtime"] = str(datetime.utcnow())
         
     # -- Gameplay Elements
     if isinstance(gameplay_elements, list):

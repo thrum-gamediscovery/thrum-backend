@@ -91,13 +91,15 @@ async def game_recommendation(db: Session, user, session):
     session_gameplay_embedding = None
     session_preference_embedding = None
     session_disliked_embedding = None
+    tone = session.meta_data.get("tone", {})
+    mood = session.meta_data.get("mood", {})
 
     if session.gameplay_elements:
         session_gameplay_embedding = model.encode(' '.join(session.gameplay_elements))
         print(f"[Step 9] Embedded gameplay_elements: {session.gameplay_elements}")
-    if session.preferred_keywords:
-        session_preference_embedding = model.encode(' '.join(session.preferred_keywords))
-        print(f"[Step 9] Embedded preferred_keywords: {session.preferred_keywords}")
+    if session.preferred_keywords or (tone or mood):
+        session_preference_embedding = model.encode(' '.join(session.preferred_keywords + [tone] + [mood]))
+        print(f"[Step 9] Embedded preferred_keywords: {session.preferred_keywords, tone, mood}")
     if session.disliked_keywords:
         session_disliked_embedding = model.encode(' '.join(session.disliked_keywords))
         print(f"[Step 9] Embedded disliked_keywords: {session.disliked_keywords}")
@@ -269,6 +271,13 @@ async def game_recommendation(db: Session, user, session):
     PENALTY_WEIGHT = 0.5     # penalty weight for dislike similarity
     GAMEPLAY_WEIGHT = 0.6
     PREFERENCE_WEIGHT = 0.4
+
+    HIGH_PENALTY_MOODS = {"sad", "angry", "anxious", "bored", "restless", "frustrated", "tired", "melancholic", "insecure","overwhelmed", "pessimistic", "stressed", "ashamed", "guilty", "shy", "fearful", "apathetic","sarcastic", "moody", "lonely"}
+    mood = session.exit_mood if session.exit_mood else None
+    if mood in HIGH_PENALTY_MOODS:
+        PENALTY_WEIGHT = 0.8  # Higher penalty for disliked similarity in high-penalty moods
+    
+    print(f"PENALTY_WEIGHT : {PENALTY_WEIGHT}---------------------")
 
     def compute_score(game: Game):
         gameplay_sim = 0

@@ -22,6 +22,7 @@ class SessionMemory:
         self.user_name = getattr(session.user, "name", None) if hasattr(session, "user") and session.user and session.user.name else ""
         self.region = getattr(session.user, "region", None) if hasattr(session, "user") and session.user and session.user.region else ""
         self.mood = getattr(session, "exit_mood", None)
+        self.tone = getattr(session, "meta_data").get("tone")
         self.genre = session.genre[-1] if session.genre else None
         self.platform = session.platform_preference[-1] if session.platform_preference else None
         self.story_preference = getattr(session, "story_preference", None)
@@ -57,32 +58,32 @@ class SessionMemory:
         # Summarize memory into a context string for LLM system prompt
         out = []
         if self.user_name:
-            out.append(f"User name: {self.user_name}")
+            out.append(f"User's name: {self.user_name}")
         if self.region:
-            out.append(f"User location: {self.region}")
+            out.append(f"User lives in : {self.region}")
         if self.mood:
-            out.append(f"Mood: {self.mood}")
+            out.append(f"The user’s tone is '{self.tone}' and mood is '{self.mood}'")
         if self.genre:
-            out.append(f"Genre: {self.genre}")
+            out.append(f"user likes to play games of {self.genre} genres")
         if self.platform:
-            out.append(f"Platform: {self.platform}")
+            out.append(f"user prefer games on {self.platform} platform")
         if self.story_preference is not None:
-            out.append(f"Story preference: {'Yes' if self.story_preference else 'No'}")
+            out.append(f"user {'likes' if self.story_preference else 'does not like '} story driven")
         if self.gameplay_elements:
-            out.append(f"Gameplay elements: {', '.join(self.gameplay_elements)}")
+            out.append(f"user likes to play {', '.join(self.gameplay_elements)}")
         if self.preferred_keywords:
-            out.append(f"Preferred keywords: {', '.join(self.preferred_keywords)}")
+            out.append(f"user want to play game like {', '.join(self.preferred_keywords)}")
         if self.disliked_keywords:
-            out.append(f"Disliked keywords: {', '.join(self.disliked_keywords)}")
+            out.append(f"user hate to game which is like {', '.join(self.disliked_keywords)}")
         if self.rejections:
-            out.append(f"Rejected games: {self.rejections}")
+            out.append(f"User rejected these games: {self.rejections}")
         if self.likes:
-            out.append(f"Liked games: {self.likes}")
+            out.append(f"User Liked games: {self.likes}")
         if self.last_game:
-            out.append(f"Last game suggested: {self.last_game}")
+            out.append(f"Last game suggested by thrum: {self.last_game}")
         if self.history:
             last_few = self.history[-15:]
-            hist_str = " | ".join([f"{s}: {c} : tone - {t}" for s, c, t in last_few])
+            hist_str = " | ".join([f"{s} says {c} .. in tone - {t}" for s, c, t in last_few])
             out.append(f"Recent chat: {hist_str}")
 
         return " | ".join(out)
@@ -577,7 +578,7 @@ NEVER DO:
 – No fallback phrases like “drop a vibe” or “throw a word”  
 – No greeting, explaining, or assistant-style text  
 – No injecting a game suggestion unless the user responds clearly
-
+- Never suggest a game on your own if there is no game found
 This is a tone-pivot moment — the goal is not to categorize, but to open up emotionally.
 """.strip()
 
@@ -659,7 +660,7 @@ This is a moment for emotional rhythm — like a friend sliding a question into 
 → If their name, emoji style, or slang is known, include it naturally.  
 → Wrap with a soft tease like “spill that and I might just find your next obsession 👀” — but don’t repeat, remix each time.  
 → Never repeat structure or phrasing. Always a new shape.  
-→ Never suggest a game unless one is clearly found and fits.
+→ Never suggest a game on your own if there is no game found
 """.strip()
 
     # 7. Fallback: after several rejections

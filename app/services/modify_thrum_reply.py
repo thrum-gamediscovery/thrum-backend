@@ -9,6 +9,43 @@ model= os.getenv("GPT_MODEL")
 
 client = openai.AsyncOpenAI()
 
+USER_TONE_TO_BOT_EMOJIS = {
+    "neutral":         ["🙂"],
+    "casual":          ["🙂", "👋", "✌️"],
+    "warm":            ["😊", "🤗", "🧡"],
+    "sincere":         ["🙏", "🤝", "😊"],
+    "polite":          ["🙂", "🙏"],
+    "friendly":        ["😃", "👋", "🤗"],
+    "playful":         ["😜", "🤪", "😏", "🕹️"],
+    "sarcastic":       ["🙃", "😏", "😅", "😒"],
+    "excited":         ["🎉", "🤩", "✨", "🔥"],
+    "enthusiastic":    ["🥳", "🙌", "🤗"],
+    "curious":         ["🤔", "👀", "🙂"],
+    "confused":        ["🤔", "🙌", "🙂"],
+    "vague":           ["🤔", "🙂"],
+    "bored":           ["🙂"],  # light, non-intrusive smile
+    "cold":            ["🤝"],  # neutral handshake, soft not happy
+    "formal":          ["🙂"],  # very light, safe
+    "cautious":        ["🙏"],  # gentle, not pushy
+    "cheerful":        ["😄", "🌈", "🤗"],
+    "grateful":        ["🙏", "😊"],
+    "apologetic":      ["🙏"],  # soft apology
+    "impatient":       ["🙂"],  # light, keep neutral
+    "annoyed":         ["🤝"],  # neutral handshake, shows presence but not fake happiness
+    "frustrated":      ["🤝"],  # same, supportive not happy
+    "dismissive":      ["🙂"],  # very neutral
+    "assertive":       ["👍", "🙂"],  # confidence with neutrality
+    "encouraging":     ["💪", "👍", "🙂"],
+    "optimistic":      ["🌟", "😃", "🙂"],
+    "pessimistic":     ["🙂"],  # soft smile only
+    "disengaged":      ["🙂"],  # keep door open, soft smile
+    "empathetic":      ["🤗", "🫂", "🙂"],
+    "genz":            ["✌️", "🫶", "🔥", "😎"],
+    "vibey":           ["✨", "🌈", "😌", "😎"],
+    "edgy":            ["😏", "😈", "🖤", "😎"],
+    "hyped":           ["🔥", "🚀", "🤩", "💥"],
+}
+
 async def format_reply(session, user_input, user_prompt):
     from app.services.session_memory import SessionMemory
     if isinstance(user_prompt, types.CoroutineType):
@@ -49,6 +86,17 @@ async def format_reply(session, user_input, user_prompt):
         memory_context_str = ""
     print("Memory context string:", memory_context_str)
 
+    tone = session.meta_data.get("tone", "neutral")  # Default to neutral if not set
+    if tone not in USER_TONE_TO_BOT_EMOJIS:
+        tone = "neutral"
+    emojis = USER_TONE_TO_BOT_EMOJIS[tone]
+    if emojis:
+        emoji_str = " ".join(emojis)
+    else:
+        emoji_str = ""
+    print("Emojis for tone:", emoji_str)
+    print("Tone -------------------------------",tone)
+
     # user_name = session.user_name    
     user_name = session_memory.user_name
     # Build system prompt with clean injected guidance
@@ -63,6 +111,9 @@ Build your reply by emotionally reflecting:
 - The user's latest message: {user_input}  
 - Your own last reply or question: {last_thrum_reply}  
 - The last recommended game: {last_game or "None"}  
+- The user's tone: {tone} 
+- if the user's tone is **frustrated**, do not use emoji like "🙂".
+- The emojis for your tone: {emoji_str}
 - Strictly follow these rules:
 Derive the user's current tone, intent, and emotional context entirely from USER MEMORY & RECENT CHAT and the latest user reply.
 Always generate your reply to match or respectfully counterbalance the user's current tone as inferred from their words, style, or attitude.
@@ -87,7 +138,13 @@ If the user expresses dislike, confusion, disappointment, angry, or frustration 
 Use emotionally intelligent phrases as per your knowledge, don't use the same kind of sentence, keep change the phrase.
 if user input is about disliking something or disappointed, you must keep the tone warm and helpful and Acknowledge their feedback politely(never miss this).
 
+Emoji Guide:
+- Always include an emoji from {emoji_str} in your message.
+- emojis—use only neutral or supportive emojis that fit the situation.
+- Always include an emoji from {emoji_str} in your message. emojis—use only neutral or supportive emojis that fit the situation.
+
 You must have to follow tone-specific guidance:
+- When the user's tone is frustrated, annoyed, cold, or similar, do not use smiley or happy emojis—use only neutral or supportive emojis that fit the situation.
 - If tone includes **frustrated**, always reflect gently before moving on.
 - If tone includes **bored**, skip fluff and keep it snappy.
 - If tone includes **genz**, match their slang, chill phrasing, or emojis lightly (e.g., "oof", "no sweat", "let’s fix it 🙌").

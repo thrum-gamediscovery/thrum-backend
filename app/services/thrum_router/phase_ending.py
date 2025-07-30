@@ -38,6 +38,7 @@ async def handle_ending(session):
         "- 'Gonna bounce now — you know where to find me.'\n"
         "- 'Lowkey peace-out for now. We'll pick it up anytime.'\n"
         "- 'Done for today? All good. I'm always around if you feel like it.'"
+        "- Never suggest a game on your own if there is no game found"
     )
     
     return user_prompt
