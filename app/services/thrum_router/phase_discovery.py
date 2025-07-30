@@ -220,14 +220,18 @@ async def classify_intent(user_input, memory_context_str):
         return "OTHER"
     
 
-async def build_smalltalk_prompt(user_input, tone):
+async def build_smalltalk_prompt(user_input, tone, session_memory):
+    memory_summary = session_memory.to_prompt()
+    recent_chat = session_memory.get_sliced_history(10)
+    mood = session_memory.mood or "neutral"
     return f"""
     {GLOBAL_USER_PROMPT}
     ---------
 THRUM — SMALLTALK MOMENT
 
+Recent chat: {recent_chat}
 User said: "{user_input}"  
-Tone: {tone}
+Tone: {tone} | Mood: {mood}
 
 → The user just sent a casual or emotionally open message — this counts as SMALLTALK.  
 → No request for a game. No strong intent. Just light conversation, vibe, or emotional check-in.  
@@ -247,14 +251,18 @@ If not, just stay present and emotionally real.
 Goal: Keep the emotional rhythm alive — like texting with someone who gets you.
 """
 
-async def build_meta_prompt(user_input, tone):
+async def build_meta_prompt(user_input, tone, session_memory):
+    memory_summary = session_memory.to_prompt()
+    recent_chat = session_memory.get_sliced_history(10)
+    mood = session_memory.mood or "neutral"
     return f"""
     {GLOBAL_USER_PROMPT}
     ---------
 THRUM — META MOMENT
 
+Recent chat: {recent_chat}
 User asked: "{user_input}"  
-Tone: {tone}  
+Tone: {tone} | Mood: {mood}
 
 → This is a question about what you are, what you do, or how you work.  
 → Reply like a close friend would — short, chill, and human.  
@@ -266,15 +274,22 @@ Tone: {tone}
 Goal: Make the user curious — not sold. Make them want to keep talking.
 """
 
-async def build_genre_prompt(user_input, memory):
-    seen = getattr(memory, "genre", [])
-    return f"""
+async def build_genre_prompt(user_input, tone, session_memory):
+    seen = [session_memory.genre] if session_memory.genre else []
+    memory_summary = session_memory.to_prompt()
+    recent_chat = session_memory.get_sliced_history(10)
+    mood = session_memory.mood or "neutral"
+
+    prompt = f"""
     {GLOBAL_USER_PROMPT}
     ---------
 THRUM — GENRE REQUEST
 
+Recent chat: {recent_chat}
+
 User asked: "{user_input}"  
 Genres they've already seen: {seen}  
+Tone: {tone} | Mood: {mood}
 
 → Suggest 4–5 genres that Thrum supports — but avoid repeating any from memory or recent chats.  
 → Use {seen} to exclude genres they’ve already encountered.  
@@ -285,13 +300,19 @@ Genres they've already seen: {seen}
 Goal: Re-open discovery through curiosity. Make them lean in — not scroll past.
 """
 
-async def build_platform_prompt(user_input):
+async def build_platform_prompt(user_input, tone, session_memory):
+    memory_summary = session_memory.to_prompt()
+    recent_chat = session_memory.get_sliced_history(10)
+    mood = session_memory.mood or "neutral"
     return f"""
     {GLOBAL_USER_PROMPT}
     ---------
 THRUM — PLATFORM REPLY
 
-User asked: "{user_input}"  
+Recent chat: {recent_chat}
+
+User asked: "{user_input}"
+Tone: {tone} | Mood: {mood}
 
 → Thrum works with PC, PS4, PS5, Xbox One, Series X/S, Nintendo Switch, iOS, Android, Steam, Game Pass, Epic Games Store, Ubisoft+, and more.  
 → Only list platforms if it fits the flow — make it feel like a casual flex, not a bullet point.  
@@ -300,14 +321,20 @@ User asked: "{user_input}"
 Goal: Make the platform chat feel personal — not like a settings menu.
 """
 
-async def build_vague_prompt(user_input, tone):
-    return f"""
+async def build_vague_prompt(user_input, tone, session_memory):
+    memory_summary = session_memory.to_prompt()
+    recent_chat = session_memory.get_sliced_history(10)
+    mood = session_memory.mood or "neutral"
+
+    prompt = f"""
     {GLOBAL_USER_PROMPT}
     ---------
 THRUM — VAGUE OR UNCLEAR INPUT
 
+Recent chat: {recent_chat}
+
 User said: "{user_input}"  
-Tone: {tone}
+Tone: {tone} | Mood: {mood}
 
 → The user just sent a vague input — something short, low-effort, or emotionally flat.  
 → It might reflect boredom, indecision, or quiet frustration.  
@@ -319,13 +346,18 @@ Tone: {tone}
 Goal: Defuse the fog. Keep the door open. Let them lean in when they’re ready.
 """
 
-async def build_default_prompt(user_input):
+async def build_default_prompt(user_input, tone, session_memory):
+    memory_summary = session_memory.to_prompt()
+    recent_chat = session_memory.get_sliced_history(10)
+    mood = session_memory.mood or "neutral"
     return f"""
     {GLOBAL_USER_PROMPT}
     ---------
     THRUM — DEFAULT CATCH
+    Recent chat: {recent_chat}
 
-    User said: "{user_input}"  
+    User said: "{user_input}"
+    Tone: {tone} | Mood: {mood}
 
     → The user’s message doesn’t match any known intent — but it still matters.  
     → Reply like a close friend who’s keeping the conversation alive, even without a clear topic.  
@@ -339,14 +371,19 @@ async def build_default_prompt(user_input):
 
     Goal: Protect the vibe until the next move becomes clear. Make them feel seen, even when they don’t say much."""
 
-async def generate_feedback_side_topic_prompt(user_input, tone):
+async def generate_feedback_side_topic_prompt(user_input, tone, session_memory):
     print(f"Building side generate_feedback_side_topic_prompt for: {user_input} ----------#-------------")
+    memory_summary = session_memory.to_prompt()
+    recent_chat = session_memory.get_sliced_history(10)
+    mood = session_memory.mood or "neutral"
     return f"""
     {GLOBAL_USER_PROMPT}
     ---------
     THRUM — SIDE TOPIC OR RANDOM SHIFT
+    
+    Recent chat: {recent_chat}
     User said: "{user_input}"
-    Tone: {tone}
+    Tone: {tone} | Mood: {mood}
     → The user shifted the topic or said something unrelated to the game recommendation.
     → First: reply to their message with warmth, curiosity, or playful energy — whatever fits the tone. Act like a real friend would.
     → Then — *if the vibe feels open*, gently steer the chat back to game discovery without forcing it. Slide in naturally.
@@ -364,19 +401,19 @@ async def handle_other_input(db, user, session, user_input: str) -> str:
     tone = session.meta_data.get("tone", "neutral")
 
     if intent == "SMALLTALK":
-        return await build_smalltalk_prompt(user_input, tone)
+        return await build_smalltalk_prompt(user_input, tone, session_memory)
     elif intent == "META_FAQ":
-        return await build_meta_prompt(user_input, tone)
+        return await build_meta_prompt(user_input, tone, session_memory)
     elif intent == "GENRE_REQUEST":
-        return await build_genre_prompt(user_input, session_memory)
+        return await build_genre_prompt(user_input, tone, session_memory)
     elif intent == "PLATFORM_REQUEST":
-        return await build_platform_prompt(user_input)
+        return await build_platform_prompt(user_input, tone, session_memory)
     elif intent == "VAGUE":
-        return await build_vague_prompt(user_input, tone)
+        return await build_vague_prompt(user_input, tone, session_memory)
     elif intent == "SIDE_TOPIC_OR_RANDOM_SHIFT":
-        return await generate_feedback_side_topic_prompt(user_input, tone)
+        return await generate_feedback_side_topic_prompt(user_input, tone, session_memory)
     else:
-        return await build_default_prompt(user_input)
+        return await build_default_prompt(user_input, tone, session_memory)
 
 async def dynamic_faq_gpt(session, user_input=None):
     """

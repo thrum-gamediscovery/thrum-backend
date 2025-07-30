@@ -87,6 +87,15 @@ class SessionMemory:
             out.append(f"Recent chat: {hist_str}")
 
         return " | ".join(out)
+    
+    def get_sliced_history(self, max_messages=15):
+        """
+        Return the last `max_messages` interactions as a compact string.
+        This prevents token overload in prompts.
+        """
+        last_few = self.history[-max_messages:]
+        return " | ".join([f"{sender}: {content} (tone: {tone})"
+                           for sender, content, tone in last_few])
 
 # 🎮 Optional: Emojis for visual flavor (keep platform names raw)
 PLATFORM_EMOJIS = {
