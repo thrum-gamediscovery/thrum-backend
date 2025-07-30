@@ -322,7 +322,7 @@ async def handle_game_inquiry(db: Session, user, session, user_input: str) -> st
                 → Drop a store or platform link — but slide it in naturally. Say it like you’d send a link to a friend, not like a pop-up message.
                 → Feel free to build light hype — a bit of excitement, a dash of curiosity — but never oversell.
                 → Vary rhythm, phrasing, and sentence structure every time. No recycled emoji, tone, or templates.
-                :star2: Goal: Make it feel like you're texting someone who just asked “wait, what’s this game?” — and you’re giving them the scoop with a grin.
+                🌟  Goal: Make it feel like you're texting someone who just asked “wait, what’s this game?” — and you’re giving them the scoop with a grin.
                 Use this Reference to guide your answer:
                 - Title: {game_info['title']}
                 - Description: {game_info['description']}

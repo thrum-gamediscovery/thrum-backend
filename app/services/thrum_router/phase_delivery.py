@@ -175,7 +175,7 @@ async def handle_reject_Recommendation(db,session, user,  classification):
             • If they ask for more info → give a 1–2 line summary, emotional and fresh.
             • If they already played it → ask if they want a new suggestion.
             • If it just didn’t match → ask gently if you should try something with a different feel.
-            :star2: Goal: Understand what didn’t land. Show you care about the “why” — not just the outcome.
+            🌟  Goal: Understand what didn’t land. Show you care about the “why” — not just the outcome.
             """
         print(":handle_reject_Recommendation prompt :",user_prompt)
         session.meta_data["ask_confirmation"] = False

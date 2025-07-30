@@ -4,7 +4,7 @@ from app.services.thrum_router.phase_delivery import handle_reject_Recommendatio
 from app.db.models.enums import PhaseEnum
 from app.services.thrum_router.phase_intro import handle_intro
 from app.services.thrum_router.phase_ending import handle_ending
-from app.services.thrum_router.phase_confirmation import handle_confirmed_game
+from app.services.thrum_router.phase_confirmation import handle_confirmed_game, generate_low_effort_response
 from app.services.thrum_router.phase_discovery import dynamic_faq_gpt, handle_other_input, share_thrum_ping, share_thrum_message
 
 async def check_intent_override(db, user_input, user, session, classification, intrection):
@@ -19,6 +19,8 @@ async def check_intent_override(db, user_input, user, session, classification, i
         session.phase = PhaseEnum.DISCOVERY
         return await share_thrum_ping(session)
 
+    if classification_intent.get("Low_Effort_Response"):
+        return await generate_low_effort_response(session)
     # Check if the user is in the discovery phase
     if classification_intent.get("Phase_Discovery"):
         return await handle_discovery(db=db, session=session, user=user)

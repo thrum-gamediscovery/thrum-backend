@@ -12,6 +12,7 @@ from app.db.models.enums import SenderEnum, PhaseEnum
 import random
 import os
 from openai import AsyncOpenAI
+from app.services.general_prompts import GLOBAL_USER_PROMPT
 
 model= os.getenv("GPT_MODEL")
 client = AsyncOpenAI()
@@ -90,15 +91,18 @@ async def check_for_nudge():
                 user_name = "unkonwn"
 
             prompt = f"""
-                You are Thrum, the game discovery buddy.
-                Write a short, playful message to gently check if the user is still around after a long pause.
-                - Always sound warm and like a real friend.
-                - Keep it under 14 words.
-                - Never mention inactivity, timeout, or waiting.
-                - Vary your reply every time—no repeats or patterns.
-                - do not give greeting message.
-                - Use the user's name : {user_name} if you know it (if it is unknown then do not use it in the message), but make it natural.
-                - No pressure; just a gentle, friendly nudge.
+                {GLOBAL_USER_PROMPT}
+                -----
+                THRUM — NO RESPONSE
+                → The user gave minimal feedback — like “cool,” “nice”, “like”,“ok,” “thanks,” or nothing at all. These are low-effort replies that don’t show real engagement.  
+                → Your job is to keep the chat alive — casually, without pressure.  
+                → You may tease or nudge — in a totally fresh, emotional, generative way. No examples. No recycled phrasing.  
+                → Create a moment by offering a light new direction — like a surprising game type or a change in vibe — but always based on what you know about them, based on recent chat history.
+                → NEVER ask “do you want another?” or “should I try again?”  
+                → NEVER repeat any phrasing, emoji, or fallback line from earlier chats.  
+                → Let this feel like natural conversation drift — like two friends texting, one goes quiet, and the other drops a playful line or two to keep it going.  
+
+                🌟 Goal: Reopen the door without sounding robotic. Be warm, real, and emotionally alert — like someone who cares about the moment to open the door to a new game discovery.
             """
             
             response = await client.chat.completions.create(

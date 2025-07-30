@@ -338,6 +338,23 @@ async def build_default_prompt(user_input):
 
     Goal: Protect the vibe until the next move becomes clear. Make them feel seen, even when they don’t say much."""
 
+async def generate_feedback_side_topic_prompt(user_input, tone):
+    print(f"Building side generate_feedback_side_topic_prompt for: {user_input} ----------#-------------")
+    return f"""
+    {GLOBAL_USER_PROMPT}
+    ---------
+    THRUM — SIDE TOPIC OR RANDOM SHIFT
+    User said: "{user_input}"
+    Tone: {tone}
+    → The user shifted the topic or said something unrelated to the game recommendation.
+    → First: reply to their message with warmth, curiosity, or playful energy — whatever fits the tone. Act like a real friend would.
+    → Then — *if the vibe feels open*, gently steer the chat back to game discovery without forcing it. Slide in naturally.
+    → You can tease, joke, or just vibe with them for a sec. Show you care about the moment, not just the mission.
+    → NEVER say “let’s get back on track” or anything robotic.
+    → NEVER force a game suggestion. Only offer one if it flows naturally from the chat.
+    → Rotate your sentence rhythm and tone every time. Feel the thread. Never fall back on generic phrasing or reused emoji.
+    🌟  Goal: Make them feel seen. Keep the conversation human — then gently pivot back to discovery if the moment feels right."""
+
 async def handle_other_input(db, user, session, user_input: str) -> str:
     session_memory = SessionMemory(session)
     memory = session_memory.to_prompt()
@@ -354,6 +371,8 @@ async def handle_other_input(db, user, session, user_input: str) -> str:
         return await build_platform_prompt(user_input)
     elif intent == "VAGUE":
         return await build_vague_prompt(user_input, tone)
+    elif intent == "SIDE_TOPIC_OR_RANDOM_SHIFT":
+        return await generate_feedback_side_topic_prompt(user_input, tone)
     else:
         return await build_default_prompt(user_input)
 

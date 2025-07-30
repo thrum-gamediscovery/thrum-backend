@@ -29,7 +29,9 @@ async def handle_confirmed_game(db, user, session):
     game_title = session.last_recommended_game
     game_id = db.query(Game).filter_by(title=game_title).first().game_id if game_title else None
     tone = session.meta_data.get("tone", "friendly")
-    user_input = session.interactions[-1].content if session.interactions else ""
+    
+    user_interactions = [i for i in session.interactions if i.sender == SenderEnum.User]
+    user_input = user_interactions[-1].content if user_interactions else ""
     platform_rows = db.query(GamePlatform.platform).filter_by(game_id=game_id).all()
     platform_list = [p[0] for p in platform_rows] if platform_rows else []
     # Get user's preferred platform (last non-empty entry in the array)
@@ -94,7 +96,7 @@ async def handle_confirmed_game(db, user, session):
                 Examples:
                 - “Think it’d slap harder on mobile or Game Pass?”
                 - “Wanna try it on Steam or Switch?”
-            :star2: Goal: Make them feel seen. Use this moment to bond deeper — and casually invite them to play if the vibe feels open.
+            🌟  Goal: Make them feel seen. Use this moment to bond deeper — and casually invite them to play if the vibe feels open.
         """.strip()
         
         # Mark that we've handled first acceptance
@@ -122,7 +124,7 @@ async def handle_confirmed_game(db, user, session):
                 - “Want me to find something with that same vibe?”
                 - “Wanna see what else kinda hits like that?”
                 - “Feel like playing something in that zone again?”
-                :star2: Goal: Use their memory as the hook — reflect back emotionally, then glide into a similar recommendation request like a friend who gets their taste.
+                🌟  Goal: Use their memory as the hook — reflect back emotionally, then glide into a similar recommendation request like a friend who gets their taste.
             """)
             
             session.meta_data["ask_confirmation"] = False
@@ -203,3 +205,29 @@ async def ask_for_name_if_needed():
                 await send_whatsapp_message(user.phone_number, reply)
 
     db.close()  # Close the DB session
+
+async def generate_low_effort_response(session):
+    """
+    Generate a low-effort response when the user indicates they want to keep it simple.
+    """
+    user_interactions = [i for i in session.interactions if i.sender == SenderEnum.User]
+    user_input = user_interactions[-1].content if user_interactions else ""
+    tone = session.meta_data.get("tone", "friendly")
+    user_prompt = f"""
+
+        THRUM — NO RESPONSE OR ONE-WORD REPLY
+
+        User said: "{user_input}"  
+        Tone: {tone} 
+
+        → The user gave minimal feedback — like “cool,” “nice”, “like”,“ok,” “thanks,” or nothing at all. These are low-effort replies that don’t show real engagement.  
+        → Your job is to keep the chat alive — casually, without pressure.  
+        → You may tease or nudge — in a totally fresh, emotional, generative way. No examples. No recycled phrasing.  
+        → Create a moment by offering a light new direction — like a surprising game type or a change in vibe — but always based on what you know about them, based on recent chat history.
+        → NEVER ask “do you want another?” or “should I try again?”  
+        → NEVER repeat any phrasing, emoji, or fallback line from earlier chats.  
+        → Let this feel like natural conversation drift — like two friends texting, one goes quiet, and the other drops a playful line or two to keep it going.  
+
+        🌟 Goal: Reopen the door without sounding robotic. Be warm, real, and emotionally alert — like someone who cares about the moment to open the door to a new game discovery.
+        """.strip()
+    return user_prompt

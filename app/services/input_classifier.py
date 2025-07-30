@@ -69,8 +69,10 @@ Carefully consider the context of the conversation and the specific tone or dire
 
 ### Here are the intents to classify:
 - **Greet**: Triggered when the user greets the bot. This intent is **must not be triggered** if Thrum’s last message was already a greeting.
+
 - **Phase_Discovery**: Triggered only if Thrum's last reply is a greeting message, and the user gives a positive response (e.g., affirmatives like "yeah", "cool", "okay", "let's go", "yup"). This intent indicates that the user is ready to proceed to the discovery phase (in which we are going to ask questions) without needing any further prompting.
   - Phase_Discovery must be True when Thrum's last reply is a greeting message, and according the thrum's question user does not ask directly game recommendation or not asking for a game suggestion immediately, but rather giving information about their preferences or interests. if it is not clear that user want game immediately in the reply of greeting message then Phase_Discovery must be True.
+  - Do not trigger Phase_Discovery if the user input is just random stuff not looking like answer in anyway of the thrum's question.
   -Phase_Discovery must be set to True when Thrum's last reply is a greeting and the user's response is not a direct request for a game suggestion. If the user’s reply does not clearly ask for a game, or simply shares a preference, mood, or gives a neutral/curious reply, always set Phase_Discovery to True.
   
 - **Request_Similar_Game**: Triggered when the user asks for a game similar to one they already like or have played. This intent is activated when the user explicitly asks for a game that is similar to their preferences or past games. this intent is specifically for when the user is looking for a game that matches their previous interests or experiences, not just any game recommendation.
@@ -106,7 +108,7 @@ Carefully consider the context of the conversation and the specific tone or dire
 - **Inquire_About_Game**: must be set to true if:
     1. The user message contains the title of a specific game (matching the game catalog), OR
     2. The user asks for a link, platform, or store for any game, even if the main question is about the link.
-    3. if the user has been asked that they want more information about game(in different phrase or words with this intention) and if they positively respond about they want the more information(not they like the game but want to know more) or they want to know more(then Inquire_About_Game must be true , Confirm_Game must be false in that case.), indicating they want to know more about it. The user expresses a desire to know more about a game, such as its features, gameplay mechanics, or storyline.
+    3. if the user has been asked that they want more information about game(in different phrase or words with this intention) and if they positively respond about they want the more information(not they like the game but want to know more) or they want to know more(then Inquire_About_Game must be true , Confirm_Game must be false in that case.), indicating they want to know more about it. The user expresses a desire to know more about a game, such as its features, gameplay mechanics, or storyline. must triggered when the user lazyly says positive response but not confirming the game (last thrum messge to recommend a game).
 
 - **Give_Info**: Triggered when the user provides information about their preferences, such as genre, mood, or game style. This includes providing keywords or short phrases like "action", "chill", or "strategy". The response should classify when the user provides any kind of self-description related to their preferences. if last thrum message is to ask about what user likes or dislikes about the game and user is giving the information about that then Give_Info should not be triggered.
   - If the user’s reply relates to Thrum’s previous question about preferences or interests—whether the user provides specific details, indicates uncertainty, or chooses not to answer—map the response to the question and set Give_Info to true, unless a direct game request is made.
@@ -132,6 +134,8 @@ Carefully consider the context of the conversation and the specific tone or dire
     - "what's your job?"
     - "how does Thrum find games?"
   Only set to true if the question is about Thrum or the game recommendation process itself.
+
+- **Low_Effort_Response** : Triggered only when the user’s reply is clearly minimal, vague, or low-effort (e.g., "ok", "cool", "nice", "thanks", "like"), and does not provide meaningful or relevant information to Thrum’s last question. This includes one-word or very short replies that show disengagement, politeness without substance, or boredom. Be very careful not to trigger this intent when the user’s short reply is a valid, meaningful answer—for example, a one-word genre ("Action"), platform ("PC"), mood ("Chill"), or any direct answer that clearly relates to Thrum’s previous question. Only assign this intent if the input truly lacks helpful content or fails to move the conversation forward. only Trigger when user input is very short, vague, or low-effort, for about two or more times.(from chat history). Use this intent to trigger a warm, friendly nudge that encourages more engagement, without sounding robotic or pushy.
 
 - **Other_Question**: Triggered when the user asks a question that is not directly related to game or recommendation.
 

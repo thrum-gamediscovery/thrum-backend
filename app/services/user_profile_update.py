@@ -165,10 +165,14 @@ async def update_user_from_classification(db: Session, user, classification: dic
                 # Ensure session.favourite_games is initialized as a list if it's None
                 if session.favourite_games is None:
                     session.favourite_games = []
+                if user.favourite_games is None:
+                    user.favourite_games = []
                     print("✅ Initialized session.favourite_games as an empty list.")
                 if game_clean not in session.favourite_games:
                     session.favourite_games.append(game_clean)
-                if game_clean not in session.favourite_games:
+                    flag_modified(session, "favourite_games")
+                    print(f"✅ Added favourite game to session: {game_clean}")
+                if game_clean not in user.favourite_games:
                     user.favourite_games.append(game_clean)
                     flag_modified(user, "favourite_games")
                     user.last_updated["favourite_games"] = str(datetime.utcnow())

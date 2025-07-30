@@ -6,8 +6,7 @@ import json
 import openai
 import os
 from openai import AsyncOpenAI
-from app.services.general_prompts import GLOBAL_USER_PROMPT
-from app.services.general_prompts import NO_GAMES_PROMPT
+from app.services.general_prompts import GLOBAL_USER_PROMPT, NO_GAMES_PROMPT
 import random
 
 client = AsyncOpenAI()
@@ -26,13 +25,14 @@ class SessionMemory:
         self.genre = session.genre[-1] if session.genre else None
         self.platform = session.platform_preference[-1] if session.platform_preference else None
         self.story_preference = getattr(session, "story_preference", None)
-        self.tone = getattr(session, "last_tone", None)
         self.rejections = getattr(session, "rejected_games", [])
         self.likes = getattr(session, "liked_games", []) if hasattr(session, "liked_games") else []
         self.last_game = getattr(session, "last_recommended_game", None)
         self.last_intent = getattr(session, "last_intent", None)
-        self.history = [(i.sender, i.content) for i in getattr(session, "interactions", [])]
-        # Add any more fields as you want!
+        self.history = [(i.sender.name, i.content, i.tone_tag) for i in getattr(session, "interactions", [])]
+        self.gameplay_elements = getattr(session, "gameplay_elements", None)
+        self.preferred_keywords = getattr(session, "preferred_keywords", None)
+        self.disliked_keywords = getattr(session, "disliked_keywords", None)
 
     def update(self, **kwargs):
         for k, v in kwargs.items():
@@ -68,17 +68,21 @@ class SessionMemory:
             out.append(f"Platform: {self.platform}")
         if self.story_preference is not None:
             out.append(f"Story preference: {'Yes' if self.story_preference else 'No'}")
+        if self.gameplay_elements:
+            out.append(f"Gameplay elements: {', '.join(self.gameplay_elements)}")
+        if self.preferred_keywords:
+            out.append(f"Preferred keywords: {', '.join(self.preferred_keywords)}")
+        if self.disliked_keywords:
+            out.append(f"Disliked keywords: {', '.join(self.disliked_keywords)}")
         if self.rejections:
             out.append(f"Rejected games: {self.rejections}")
         if self.likes:
             out.append(f"Liked games: {self.likes}")
         if self.last_game:
             out.append(f"Last game suggested: {self.last_game}")
-        if self.last_intent:
-            out.append(f"Last intent: {self.last_intent}")
         if self.history:
-            last_few = self.history[-1000:]
-            hist_str = " | ".join([f"{s}: {c}" for s, c in last_few])
+            last_few = self.history[-15:]
+            hist_str = " | ".join([f"{s}: {c} : tone - {t}" for s, c, t in last_few])
             out.append(f"Recent chat: {hist_str}")
 
         return " | ".join(out)
@@ -368,7 +372,7 @@ async def diliver_similar_game(db: Session, user, session) -> str:
                 → Use a new rhythm and vibe — sometimes hyped, sometimes teasing, sometimes chill — based on recent mood.
                 → You can casually mention what hit in the last one (genre, pacing, tone, mechanics), but never like a system log. Talk like a close friend would on WhatsApp.
                 → NEVER repeat phrasing, emoji, or sentence structure from earlier replies.
-                :star2: Goal: Make the moment feel human — like you're really listening and about to serve something *even better*. Rebuild energy and keep the conversation alive.
+                🌟  Goal: Make the moment feel human — like you're really listening and about to serve something *even better*. Rebuild energy and keep the conversation alive.
             """
         return user_prompt
 

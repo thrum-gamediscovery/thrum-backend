@@ -47,7 +47,7 @@ async def format_reply(session, user_input, user_prompt):
         memory_context_str = f"{memory_context_str} "
     else:
         memory_context_str = ""
-
+    print("Memory context string:", memory_context_str)
 
     # user_name = session.user_name    
     user_name = session_memory.user_name
