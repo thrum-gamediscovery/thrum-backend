@@ -119,9 +119,9 @@ Carefully consider the context of the conversation and the specific tone or dire
 
 - **Confirm_Game**: Triggered when the user confirms their interest in a game that was previously recommended(if input is just "yes" then it might be for know more information depends on previous thrum message in that case Inquire_About_Game should be true.). The confirmation could be something like "like that game" or "I like that game." or "like that one" or similar to that, This is explicitly confirming the previous game suggestion, meaning that the user is showing interest in the exact game Thrum recommended they liked that. also triggered when user is giving the reason why they liked the game or what they liked about the game(so check thrum's last message and user's reply).
 
-- **want_to_share_friend**: Triggered when the user expresses a desire to share Thrum with friends. This intent is activated when the user says something like "I want to share this with my friends".
-  - If thrum's last message is about asking about soft sentence that suggests they might want to share Thrum with some of their friends, and the user responds positively or expresses interest in sharing Thrum with friends, then this intent(want_to_share_friend) must be set to true.
-
+- **want_to_share_friend**: Triggered when the user expresses a desire to share Thrum with friends or family. This intent is activated when Explicit requests for share link or mention of sharing Thrum with friends, such as "I want to share this with my friend".
+  - If thrum's last message is about asking about soft sentence that suggests they might want to share Thrum with some of their friends, and the user responds positively or expressing a desire or willingness or just confuse to answer that to share Thrum with friends or other, then this intent(want_to_share_friend) must be set to true.
+  
 - **Bot_Error_Mentioned:** The user indicates the bot is lost, confused, or not understanding them ("you are lost", "you do not hear me", "you don’t know me", "why do you suggest if you don’t know who I am", etc.).
 
 - **About_FAQ**: Triggered when the user asks about what Thrum does, how it works, who you are, or any general FAQ about the service. Examples:
