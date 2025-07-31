@@ -102,18 +102,34 @@ async def update_or_create_session(db: DBSession, user):
         return new_session
 
     # 💡 NEW: Time-based returning_user check (30+ min idle = reengagement)
+    #
+    # We want to determine if the user has been away long enough to be considered
+    # "returning". The previous implementation attempted to set
+    # `returning_user` and then immediately called `update_returning_user_flag`,
+    # which overwrote the value because `last_interaction` was updated before
+    # computing the idle duration. To fix this, we compute the idle time first
+    # using the *previous* `last_interaction` timestamp, set `returning_user`
+    # accordingly, and only then update the `last_interaction` timestamp. We
+    # avoid calling `update_returning_user_flag` here since it would see the
+    # freshly updated `last_interaction` and reset the flag to False.
     last_interaction_time_str = last_session.meta_data.get("last_interaction")
     if last_interaction_time_str:
         try:
             last_interaction_time = datetime.fromisoformat(last_interaction_time_str)
             idle_seconds = (now - last_interaction_time).total_seconds()
-            if idle_seconds > 1800:  # 30 minutes
-                last_session.meta_data["returning_user"] = True
+            # Only flag as returning if idle for more than 30 minutes
+            last_session.meta_data["returning_user"] = idle_seconds > 1800
         except Exception:
-            pass  # Fallback in case of invalid format
+            # If parsing fails, assume not returning
+            last_session.meta_data["returning_user"] = False
+    else:
+        last_session.meta_data["returning_user"] = False
 
+    # Update the last interaction to now for future idle calculations
     last_session.meta_data["last_interaction"] = datetime.utcnow().isoformat()
-    update_returning_user_flag(last_session)
+
+    # Commit updated metadata to the database
+    db.commit()
 
     return last_session
 

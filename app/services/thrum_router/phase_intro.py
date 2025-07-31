@@ -70,9 +70,27 @@ OUTPUT
 
 
 def build_reengagement_intro(session, memory_context_str):
-    user_name = session.meta_data.get("user_name", "")
+    """
+    Build a re-engagement intro for a returning user.
+
+    Attempt to personalise with the user's name. We first check
+    `session.meta_data` for a stored `user_name` (which may have been set
+    during classification or previous updates). If that is not present,
+    fall back to the name on the `session.user` relationship if available.
+    Finally, default to a generic friendly placeholder.
+
+    The memory context string is prepended to give the LLM full access to
+    session memory and recent chat history.
+    """
+    # Try to get the name from metadata (explicitly set during classification)
+    user_name = session.meta_data.get("user_name") if session.meta_data else None
+    # Fall back to the actual user name from the related UserProfile
+    if not user_name and hasattr(session, "user") and session.user and getattr(session.user, "name", None):
+        user_name = session.user.name
+    # Default fallback
     if not user_name:
-        user_name = "friend"  # Fallback if no name is available
+        user_name = "friend"
+
     options = [
         f"USER MEMORY & RECENT CHAT: {memory_context_str}\nHey {user_name}, you’re back 👀",
         f"USER MEMORY & RECENT CHAT: {memory_context_str}\nYo {user_name}, how are you? Nice to see you again.",
@@ -80,6 +98,5 @@ def build_reengagement_intro(session, memory_context_str):
         f"USER MEMORY & RECENT CHAT: {memory_context_str}\n{user_name} Still looking for that next hit?",
         f"USER MEMORY & RECENT CHAT: {memory_context_str}\n{user_name} Let’s pick up where we left off."
     ]
-
-    # You can choose one at random or sequence as needed
+    # Pick one variant at random for variety
     return random.choice(options)
