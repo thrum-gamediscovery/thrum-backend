@@ -490,6 +490,14 @@ async def ask_discovery_question(session) -> str:
     - Never mentions "genre", "platform", "preference", "story-driven", or similar
     """
 
+    # 🚫 Global NO-GAME rule (always at the very top of prompt)
+    NO_GAME_RULE = """
+🚫 HARD RULE:
+- You cannot recommend, invent, or recall any game unless a valid `game` object is explicitly provided.
+- If no game is available, keep the conversation going with questions, banter, or observations.
+- Do NOT hint at "having a game ready", "bangers", "treats", or anything that implies a game will be suggested.
+""".strip()
+
     last_user_tone = get_last_user_tone_from_session(session)
     user_name = getattr(session.user, "name", None) if hasattr(session, "user") and session.user and session.user.name else ""
     session.meta_data = session.meta_data or {}
@@ -502,6 +510,8 @@ async def ask_discovery_question(session) -> str:
     print('...................Test...........', is_vague_reply(last_user_message))
     if is_vague_reply(last_user_message):
         return f"""
+{NO_GAME_RULE}
+
 {GLOBAL_USER_PROMPT}
 
 ---
@@ -526,6 +536,8 @@ Only return one message, like one bubble in a chat.
     if not getattr(session, "favourite_games", None) and "favourite_games" not in dont_ask:
         session.meta_data["dont_ask_que"].append("favourite_games")
         return f"""
+{NO_GAME_RULE}
+
 {GLOBAL_USER_PROMPT}
 
 ---
@@ -573,6 +585,8 @@ This is a tone hook moment — make it emotionally alive. The goal isn’t to co
         genres = get_next_genres(session)
         genre_line = ", ".join(genres)
         return f"""
+{NO_GAME_RULE}
+
 {GLOBAL_USER_PROMPT}
 
 ---
@@ -616,6 +630,8 @@ This is a tone-pivot moment — the goal is not to categorize, but to open up em
     if not getattr(session, "platform_preference", None) and "platform" not in dont_ask:
         session.meta_data["dont_ask_que"].append("platform")
         return f"""
+{NO_GAME_RULE}
+
 {GLOBAL_USER_PROMPT}
 
 ---
@@ -659,6 +675,8 @@ This is a moment for emotional rhythm — like a friend sliding a question into 
     if not getattr(session, "exit_mood", None) and "mood" not in dont_ask:
         session.meta_data["dont_ask_que"].append("mood")
         return f"""
+{NO_GAME_RULE}
+
 {GLOBAL_USER_PROMPT}
 
 ---
@@ -677,6 +695,8 @@ This is a moment for emotional rhythm — like a friend sliding a question into 
     if getattr(session, "story_preference", None) is None and "story_preference" not in dont_ask:
         session.meta_data["dont_ask_que"].append("story_preference")
         return f"""
+{NO_GAME_RULE}
+
 {GLOBAL_USER_PROMPT}
 
 ---
@@ -704,6 +724,8 @@ This is a moment for emotional rhythm — like a friend sliding a question into 
         and getattr(session, "rejection_count", 0) >= 2
     ):
         return f"""
+{NO_GAME_RULE}
+
 {GLOBAL_USER_PROMPT}
 
 ---
@@ -734,6 +756,8 @@ This is a moment for emotional rhythm — like a friend sliding a question into 
 
     # 8. If all fields are filled: let LLM drive next step as a friend
     return f"""
+{NO_GAME_RULE}
+
 {GLOBAL_USER_PROMPT}
 
 ---
