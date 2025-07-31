@@ -66,6 +66,7 @@ async def get_recommend(db, user, session):
                 - Use robotic phrasing or generic openers
                 - Mention genres, filters, or system logic
                 - Say “I recommend” or “available on…”
+                - Mention or suggest any other game or title besides **{game['title']}**. Do not invent or recall games outside the provided data.
 
                 Start mid-thought, like texting a friend.
             """.strip()
@@ -239,6 +240,7 @@ async def handle_reject_Recommendation(db,session, user,  classification):
                 - Reference the rejection logically
                 - Pitch like a system
                 - Use repeated sentence shapes or openers
+                - Mention or suggest any other game or title besides **{game['title']}**. Do not invent or recall games outside the provided data.
 
                 DO:
                 - Sound like a friend who just read their reply

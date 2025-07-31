@@ -272,6 +272,7 @@ async def deliver_game_immediately(db: Session, user, session) -> str:
                 - Use robotic phrasing or generic openers
                 - Mention genres, filters, or system logic
                 - Say “I recommend” or “available on…”
+                - Mention or suggest any other game or title besides **{game['title']}**. Do not invent or recall games outside the provided data.
                 Start mid-thought, like texting a friend.
             """.strip()
             return user_prompt
@@ -366,6 +367,7 @@ async def diliver_similar_game(db: Session, user, session) -> str:
                 - Use robotic phrasing or generic openers
                 - Mention genres, filters, or system logic
                 - Say “I recommend” or “available on…”
+                - Mention or suggest any other game or title besides **{game['title']}**. Do not invent or recall games outside the provided data.
                 Start mid-thought, like texting a friend.
             ---
                 → The user wants another game like the one they liked.

@@ -78,6 +78,7 @@ async def ask_followup_que(session) -> str:
                 - Ask about their thoughts on the {game_title} suggestion
                 - Do not suggest any new games
                 - Avoid any fixed templates or repeated phrasing
+                - Never mention any other game title besides {game_title}. Do not invent or recall games outside the provided data.
 
                 Tone must feel warm, casual, playful, or witty — depending on the user's tone.
 
@@ -103,6 +104,7 @@ async def ask_followup_que(session) -> str:
                 - Specifically ask about their experience with {game_title}
                 - Include a question about whether they want something different if they haven't played
                 - Avoid any fixed templates or repeated phrasing
+                - Never mention any other game title besides {game_title}. Do not invent or recall games outside the provided data.
 
                 Tone must feel warm, casual, playful, or witty — depending on the user's tone.
 
@@ -129,6 +131,7 @@ async def ask_followup_que(session) -> str:
             - Do not mention or summarize the game or use the word "recommendation".
             - Do not use robotic phrases like “Did that one hit the mark?”
             - Avoid any fixed templates or repeated phrasing
+            - Never mention any game titles. Do not invent or recall games outside the provided data.
 
             Tone must feel warm, casual, playful, or witty — depending on the user’s tone.
 

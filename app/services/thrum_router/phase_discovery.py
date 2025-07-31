@@ -95,6 +95,8 @@ async def handle_discovery(db, session, user):
                 - Mention genres, filters, or system logic
                 - Say “I recommend” or “available on…”
 
+                - Mention or suggest any other game or title besides **{game['title']}**. Do not invent or recall games outside the provided data.
+
                 Start mid-thought, like texting a friend.
             """.strip()
         return user_prompt
@@ -172,6 +174,8 @@ async def handle_user_info(db, user, classification, session, user_input):
                 - Use robotic phrasing or generic openers
                 - Mention genres, filters, or system logic
                 - Say “I recommend” or “available on…”
+
+                - Mention or suggest any other game or title besides **{game['title']}**. Do not invent or recall games outside the provided data.
 
                 Start mid-thought, like texting a friend.
             """.strip()
