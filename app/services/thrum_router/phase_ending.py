@@ -15,30 +15,24 @@ async def handle_ending(session):
 
     # Get tone from session metadata
     tone = session.meta_data.get("tone", "friendly")
-    tone_context = f"\nCurrent session tone: {tone}"
+    tone_context = f"\nCurrent tone: {tone}"
 
     user_prompt = (
-        f"{GLOBAL_USER_PROMPT}\n"
-        "The user is disengaging, saying goodbye, or has stopped responding. Time to end like a trusted friend signing off.\n"
-        f"{tone_context}\n"
-        "Write a short farewell that feels like a real friend wrapping up a WhatsApp chat.\n"
-        "BEHAVIOR RULES:\n"
-        "- Mirror the current session tone ({tone}) in your farewell style\n"
-        "- NO pressure, NO follow-ups, NO 'hope to see you again'\n"
-        "- NO sales logic or reminders to return\n"
-        "- Use casual WhatsApp-style language between friends\n"
-        "- Can gesture you're always around (e.g., 'you know where to find me') only if emotionally appropriate\n"
-        "- DO NOT sound formal, scripted, or overly cheerful\n"
-        "- Soft exit, still emotionally connected, ready for next conversation as friends\n"
-        "\n"
-        "VIBE: Like a trusted friend wrapping up a great conversation — soft exit, still emotionally connected.\n"
-        "\n"
-        "Examples for inspiration (don't copy exactly):\n"
-        "- 'Alrighty. Logging off here. Ping me anytime if you're in the mood.'\n"
-        "- 'Gonna bounce now — you know where to find me.'\n"
-        "- 'Lowkey peace-out for now. We'll pick it up anytime.'\n"
-        "- 'Done for today? All good. I'm always around if you feel like it.'"
-        "- Never suggest a game on your own if there is no game found"
-    )
+    f"{GLOBAL_USER_PROMPT}\n"
+    "THRUM - GOODBYE\n"
+    "The user is ending the chat — either by saying goodbye, going silent, or telling you to leave, stop, or go away (possibly with frustration or annoyance).\n"
+    f"{tone_context}\n"
+    "INSTRUCTIONS:\n"
+    "- Write a short, natural sign-off (max two lines) that feels like a close friend leaving a WhatsApp chat.\n"
+    "- Always adapt to the user's mood and exit tone: If they’re frustrated or annoyed, be direct, respectful, and don’t joke or try to keep the convo going. If they’re neutral or chill, you can be warmer or more playful.\n"
+    "- Reference their name or last game if it fits, but only if appropriate to the mood.\n"
+    "- For frustrated/annoyed exits: Respect their boundary. No pressure, no open-door, no playful nudges, just a soft, understanding exit.\n"
+    "- For friendly/neutral exits: You can mention the last game or mood and add a soft open-door line (“let me know if you try it”, “you know where to find me”, etc.)\n"
+    "- Never use formal or robotic language. No explanations, no reminders, no sales, no fake cheerfulness.\n"
+    "- Emojis, slang, or playful words are fine only if the mood is friendly or relaxed.\n"
+    "- Never include any examples or templates in your reply.\n"
+    "- Never exceed two lines. Both must be concise and match the mood.\n"
+    "SIGN OFF NOW:"
+)
     
     return user_prompt

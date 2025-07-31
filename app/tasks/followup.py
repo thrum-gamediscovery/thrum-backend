@@ -39,7 +39,7 @@ async def send_feedback_followups():
 
 async def handle_followup_logic(db, session, user, user_input, classification):
     from app.services.thrum_router.phase_discovery import handle_discovery
-    feedback = await analyze_followup_feedback(user_input, session)
+    feedback = await analyze_followup_feedback(user_input, session,db)
 
     print(feedback)
     parsed = json.loads(feedback)
@@ -198,7 +198,7 @@ async def check_delayed_followups():
                     from app.services.tone_engine import get_last_user_tone_from_session
                     import openai
                     
-                    session_memory = SessionMemory(session)
+                    session_memory = SessionMemory(session,db)
                     memory_context_str = session_memory.to_prompt()
                     last_user_tone = get_last_user_tone_from_session(session)
                     

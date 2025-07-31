@@ -35,12 +35,12 @@ intents = [
     "About_FAQ"
 ]
 
-async def classify_user_intent(user_input: str, session):
+async def classify_user_intent(user_input: str, session,db):
     from app.services.session_memory import SessionMemory
     thrum_interactions = [i for i in session.interactions if i.sender == SenderEnum.Thrum]
     last_thrum_reply = thrum_interactions[-1].content if thrum_interactions else ""
     
-    session_memory = SessionMemory(session)
+    session_memory = SessionMemory(session,db)
     memory_context_str = session_memory.to_prompt()
 
     user_prompt = f"""
@@ -244,7 +244,7 @@ OUTPUT FORMAT (Strict JSON) strictly deny to add another text:
 
     
 # ✅ Use OpenAI to classify mood, vibe, genre, and platform from free text
-async def classify_user_input(session, user_input: str) -> dict | str:
+async def classify_user_input(db,session, user_input: str) -> dict | str:
     from app.services.session_memory import SessionMemory
     # Get the last message from Thrum to include as context
     thrum_interactions = [i for i in session.interactions if i.sender == SenderEnum.Thrum]
@@ -264,7 +264,7 @@ async def classify_user_input(session, user_input: str) -> dict | str:
     else:
         last_game = None
 
-    session_memory = SessionMemory(session)
+    session_memory = SessionMemory(session,db)
     memory_context_str = session_memory.to_prompt()
 
     final_system_prompt = f'''
@@ -558,13 +558,13 @@ Now classify into the format below.
 
     
 
-async def analyze_followup_feedback(user_reply: str, session) -> dict:
+async def analyze_followup_feedback(user_reply: str, session,db) -> dict:
     from app.services.session_memory import SessionMemory
     game_title = session.last_recommended_game
     thrum_interactions = [i for i in session.interactions if i.sender == SenderEnum.Thrum]
     last_thrum_reply = thrum_interactions[-1].content if thrum_interactions else ""
     
-    session_memory = SessionMemory(session)
+    session_memory = SessionMemory(session,db)
     memory_context_str = session_memory.to_prompt()
 
     prompt = f"""{memory_context_str}

@@ -1,5 +1,7 @@
 from app.services.game_recommend import game_recommendation
 from app.db.models.enums import PhaseEnum, SenderEnum
+from app.db.models.game import Game
+from app.db.models.game_recommendations import GameRecommendation
 from app.db.models.session import Session
 from app.services.tone_engine import get_last_user_tone_from_session
 import json
@@ -16,8 +18,13 @@ model= os.getenv("GPT_MODEL")
 
 # At the top of app/services/session_memory.py
 
+def get_game_title_by_id(game_id, db):
+        # Fetch game by ID from the database session
+        game = db.query(Game).filter(Game.game_id == game_id).first()
+        return game.title if game else "Unknown"
+
 class SessionMemory:
-    def __init__(self, session):
+    def __init__(self, session, db):
         # Initialize from DB session object; can expand as needed
         self.user_name = getattr(session.user, "name", None) if hasattr(session, "user") and session.user and session.user.name else ""
         self.region = getattr(session.user, "region", None) if hasattr(session, "user") and session.user and session.user.region else ""
@@ -26,7 +33,15 @@ class SessionMemory:
         self.genre = session.genre[-1] if session.genre else None
         self.platform = session.platform_preference[-1] if session.platform_preference else None
         self.story_preference = getattr(session, "story_preference", None)
-        self.rejections = getattr(session, "rejected_games", [])
+        rejected_ids = getattr(session, "rejected_games", [])
+        self.rejections = [
+            get_game_title_by_id(game_id, db) for game_id in rejected_ids
+        ]
+        rec_ids = [rec.game_id for rec in db.query(GameRecommendation).filter(GameRecommendation.session_id == session.session_id).all()]
+        self.rec_ids = rec_ids
+        self.recommended_game = [
+            get_game_title_by_id(game_id, db) for game_id in rec_ids
+        ]
         self.likes = getattr(session, "liked_games", []) if hasattr(session, "liked_games") else []
         self.last_game = getattr(session, "last_recommended_game", None)
         self.last_intent = getattr(session, "last_intent", None)
@@ -81,8 +96,10 @@ class SessionMemory:
             out.append(f"User Liked games: {self.likes}")
         if self.last_game:
             out.append(f"Last game suggested by thrum: {self.last_game}")
+        if self.recommended_game:
+            out.append(f"Thrum already recommended {self.recommended_game} games to user.")
         if self.history:
-            last_few = self.history[-15:]
+            last_few = self.history[-5:]
             hist_str = " | ".join([f"{s} says {c} .. in tone - {t}" for s, c, t in last_few])
             out.append(f"Recent chat: {hist_str}")
 
@@ -121,8 +138,8 @@ VARIATION_LINES = [
     "Could be your next favorite — want to try it?"
 ]
 
-async def format_game_output(session, game: dict, user_context: dict = None) -> str:
-    session_memory = SessionMemory(session)
+async def format_game_output(db,session, game: dict, user_context: dict = None) -> str:
+    session_memory = SessionMemory(session,db)
     memory_context_str = session_memory.to_prompt()
 
     last_user_tone = get_last_user_tone_from_session(session)
@@ -216,7 +233,7 @@ async def deliver_game_immediately(db: Session, user, session) -> str:
     Returns:
         str: GPT-formatted game message
     """
-    session_memory = SessionMemory(session)
+    session_memory = SessionMemory(session,db)
     if session.game_rejection_count >= 2:
             session.phase = PhaseEnum.DISCOVERY
             return await handle_discovery(db=db, session=session, user=user)
@@ -260,20 +277,27 @@ async def deliver_game_immediately(db: Session, user, session) -> str:
                 {GLOBAL_USER_PROMPT}
                 ---
                 THRUM — FRIEND MODE: GAME RECOMMENDATION
-                You are THRUM — the friend who remembers what’s been tried and never repeats. You drop game suggestions naturally, like someone texting their best friend.
-                → Recommend **{game['title']}** using {mood} mood and {tone} tone.
-                → Use this game description for inspiration: {description}
-                INCLUDE:
-                - A Draper-style mini-story (3–4 lines max)
-                - Platform info ({platform_note}) added in a casual, friend-like way
-                - Bold the title: **{game['title']}**
-                - End with a fun, playful, or emotionally tone-matched line that also invites a reply — a soft question, nudge, or spark that fits the current rhythm. Never use robotic prompts like “want more?” — make it sound like something a real friend would ask to keep the chat going.(never templated)
-                NEVER:
-                - Use robotic phrasing or generic openers
-                - Mention genres, filters, or system logic
-                - Say “I recommend” or “available on…”
-                - Mention or suggest any other game or title besides **{game['title']}**. Do not invent or recall games outside the provided data.
-                Start mid-thought, like texting a friend.
+
+                You are THRUM — the friend who remembers what’s been tried and never repeats. You drop game suggestions naturally, like texting your best mate.
+
+                Recommend **{game['title']}** using a {mood} mood and {tone} tone.
+
+                Use this game description for inspiration: {description}
+
+                INCLUDE:  
+                - Reflect the user's last message so they feel heard. 
+                - A Draper-style mini-story (3–4 lines max) explaining why this game fits based on USER MEMORY & RECENT CHAT, making it feel personalized.  
+                - Platform info ({platform_note}) mentioned casually, like a friend dropping a hint.  
+                - Bold the title: **{game['title']}**.  
+                - End with a fun, playful, or emotionally tone-matched line that invites a reply — a soft nudge or spark fitting the rhythm. Never robotic or templated prompts like “want more?”.
+
+                NEVER:  
+                - NEVER Use robotic phrasing or generic openers.  
+                - NEVER Mention genres, filters, or system logic.  
+                - NEVER Say “I recommend” or “available on…”.  
+                - NEVER Mention or suggest any other game than **{game['title']}**. No invented or recalled games outside the data.
+
+                Start mid-thought, as if texting a close friend.
             """.strip()
             return user_prompt
 
@@ -283,8 +307,6 @@ async def confirm_input_summary(session) -> str:
     Uses gpt-4o to generate a short, human-sounding confirmation line from mood, genre, and platform.
     No game names or suggestions — just a fun, natural acknowledgment.
     """
-    session_memory = SessionMemory(session)
-    memory_context_str = session_memory.to_prompt()
     session.intent_override_triggered = True
     mood = session.exit_mood or None
     genre_list = session.genre or []
@@ -319,8 +341,7 @@ async def diliver_similar_game(db: Session, user, session) -> str:
     Returns:
         str: GPT-formatted game message
     """
-    session_memory = SessionMemory(session)
-    memory_context_str = session_memory.to_prompt()
+    session_memory = SessionMemory(session,db)
     if session.game_rejection_count >= 2:
         session.phase = PhaseEnum.DISCOVERY
         return await handle_discovery(db=db, session=session, user=user)
@@ -355,20 +376,27 @@ async def diliver_similar_game(db: Session, user, session) -> str:
             {GLOBAL_USER_PROMPT}\n
             ---
                 THRUM — FRIEND MODE: GAME RECOMMENDATION
-                You are THRUM — the friend who remembers what’s been tried and never repeats. You drop game suggestions naturally, like someone texting their best friend.
-                → Recommend **{game['title']}** using {mood} mood and {tone} tone.
-                → Use this game description for inspiration: {description}
-                INCLUDE:
-                - A Draper-style mini-story (3–4 lines max)
-                - Platform info ({platform_note}) added in a casual, friend-like way
-                - Bold the title: **{game['title']}**
-                - End with a fun, playful, or emotionally tone-matched line that also invites a reply — a soft question, nudge, or spark that fits the current rhythm. Never use robotic prompts like “want more?” — make it sound like something a real friend would ask to keep the chat going.(never templated)
-                NEVER:
-                - Use robotic phrasing or generic openers
-                - Mention genres, filters, or system logic
-                - Say “I recommend” or “available on…”
-                - Mention or suggest any other game or title besides **{game['title']}**. Do not invent or recall games outside the provided data.
-                Start mid-thought, like texting a friend.
+
+                You are THRUM — the friend who remembers what’s been tried and never repeats. You drop game suggestions naturally, like texting your best mate.
+
+                Recommend **{game['title']}** using a {mood} mood and {tone} tone.
+
+                Use this game description for inspiration: {description}
+
+                INCLUDE:  
+                - Reflect the user's last message so they feel heard. 
+                - A Draper-style mini-story (3–4 lines max) explaining why this game fits based on USER MEMORY & RECENT CHAT, making it feel personalized.  
+                - Platform info ({platform_note}) mentioned casually, like a friend dropping a hint.  
+                - Bold the title: **{game['title']}**.  
+                - End with a fun, playful, or emotionally tone-matched line that invites a reply — a soft nudge or spark fitting the rhythm. Never robotic or templated prompts like “want more?”.
+
+                NEVER:  
+                - NEVER Use robotic phrasing or generic openers.  
+                - NEVER Mention genres, filters, or system logic.  
+                - NEVER Say “I recommend” or “available on…”.  
+                - NEVER Mention or suggest any other game than **{game['title']}**. No invented or recalled games outside the data.
+
+                Start mid-thought, as if texting a close friend.
             ---
                 → The user wants another game like the one they liked.
                 → Confirm that you're on it — but make it Draper-style: confident, curious, emotionally alive.
@@ -528,7 +556,7 @@ HOW TO WRITE:
 → This must feel like a WhatsApp message from a friend who’s genuinely curious.  
 → No fallback lines, no robotic phrases like “I’d love to know.”  
 → Never guess or inject a game unless the user gives a name first.
-
+don't suggest a game on your own if there is no game found
 NEVER DO:
 – No lists, options, surveys, or question scaffolds  
 – No greeting, no context-setting, no assistant voice  
@@ -622,6 +650,7 @@ NEVER DO:
 – Don’t list options or sound like a setup screen  
 – Don’t push a game unless user already indicated interest  
 – Don’t repeat any phrasing or sentence shape used earlier
+– Don't suggest a game on your own if there is no game found
 
 This is a moment for emotional rhythm — like a friend sliding a question into the flow.
 """.strip()
@@ -641,7 +670,7 @@ This is a moment for emotional rhythm — like a friend sliding a question into 
 → Include a soft or playful hook if natural (but don’t copy), like: “if you're craving calm, I’ve got just the thing” or “feeling bold? I might have chaos on tap.”  
 → Use slang, punctuation, emoji only if it fits their tone so far.  
 → Style must rotate — never reuse phrasing, rhythm, or sentence shape.  
-→ Don’t suggest a game if there’s no match yet.
+→ Don't suggest a game on your own if there is no game found
 """.strip()
 
     # 6. Gameplay/story preference — never survey, never ask "Do you like story-driven games?"
@@ -662,7 +691,7 @@ This is a moment for emotional rhythm — like a friend sliding a question into 
 → If their name, emoji style, or slang is known, include it naturally.  
 → Wrap with a soft tease like “spill that and I might just find your next obsession 👀” — but don’t repeat, remix each time.  
 → Never repeat structure or phrasing. Always a new shape.  
-→ Never suggest a game on your own if there is no game found
+→ Never suggest a game on your own 
 """.strip()
 
     # 7. Fallback: after several rejections
@@ -697,9 +726,9 @@ This is a moment for emotional rhythm — like a friend sliding a question into 
     “I’ve got zero clues left. Wanna help me not crash and burn here?”  
 → Never say the words “genre”, “gameplay”, “preference”, or “platform”.  
 → Never explain what you're doing — just *be* that friend who gets it.  
-→ Never list. Never survey. Never repeat structure or phrasing.  
+→ Never list. Never survey. Never repeat structure or phrasing. 
 → One message. That’s it.  
-→ Do **not** suggest another game unless the user gives a new, clear signal.  
+→ Do **not** suggest another game
 
 """.strip()
 

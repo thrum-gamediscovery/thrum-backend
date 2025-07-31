@@ -373,7 +373,7 @@ async def update_user_from_classification(db: Session, user, classification: dic
             # Load all game titles and IDs
             all_games = db.query(Game.game_id, Game.title).all()
             title_lookup = {g.title: g.game_id for g in all_games}
-            match = process.extractOne(find_game_title.strip(), title_lookup.keys(), score_cutoff=90)
+            match = process.extractOne(find_game_title.strip(), title_lookup.keys(), score_cutoff=85)
             if match:
                 matched_title = match[0]
                 matched_game_id = str(title_lookup[matched_title])  # Store as string
@@ -406,8 +406,8 @@ async def update_user_from_classification(db: Session, user, classification: dic
             tag_clean = tag.strip().lower()
 
             # ✅ Try platform match
-            def_promt = get_default_platform(tag_clean)
-            matched_platform = await get_best_platform_match(db=db, user_input=def_promt)
+            def_platform = await get_default_platform(tag_clean)
+            matched_platform = await get_best_platform_match(db=db, user_input=def_platform)
             if matched_platform or matched_platform is not None:
                 if matched_platform not in user.reject_tags["platform"]:
                     user.reject_tags["platform"].append(matched_platform)
@@ -464,5 +464,5 @@ async def update_user_from_classification(db: Session, user, classification: dic
     db.commit()
     await update_game_feedback_from_json(db=db, user_id=user.user_id, session=session, feedback_data=game_feedback)
 
-    session_memory = SessionMemory(session)
+    session_memory = SessionMemory(session,db)
     session_memory.update(**classification)

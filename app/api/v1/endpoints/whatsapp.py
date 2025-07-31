@@ -39,32 +39,32 @@ async def bot_reply(request, db, user, reply):
     ]
     request.state.session_id = session.session_id
     session = await bot_chat_with_thrum(request=request, bot_reply=reply, db=db)
-
+user_message_buffer = {}     # phone_number -> [msg1, msg2, ...]
+is_reply_in_progress = {} 
 # 📲 Main WhatsApp webhook endpoint to process user messages
 @router.post("/webhook", response_class=PlainTextResponse)
-async def whatsapp_webhook(request: Request, From: str = Form(...), Body: str = Form(...), db: Session = Depends(get_db)):
-    # Create message hash for deduplication
+async def whatsapp_webhook(
+    request: Request,
+    From: str = Form(...),
+    Body: str = Form(...),
+    db: Session = Depends(get_db)
+):
+    # ---------- 1. Message Deduplication ----------
     message_hash = hashlib.md5(f"{From}:{Body}".encode()).hexdigest()
     now = datetime.utcnow()
-    
-    # Check for duplicate message within last 10 seconds
     if From in recent_messages:
         if message_hash in recent_messages[From]:
             if now - recent_messages[From][message_hash] < timedelta(seconds=10):
                 return  # Ignore duplicate - no response
-        # Clean old messages (older than 30 seconds)
-        recent_messages[From] = {h: t for h, t in recent_messages[From].items() 
-                               if now - t < timedelta(seconds=30)}
+        # Clean old hashes
+        recent_messages[From] = {h: t for h, t in recent_messages[From].items()
+                                 if now - t < timedelta(seconds=30)}
     else:
         recent_messages[From] = {}
-    
-    # Store current message
     recent_messages[From][message_hash] = now
-    
+
+    # ---------- 2. Get or Create User ----------
     user = db.query(UserProfile).filter(UserProfile.phone_number == From).first()
-    user_input = Body
-    
-    # ✅ Step 1: Create new user if not found in DB
     if not user:
         region = await infer_region_from_phone(From)
         timezone_str = await get_timezone_from_region(From)
@@ -77,34 +77,76 @@ async def whatsapp_webhook(request: Request, From: str = Form(...), Body: str = 
         db.add(user)
         db.commit()
         db.refresh(user)
-    
-    session, intrection = await user_chat(request=request, db=db, user=user, Body=user_input)
-    session.followup_triggered= False
+
+    # ---------- 3. Buffer logic: If reply in progress, buffer message ----------
+    if is_reply_in_progress.get(From, False):
+        user_message_buffer.setdefault(From, []).append(Body)
+        return  # Do not process, just buffer
+
+    # ---------- 4. Start reply-in-progress state ----------
+    is_reply_in_progress[From] = True
+
+    # ---------- 5. Join buffered messages (if any) + this one ----------
+    all_msgs = user_message_buffer.pop(From, []) + [Body]
+    user_input = " ".join(all_msgs).strip()
+
+    # ---------- 6. Load/Create Session ----------
+    session = await update_or_create_session(db, user)
+    request.scope["headers"] = list(request.scope["headers"]) + [
+        (b"x-user-id", str(user.user_id).encode())
+    ]
+    request.state.session_id = session.session_id
+
+    # ---------- 7. Process User Chat ----------
+    payload = ChatRequest(user_input=user_input)
+    session, intrection = await user_chat_with_thrum(request=request, payload=payload, db=db)
+    session.followup_triggered = False
     session.intent_override_triggered = False
     if session.awaiting_reply:
         now = datetime.utcnow()
         if session.last_thrum_timestamp and now - session.last_thrum_timestamp < timedelta(seconds=180):
-            if session.user.silence_count <= 3: #  User replied promptly
+            if session.user.silence_count <= 3:
                 session.user.silence_count = 0
-        # Always stop waiting after any reply
         session.awaiting_reply = False
     db.commit()
 
-    response_prompt = await generate_thrum_reply(db=db,user=user, session=session, user_input=user_input, intrection = intrection)
+    # ---------- 8. Generate and Send Bot Reply ----------
+    response_prompt = await generate_thrum_reply(
+        db=db, user=user, session=session, user_input=user_input, intrection=intrection
+    )
     print('response_prompt........................................', response_prompt)
-    reply = await format_reply(session=session,user_input=user_input, user_prompt=response_prompt)
+    reply = await format_reply(db=db, session=session, user_input=user_input, user_prompt=response_prompt)
     if len(session.interactions) == 0 or is_session_idle(session):
-        await asyncio.sleep(5)
+        await asyncio.sleep(5)  # Optional: pause if new session
 
-    
-    # 📩 Return final reply to WhatsApp
     await send_whatsapp_message(
         phone_number=user.phone_number,
         message=reply,
         sent_from_thrum=False
     )
-    # 📤 Send response and maintain session state
-    await bot_reply(request=request, db=db, user=user, reply=reply)
+
+    # ---------- 9. Update Bot Chat State ----------
+    # (Register bot reply in chat memory)
+    session = await bot_chat_with_thrum(request=request, bot_reply=reply,db=db)
     session.awaiting_reply = True
     session.last_thrum_timestamp = datetime.utcnow()
     db.commit()
+
+    # ---------- 10. Clear reply-in-progress flag ----------
+    is_reply_in_progress[From] = False
+
+    # ---------- 11. After reply: If user sent MORE messages while bot was replying, process them immediately ----------
+    # (Handle rapid multi-message scenarios: join all, process recursively)
+    if From in user_message_buffer and user_message_buffer[From]:
+        # Recursively process all new buffered messages as one input
+        # (prevents missed messages if user types even more before receiving bot reply)
+        all_msgs = user_message_buffer.pop(From, [])
+        joined_input = " ".join(all_msgs).strip()
+        # Recurse by calling webhook handler directly (safe for simple flows)
+        # Or you can schedule as a background task if needed for concurrency
+        await whatsapp_webhook(
+            request=request,
+            From=From,
+            Body=joined_input,
+            db=db
+        )

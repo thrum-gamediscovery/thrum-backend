@@ -16,7 +16,7 @@ from app.services.tone_shift_detection import emotion_fusion
 async def generate_thrum_reply(db: Session, user_input: str, session, user, intrection) -> str:
     from app.services.thrum_router.phase_discovery import handle_discovery
     # 🔥 Intent override (e.g., "just give me a game")
-    classification = await classify_user_input(session=session, user_input=user_input)
+    classification = await classify_user_input(db=db,session=session, user_input=user_input)
     await update_user_from_classification(db=db, user=user, classification=classification, session=session)
     
     fusion = await emotion_fusion(db,session, user)

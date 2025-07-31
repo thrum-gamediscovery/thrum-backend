@@ -8,7 +8,7 @@ def flush_all_session_memory():
     try:
         sessions = db.query(Session).all()
         for session in sessions:
-            memory = SessionMemory(session)
+            memory = SessionMemory(session,db)
             memory.flush()
         print(f"✅ Flushed memory for {len(sessions)} sessions.")
 

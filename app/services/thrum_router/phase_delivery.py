@@ -51,24 +51,26 @@ async def get_recommend(db, user, session):
                 ---
                 THRUM — FRIEND MODE: GAME RECOMMENDATION
 
-                You are THRUM — the friend who remembers what’s been tried and never repeats. You drop game suggestions naturally, like someone texting their best friend.
+                You are THRUM — the friend who remembers what’s been tried and never repeats. You drop game suggestions naturally, like texting your best mate.
 
-                → Recommend **{game['title']}** using {mood} mood and {tone} tone.
-                → Use this game description for inspiration: {description}
+                Recommend **{game['title']}** using a {mood} mood and {tone} tone.
 
-                INCLUDE:
-                - A Draper-style mini-story (3–4 lines max)
-                - Platform info ({platform_note}) added in a casual, friend-like way
-                - Bold the title: **{game['title']}**
-                - End with a fun, playful, or emotionally tone-matched line that also invites a reply — a soft question, nudge, or spark that fits the current rhythm. Never use robotic prompts like “want more?” — make it sound like something a real friend would ask to keep the chat going.(never templated)
+                Use this game description for inspiration: {description}
 
-                NEVER:
-                - Use robotic phrasing or generic openers
-                - Mention genres, filters, or system logic
-                - Say “I recommend” or “available on…”
-                - Mention or suggest any other game or title besides **{game['title']}**. Do not invent or recall games outside the provided data.
+                INCLUDE:  
+                - Reflect the user's last message so they feel heard. 
+                - A Draper-style mini-story (3–4 lines max) explaining why this game fits based on USER MEMORY & RECENT CHAT, making it feel personalized.  
+                - Platform info ({platform_note}) mentioned casually, like a friend dropping a hint.  
+                - Bold the title: **{game['title']}**.  
+                - End with a fun, playful, or emotionally tone-matched line that invites a reply — a soft nudge or spark fitting the rhythm. Never robotic or templated prompts like “want more?”.
 
-                Start mid-thought, like texting a friend.
+                NEVER:  
+                - NEVER Use robotic phrasing or generic openers.  
+                - NEVER Mention genres, filters, or system logic.  
+                - NEVER Say “I recommend” or “available on…”.  
+                - NEVER Mention or suggest any other game than **{game['title']}**. No invented or recalled games outside the data.
+
+                Start mid-thought, as if texting a close friend.
             """.strip()
     print(f"User prompt: {user_prompt}")
     return user_prompt
@@ -92,12 +94,8 @@ async def explain_last_game_match(session):
     else:
         last_game = None
     
-    session_memory = SessionMemory(session)
-    memory_context_str = session_memory.to_prompt()
-    
     # Generate the user prompt with information about the user's feedback
-    user_prompt = f"""USER MEMORY & RECENT CHAT:
-    {memory_context_str if memory_context_str else 'No prior user memory or recent chat.'}
+    user_prompt = f"""
     Last suggested game: "{last_game.get('title') if last_game else 'None'}"
 
     Write Thrum’s reply:
@@ -145,7 +143,7 @@ async def recommend_game():
             user_prompt = await get_recommend(db=db, session=s, user=user)
             user_interactions = [i for i in s.interactions if i.sender == SenderEnum.User]
             user_input = user_interactions[-1].content if user_interactions else ""
-            reply = await format_reply(session=s, user_input=user_input, user_prompt=user_prompt)
+            reply = await format_reply(db=db,session=s, user_input=user_input, user_prompt=user_prompt)
             await send_whatsapp_message(user.phone_number, reply)
             s.phase = PhaseEnum.FOLLOWUP
             # :brain: Track nudge + potential coldness
@@ -190,7 +188,7 @@ async def handle_reject_Recommendation(db,session, user,  classification):
             return await handle_discovery(db=db, session=session, user=user)
         else:
             should_recommend = await have_to_recommend(db=db, user=user, classification=classification, session=session)
-            session_memory = SessionMemory(session)
+            session_memory = SessionMemory(session,db)
             memory_context_str = session_memory.to_prompt()
             if should_recommend:
                 session.phase = PhaseEnum.DELIVERY

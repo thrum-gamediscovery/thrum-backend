@@ -202,7 +202,7 @@ async def ask_for_name_if_needed():
                     "→ Never suggest a game on your own if there is no game found"
                 )
                 
-                reply = await format_reply(session=s, user_input=last_user_reply, user_prompt=response_prompt)
+                reply = await format_reply(db=db, session=s, user_input=last_user_reply, user_prompt=response_prompt)
                 if reply is None:
                     reply = "what's your name? so I can remember for next time."
                 await send_whatsapp_message(user.phone_number, reply)

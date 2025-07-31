@@ -11,7 +11,7 @@ async def check_intent_override(db, user_input, user, session, classification, i
     from app.services.thrum_router.phase_discovery import handle_discovery
     from app.services.thrum_router.phase_followup import handle_game_inquiry
     # Classify the user's intent based on their input
-    classification_intent = await classify_user_intent(user_input=user_input, session=session)
+    classification_intent = await classify_user_intent(user_input=user_input, session=session, db=db)
     intrection.classification = {"input" : classification, "intent" : classification_intent}
     db.commit()
     if session.meta_data.get("ask_for_rec_friend")  and (classification_intent.get("Give_Info") or classification_intent.get("Other")):
@@ -56,7 +56,7 @@ async def check_intent_override(db, user_input, user, session, classification, i
     
     elif classification_intent.get("want_to_share_friend"):
         if session.shared_with_friend:
-            classification_intent["Other"] = True
+            return await handle_other_input(db, user, session, user_input)
         else:
             session.shared_with_friend = True
             session.phase = PhaseEnum.DISCOVERY
