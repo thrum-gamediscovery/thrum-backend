@@ -11,6 +11,7 @@ from scipy.spatial.distance import cosine
 from datetime import datetime
 import numpy as np
 from sqlalchemy import text
+from sqlalchemy.orm.attributes import flag_modified
 model = SentenceTransformer("BAAI/bge-base-en-v1.5")
 
 # Function to get the platform link for a given game and preferred platform
@@ -137,6 +138,8 @@ async def game_recommendation(db: Session, user, session):
             ).all()
             link = get_game_platform_link(random_game.game_id, platform, db)
             # Save recommendation
+            session.game_rejection_count += 1
+            flag_modified(session, "game_rejection_count")
             game_rec = GameRecommendation(
                 session_id=session.session_id,
                 user_id=user.user_id,
@@ -258,7 +261,6 @@ async def game_recommendation(db: Session, user, session):
     else:
         print("[Step 7] No user age available; skipping age filter.")
 
-    session.game_rejection_count += 1
     base_games = base_query.all()
     print(f"[Step 7] Number of candidate games after filters: {len(base_games)}")
 
@@ -362,6 +364,8 @@ async def game_recommendation(db: Session, user, session):
         },
         accepted=None
     )
+    session.game_rejection_count += 1
+    flag_modified(session, "game_rejection_count")
     db.add(game_rec)
     db.commit()
     session.phase = PhaseEnum.FOLLOWUP
