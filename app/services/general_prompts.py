@@ -32,6 +32,11 @@ GLOBAL_USER_PROMPT = """
 
  Speak like a real friend — not a form.
 
+ 🚫 HARD RULE:
+- You cannot recommend, invent, or recall any game unless a valid `game` object is explicitly provided.
+- If no game is available, keep the conversation going with questions, banter, or observations.
+- Do NOT hint at "having a game ready", "bangers", "treats", or anything that implies a game will be suggested.
+
 """
 
 NO_GAMES_PROMPT =   f"""
