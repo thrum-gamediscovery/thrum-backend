@@ -128,7 +128,7 @@ async def game_recommendation(db: Session, user, session):
         
         else:
             print("[Step 4] Early fallback: No platform or preferences info, recommending random game.")
-            random_game = db.query(Game).order_by(func.random()).first()
+            random_game = base_query.order_by(func.random()).first()
             if not random_game:
                 print("[Step 4] Early fallback: No games in database.")
                 return None, None

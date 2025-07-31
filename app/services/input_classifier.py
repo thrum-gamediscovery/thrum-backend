@@ -395,14 +395,13 @@ You must infer from both keywords and tone—even if the user is casual, brief, 
    → Can be empty list if no feedback.
 
 13. find_game(title of the game)(string)
-   → if user is asking for a specific game title or name in last message, then put that game title in find_game variable
-   → if user is specifying that find me game by giving the title of the game in last message then put that game in find_game variable
-   → if user want specific game and give name or title for recommend (if user i saying something like"i don't like xyz game" then dont add that in this, only add when you find user want this specific game or want to know about this game)
-   → if user do not specify game title but looking like user is inquiry about ame or check avilability of any then return last recommend game's title.
-   → if user is not specifying any game title but chat is about game then return last recommend game's title.
-   → return just one title of that game which user specify for recommend not list
-   → If user not specify about game or title then strictly take last game title.
-   → If not, return "None".
+   → If the user is asking for a specific game title or name in their last message, then put that game title in the find_game variable.
+   → If the user specifies that they want a game by giving the title of the game in the last message, then put that game in the find_game variable.
+   → If the user is looking for a specific game and mentions the name or title for recommendation (e.g., "I don't like XYZ game"), don't add that to the variable. Only add it when the user is explicitly asking for that game or wanting to know more about it.
+   → If the user does not specify a game title but the conversation seems like an inquiry about a game or checking the availability of a game, return the last recommended game's title.
+   → If the user doesn't specify any game title, but the chat is about a game, return the last recommended game's title.
+   → If the user does not specify any game title, always take the last recommended game title.
+   → If the user does not mention any game or title at all, return "None".
    
 14. gameplay_elements (list of strings)
   → Focus on GAMEPLAY ELEMENT and structural features that the user describes or wants.
