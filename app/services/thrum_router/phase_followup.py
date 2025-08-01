@@ -1,4 +1,3 @@
-from app.tasks.followup import handle_followup_logic
 from app.services.tone_engine import get_last_user_tone_from_session
 from app.db.models.enums import PhaseEnum
 from app.db.models.session import Session
@@ -21,12 +20,6 @@ openai.api_key = os.getenv("OPENAI_API_KEY")
 client = openai.AsyncOpenAI()
 
 model= os.getenv("GPT_MODEL")
-
-async def handle_followup(db, session, user, user_input,classification,intrection):
-    override_reply = await check_intent_override(db=db, user_input=user_input, user=user, session=session, classification=classification, intrection=intrection)
-    if override_reply:
-        return override_reply
-    return await handle_followup_logic(db=db, session=session, user=user, classification=classification ,user_input=user_input)
 
 async def ask_followup_que(session) -> str:
     last_user_tone = get_last_user_tone_from_session(session)
