@@ -242,7 +242,7 @@ Tone: {tone}
 → Ask what about it made it land — idea, energy, mood, theme?
 → Keep the message casual, short, and emotionally grounded. No lists. No robotic rhythm.
 → Platform logic:
-    • If known: include a casual invite to grab it on {platform_preference} with the link: {platform_link if platform_link else "No link available"}
+    • If known: include a casual invite to grab it on {platform_preference}
     • If unknown: offer 1–2 options that sound like a friend’s suggestion, not a system default.
 → Never pitch another game here. Just connect, reflect, and gently prompt action.
 
