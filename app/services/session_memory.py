@@ -10,6 +10,7 @@ import os
 from openai import AsyncOpenAI
 from app.services.general_prompts import GLOBAL_USER_PROMPT, NO_GAMES_PROMPT
 import random
+from app.utils.link_helpers import maybe_add_link_hint
 
 client = AsyncOpenAI()
 
@@ -258,6 +259,7 @@ async def deliver_game_immediately(db: Session, user, session) -> str:
             game_platforms = game.get("platforms", [])
 
             platform_link = game.get("link", None)
+            request_link = session.meta_data.get("request_link", False)
             description = game.get("description",None)
             mood = session.exit_mood  or "neutral"
             # Build natural platform note
@@ -299,6 +301,7 @@ async def deliver_game_immediately(db: Session, user, session) -> str:
 
                 Start mid-thought, as if texting a close friend.
             """.strip()
+            user_prompt = maybe_add_link_hint(user_prompt, platform_link, request_link)
             return user_prompt
 
 
@@ -359,6 +362,7 @@ async def diliver_similar_game(db: Session, user, session) -> str:
         platform_link = game.get("link", None)
         description = game.get("description",None)
         mood = session.exit_mood  or "neutral"
+        request_link = session.meta_data.get("request_link", False)
         # Build natural platform note
         if user_platform and user_platform in game_platforms:
             platform_note = f"It’s available on your preferred platform: {user_platform}."
@@ -405,6 +409,7 @@ async def diliver_similar_game(db: Session, user, session) -> str:
                 → NEVER repeat phrasing, emoji, or sentence structure from earlier replies.
                 🌟  Goal: Make the moment feel human — like you're really listening and about to serve something *even better*. Rebuild energy and keep the conversation alive.
             """
+        user_prompt = maybe_add_link_hint(user_prompt, platform_link, request_link)
         return user_prompt
 
 

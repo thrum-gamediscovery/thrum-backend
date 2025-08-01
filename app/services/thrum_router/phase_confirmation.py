@@ -11,6 +11,7 @@ from app.db.models.game import Game
 from app.db.models.game_platforms import GamePlatform
 from app.services.general_prompts import GLOBAL_USER_PROMPT
 from app.services.central_system_prompt import THRUM_PROMPT
+from app.utils.link_helpers import maybe_add_link_hint
 
 async def handle_confirmation(session):
     return await confirm_input_summary(session)
@@ -34,6 +35,7 @@ async def handle_confirmed_game(db, user, session):
     user_input = user_interactions[-1].content if user_interactions else ""
     platform_rows = db.query(GamePlatform.platform).filter_by(game_id=game_id).all()
     platform_list = [p[0] for p in platform_rows] if platform_rows else []
+    request_link = session.meta_data.get("request_link", False)
     # Get user's preferred platform (last non-empty entry in the array)
     platform_preference = None
     if session.platform_preference:
@@ -160,6 +162,7 @@ Return only the new user-facing message.
         session.meta_data['ask_for_rec_friend'] = True
     
     db.commit()
+    user_prompt = maybe_add_link_hint(user_prompt, platform_link, request_link)
     return user_prompt
 
 async def ask_for_name_if_needed():

@@ -13,6 +13,7 @@ from app.db.models.game import Game
 from app.db.models.game_platforms import GamePlatform
 from app.services.session_memory import SessionMemory
 from app.services.general_prompts import GLOBAL_USER_PROMPT
+from app.utils.link_helpers import maybe_add_link_hint
 
 
 openai.api_key = os.getenv("OPENAI_API_KEY")
@@ -155,21 +156,6 @@ async def get_followup():
             s.awaiting_reply = True
         db.commit()
     db.close()
-
-def maybe_add_link_hint(user_prompt: str, platform_link: str, request_link: bool) -> str:
-    """Adds link hint as part of the prompt so it’s dynamically phrased by the model."""
-    if platform_link and not request_link:
-        user_prompt += """
-        
-        ---
-        Friendly reminder for Thrum:
-        - If a store/platform link exists but wasn’t requested, casually offer it in ONE short, fresh sentence.
-        - Vary the phrasing each time (never reuse the same sentence).
-        - Keep it natural, playful, and in-flow with the user’s mood.
-        - Do not push — just a soft nudge like a friend offering a quick shortcut.
-        - Example vibes (don’t copy directly): “Want me to toss you the store link?”, “Need the link for it?”, “Should I send where you can grab it?”
-        """
-    return user_prompt
 
 async def handle_game_inquiry(db: Session, user, session, user_input: str) -> str:
     game_id = session.meta_data.get("find_game")

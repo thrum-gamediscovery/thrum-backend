@@ -11,6 +11,7 @@ import openai
 from app.services.session_memory import SessionMemory
 from app.services.modify_thrum_reply import format_reply
 from app.services.general_prompts import GLOBAL_USER_PROMPT, NO_GAMES_PROMPT
+from app.utils.link_helpers import maybe_add_link_hint
 
 async def get_recommend(db, user, session):
     game, _ = await game_recommendation(db=db, session=session, user=user)
@@ -28,6 +29,7 @@ async def get_recommend(db, user, session):
     user_platform = preferred_platforms[-1] if preferred_platforms else None
     game_platforms = game.get("platforms", [])
     platform_link = game.get("link", None)
+    request_link = session.meta_data.get("request_link", False)
     description = game.get("description",None)
     # Dynamic platform line (not templated)
     if user_platform and user_platform in game_platforms:
@@ -72,6 +74,7 @@ async def get_recommend(db, user, session):
 
                 Start mid-thought, as if texting a close friend.
             """.strip()
+    user_prompt = maybe_add_link_hint(user_prompt, platform_link, request_link)
     print(f"User prompt: {user_prompt}")
     return user_prompt
 
@@ -204,6 +207,7 @@ async def handle_reject_Recommendation(db,session, user,  classification):
                 user_platform = preferred_platforms[-1] if preferred_platforms else None
                 game_platforms = game.get("platforms", [])
                 platform_link = game.get("link", None)
+                request_link = session.meta_data.get("request_link", False)
                 description = game.get("description",None)
                 # Dynamic platform mention line (natural, not template)
                 if user_platform and user_platform in game_platforms:
@@ -244,6 +248,7 @@ async def handle_reject_Recommendation(db,session, user,  classification):
                 - Sound like a friend who just read their reply
                 - Feel totally in-flow — like the next thought in a real text thread
                 """
+                user_prompt = maybe_add_link_hint(user_prompt, platform_link, request_link)
                 return user_prompt
             else:
                 explanation_response = await explain_last_game_match(session=session)
