@@ -156,8 +156,24 @@ async def get_followup():
         db.commit()
     db.close()
 
+def maybe_add_link_hint(user_prompt: str, platform_link: str, request_link: bool) -> str:
+    """Adds link hint as part of the prompt so it’s dynamically phrased by the model."""
+    if platform_link and not request_link:
+        user_prompt += """
+        
+        ---
+        Friendly reminder for Thrum:
+        - If a store/platform link exists but wasn’t requested, casually offer it in ONE short, fresh sentence.
+        - Vary the phrasing each time (never reuse the same sentence).
+        - Keep it natural, playful, and in-flow with the user’s mood.
+        - Do not push — just a soft nudge like a friend offering a quick shortcut.
+        - Example vibes (don’t copy directly): “Want me to toss you the store link?”, “Need the link for it?”, “Should I send where you can grab it?”
+        """
+    return user_prompt
+
 async def handle_game_inquiry(db: Session, user, session, user_input: str) -> str:
     game_id = session.meta_data.get("find_game")
+    request_link = session.meta_data.get("request_link", False)
     session_memory = SessionMemory(session,db)
     
     # Set game_interest_confirmed flag when user inquires about a game
@@ -220,7 +236,7 @@ async def handle_game_inquiry(db: Session, user, session, user_input: str) -> st
         "emotion": game.emotional_fit or "N/A",
         "mood_tags": ", ".join(game.mood_tag) if game.mood_tag else "N/A",
         "platforms": ", ".join(platform_list) if platform_list else "Unknown",
-        "platform_link": platform_link
+        "platform_link": platform_link if request_link else "N/A"
     }
 
     # If user inquires about a game they already rejected by the user in the same session
@@ -262,7 +278,7 @@ STRICT REPLY RULES:
 - Never talk like a bot, system, or use filler words. Always sound like a real friend.
 
 """
-        return user_prompt
+        return maybe_add_link_hint(user_prompt, platform_link, request_link)
     # If user inquires about a game they already liked
     liked_game = db.query(GameRecommendation).filter(
             GameRecommendation.user_id == user.user_id,
@@ -309,7 +325,7 @@ STRICT REPLY RULES:
     - Never sound like a bot, system, or template. Always reply as a real friend would — brief, natural, and matching their mood.
 
 """.strip()
-        return user_prompt
+        return maybe_add_link_hint(user_prompt, platform_link, request_link)
 
     # If already recommended → update phase and return query-resolution prompt
     if game_id in recommended_ids:
@@ -359,7 +375,7 @@ STRICT REPLY RULES:
                 - Use memory/context only if it’s needed for a natural, helpful reply.
                 - Never sound like a bot or template — always text like a real friend.
             """.strip()
-            return user_prompt
+            return maybe_add_link_hint(user_prompt, platform_link, request_link)
         else:
             print(f"If already recommended in that session #####################")
             user_prompt = f"""
@@ -397,7 +413,7 @@ STRICT REPLY RULES:
                 - Use context or memory for personal touch, but never go off-topic or repeat unless needed.
                 - Never sound like a bot or use canned lines. Always reply like a real friend, brief, in-flow, and mood-matched.
             """.strip()
-            return user_prompt
+            return maybe_add_link_hint(user_prompt, platform_link, request_link)
 
 
     # Else, it’s a new inquiry → recommend + save + followup
@@ -448,4 +464,4 @@ STRICT REPLY RULES:
         - Platform Link: {game_info['platform_link']}
         User message: “{user_input}”
     """.strip()
-    return user_prompt
+    return maybe_add_link_hint(user_prompt, platform_link, request_link)

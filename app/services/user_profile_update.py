@@ -118,12 +118,19 @@ async def update_user_from_classification(db: Session, user, classification: dic
     preferred_keywords = classification.get("preferred_keywords", [])
     disliked_keywords = classification.get("disliked_keywords", [])
     played_yet = classification.get("played_yet", False)
+    request_link = classification.get("request_link", False)
 
     # -- Played Yet
     if played_yet is not None and isinstance(played_yet, bool):
         session.meta_data["played_yet"] = played_yet
         flag_modified(session, "meta_data")
         print(f"✅ Stored played_yet status: {played_yet} in session.meta_data")
+    
+    # -- Request Link
+    if request_link is not None and isinstance(request_link, bool):
+        session.meta_data["request_link"] = request_link
+        flag_modified(session, "meta_data")
+        print(f"✅ Stored request_link status: {request_link} in session.meta_data")
 
     # -- Name
     if name and name != "None":
