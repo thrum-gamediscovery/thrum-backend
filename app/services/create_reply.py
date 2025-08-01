@@ -1,5 +1,5 @@
 from app.services.thrum_router.phase_intro import handle_intro
-from app.services.thrum_router.phase_confirmation import handle_confirmation
+from app.services.thrum_router.phase_confirmation import confirm_input_summary
 from app.services.thrum_router.phase_delivery import handle_delivery
 from app.services.thrum_router.phase_followup import ask_followup_que
 from app.services.thrum_router.phase_ending import handle_ending
@@ -17,10 +17,11 @@ async def generate_thrum_reply(db: Session, user_input: str, session, user, intr
     from app.services.thrum_router.phase_discovery import handle_discovery
     # 🔥 Intent override (e.g., "just give me a game")
     classification = await classify_user_input(db=db,session=session, user_input=user_input)
-    await update_user_from_classification(db=db, user=user, classification=classification, session=session)
+    if isinstance(classification, dict):
+        await update_user_from_classification(db=db, user=user, classification=classification, session=session)
     
     fusion = await emotion_fusion(db,session, user)
-    if detect_tone_shift(session):
+    if await detect_tone_shift(session):
         session.tone_shift_detected = True
         db.commit()
 
@@ -38,10 +39,10 @@ async def generate_thrum_reply(db: Session, user_input: str, session, user, intr
         return await handle_discovery(db=db, session=session, user=user)
 
     elif phase == PhaseEnum.CONFIRMATION:
-        return await handle_confirmation(session)
+        return await confirm_input_summary(session)
 
     elif phase == PhaseEnum.DELIVERY:
-        return await handle_delivery(db=db, session=session, user=user, classification=classification, user_input=user_input)
+        return await handle_delivery(db=db, session=session, user=user, classification=classification)
 
     elif phase == PhaseEnum.FOLLOWUP:
         return await ask_followup_que(session=session)

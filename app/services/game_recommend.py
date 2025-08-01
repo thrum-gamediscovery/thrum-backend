@@ -1,14 +1,11 @@
 from sentence_transformers import SentenceTransformer
 from sqlalchemy.orm import Session
-from app.db.models.mood_cluster import MoodCluster
 from app.db.models.game_platforms import GamePlatform
 from app.db.models.game_recommendations import GameRecommendation
-from app.db.models.enums import PhaseEnum, SenderEnum
-from app.db.models.session import Session as UserSession
+from app.db.models.enums import PhaseEnum
 from app.db.models.game import Game
-from sqlalchemy import func, cast, Integer, or_, and_
+from sqlalchemy import func, cast, Integer
 from scipy.spatial.distance import cosine
-from datetime import datetime
 import numpy as np
 from sqlalchemy import text
 from sqlalchemy.orm.attributes import flag_modified

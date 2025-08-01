@@ -1,8 +1,8 @@
 from datetime import datetime, timedelta
 from sqlalchemy.orm import Session as DBSession
 from app.db.models.session import Session
-from app.db.models.enums import SessionTypeEnum, ResponseTypeEnum
-from app.services.nudge_checker import detect_user_is_cold  # ✅ import smart tone checker
+from app.db.models.enums import SessionTypeEnum
+from app.services.tone_shift_detection import detect_user_is_cold  # ✅ import smart tone checker
 from app.db.models.enums import SenderEnum
 
 def update_returning_user_flag(session):
@@ -190,7 +190,7 @@ def is_session_idle_or_fading(session) -> bool:
 ENGAGED_TONES = {"warm", "enthusiastic", "excited", "friendly", "playful", "curious", "cheerful", "encouraging"}
 DISENGAGED_TONES = {"cold", "bored", "disengaged", "impatient", "dismissive", "sarcastic", "vague"}
 
-def tone_group(tone_tag: str) -> str:
+async def tone_group(tone_tag: str) -> str:
     if tone_tag in ENGAGED_TONES:
         return "engaged"
     elif tone_tag in DISENGAGED_TONES:
@@ -198,7 +198,7 @@ def tone_group(tone_tag: str) -> str:
     else:
         return "neutral"
 
-def detect_tone_shift(session, window: int = 5, disengage_threshold: int = 2) -> bool:
+async def detect_tone_shift(session, window: int = 5, disengage_threshold: int = 2) -> bool:
     """
     Detects a meaningful negative tone shift in recent user messages.
     - window: How many recent user messages to check.
@@ -214,7 +214,7 @@ def detect_tone_shift(session, window: int = 5, disengage_threshold: int = 2) ->
         return False  # Not enough data
 
     # Map to tone groups
-    tone_groups = [tone_group(getattr(i, "tone_tag", "")) for i in user_interactions if getattr(i, "tone_tag", None)]
+    tone_groups = [await tone_group(getattr(i, "tone_tag", "")) for i in user_interactions if getattr(i, "tone_tag", None)]
 
     # Count disengaged tones in the window
     disengaged_count = sum(1 for t in tone_groups if t == "disengaged")

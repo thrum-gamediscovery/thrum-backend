@@ -2,12 +2,8 @@ from app.services.tone_engine import get_last_user_tone_from_session
 from app.db.models.enums import PhaseEnum
 from app.db.models.session import Session
 from datetime import datetime, timedelta
-from app.db.session import SessionLocal
 import openai
 import os
-from app.utils.whatsapp import send_whatsapp_message
-import random
-from app.services.thrum_router.interrupt_logic import check_intent_override
 from app.db.models.game_recommendations import GameRecommendation
 from app.db.models.game import Game
 from app.db.models.game_platforms import GamePlatform
@@ -22,7 +18,7 @@ client = openai.AsyncOpenAI()
 model= os.getenv("GPT_MODEL")
 
 async def ask_followup_que(session) -> str:
-    last_user_tone = get_last_user_tone_from_session(session)
+    last_user_tone = await get_last_user_tone_from_session(session)
 
     game_title = session.last_recommended_game or "that game"
     
@@ -132,29 +128,6 @@ async def ask_followup_que(session) -> str:
     )
     return response.choices[0].message.content.strip()
 
-async def get_followup():
-    db = SessionLocal()
-    now = datetime.utcnow()
-
-    sessions = db.query(Session).filter(
-        Session.awaiting_reply == True,
-        Session.followup_triggered == True
-    ).all()
-    for s in sessions:
-        user = s.user
-        if not s.last_thrum_timestamp:
-            continue
-
-        delay = timedelta(seconds=3)
-        if now - s.last_thrum_timestamp > delay:
-            s.followup_triggered = False
-            db.commit()
-            reply = await ask_followup_que(s)
-            await send_whatsapp_message(user.phone_number, reply)
-            s.last_thrum_timestamp = now
-            s.awaiting_reply = True
-        db.commit()
-    db.close()
 
 def maybe_add_link_hint(user_prompt: str, platform_link: str, request_link: bool) -> str:
     """Adds link hint as part of the prompt so it’s dynamically phrased by the model."""
@@ -181,7 +154,9 @@ async def handle_game_inquiry(db: Session, user, session, user_input: str) -> st
     session.meta_data["game_interest_confirmed"] = True
     db.commit()
     if not game_id:
-        prompt = """
+        prompt = f"""
+            {GLOBAL_USER_PROMPT}
+            ---
             You are Thrum, the game discovery assistant. The user has asked about a specific game, but there is no information about that game in your catalog or data.
             Strict rule: Never make up, invent, or generate any information about a game you do not have real data for. If you don't have info on the requested game, do not suggest another game or pivot to a new recommendation.
             Politely and clearly let the user know you don’t have any info on that game. Do not mention 'database' or 'catalog'. Do not offer any other suggestions or ask any questions. Keep your response to one short, friendly, and supportive sentence, in a human tone.

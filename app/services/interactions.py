@@ -1,5 +1,4 @@
 from app.db.models.interaction import Interaction
-from app.db.models.session import Session
 from app.db.models.enums import ResponseTypeEnum
 from datetime import datetime
 

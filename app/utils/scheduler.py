@@ -1,9 +1,7 @@
 import asyncio
 from apscheduler.schedulers.background import BackgroundScheduler
-from app.services.nudge_checker import check_for_nudge
 from app.services.thrum_router.phase_delivery import recommend_game
-from app.services.thrum_router.phase_followup import get_followup
-from app.services.thrum_router.phase_confirmation import ask_for_name_if_needed
+from app.services.nudge_checker import get_followup, ask_for_name_if_needed, check_for_nudge
 
 scheduler = BackgroundScheduler()
 def async_wrapper(coro_func):

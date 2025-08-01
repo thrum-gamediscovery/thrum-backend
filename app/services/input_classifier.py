@@ -1,7 +1,6 @@
 import openai
 import os
 import json
-import re
 from datetime import datetime
 from openai import OpenAIError
 from app.db.models.session import Session
@@ -58,7 +57,7 @@ USER MEMORY & RECENT CHAT:
 
 **You are intent classifier**
 **Special Rule:**  
-If the user's message is a greeting (e.g., "hi", "hello", "hey") and there is no previous Thrum reply, classify as Greet.
+If the user's message is a greeting (e.g., "hi", "hello", "hey"), classify as Greet.
 
 Carefully consider the context of the conversation and the specific tone or direction of the user's input in relation to Thrum’s previous reply. Each intent corresponds to specific patterns and expected actions based on the flow of conversation. Only set one variable to `true` which is most relevant based on the user input and context.
 
@@ -562,67 +561,6 @@ Now classify into the format below.
 
     print(f"Classification Result: {result}")
     return result
-
-    
-
-async def analyze_followup_feedback(user_reply: str, session,db) -> dict:
-    from app.services.session_memory import SessionMemory
-    game_title = session.last_recommended_game
-    thrum_interactions = [i for i in session.interactions if i.sender == SenderEnum.Thrum]
-    last_thrum_reply = thrum_interactions[-1].content if thrum_interactions else ""
-    
-    session_memory = SessionMemory(session,db)
-    memory_context_str = session_memory.to_prompt()
-
-    prompt = f"""{memory_context_str}
-You're Thrum — a fast, friendly, emotionally smart game recommender.
-
-The user was recommended the game: *{game_title}*
-last thrum question : {last_thrum_reply}
-user reply : "{user_reply}"
-
-Your task is to classify whether the user is satisfied with that game or not, by considering both their reply and the last Thrum question.
-
-If you find the input sounds like the user wants another game, return "want_another".
-If the user input sounds like they like the recommended game or are satisfied with it (and it does NOT sound like they want another game), return "game_accepted" as intent.
-If the user is vague, silent, or unclear, default to "dont_want_another".
-
-**Examples:**
-- User: "nah, show me something else" → {{ "intent": "want_another" }}
-- User: "not really my thing" → {{ "intent": "want_another" }}
-- User: "perfect, this is what I was looking for" → {{ "intent": "game_accepted" }}
-- User: "I'll check it out" → {{ "intent": "game_accepted" }}
-- User: "okay" → {{ "intent": "dont_want_another" }}
-- User: "better. I'll check it out" → {{ "intent": "game_accepted" }}
-- User: "thx" → {{ "intent": "game_accepted" }}
-
-Rules:
-- If they liked it and want another → "want_another"
-- If they liked it and will try it → "game_accepted"
-- If they liked it but don’t want more → "dont_want_another"
-- If they disliked it or said no → "want_another"
-- If they’re vague, silent, or unsure → "dont_want_another"
-
-Return only a valid JSON object with one key "intent":
-{{
-  "intent": "want_another" | "dont_want_another" | "game_accepted"
-}}
-
-Do NOT use triple backticks, code fences, or any markdown formatting.
-Your response must be pure JSON, not wrapped in any formatting.
-If you add backticks, markdown, or any extra text, it is a mistake.
-Example of correct output:
-{{
-  "intent": "game_accepted"
-}}
-"""
-
-    response = await client.chat.completions.create(
-        model=model,
-        temperature=0.7,
-        messages=[{"role": "system", "content": prompt}]
-    )
-    return response.choices[0].message.content.strip()
 
 async def have_to_recommend(db: Session, user, classification: dict, session) -> bool:
     # Retrieve the last game recommendation for the user in the current session

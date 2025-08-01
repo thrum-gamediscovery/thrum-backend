@@ -2,8 +2,6 @@ import re
 import os
 import openai
 from datetime import datetime
-from app.db.session import SessionLocal
-from app.db.models.session import Session as DBSession
 from app.db.models.enums import SenderEnum
 from openai import AsyncOpenAI
 
@@ -12,7 +10,7 @@ client = AsyncOpenAI()
 model= os.getenv("GPT_MODEL")
 
 # 🧠 Extract latest user tone from session.interactions
-def get_last_user_tone_from_session(session) -> str:
+async def get_last_user_tone_from_session(session) -> str:
     if not session or not session.interactions:
         return "neutral"
 

@@ -1,16 +1,23 @@
 from datetime import datetime
-from app.services.session_manager import detect_tone_shift
+import os
+from app.db.models.enums import SenderEnum
+from openai import AsyncOpenAI
+
 from sqlalchemy.orm.attributes import flag_modified
 
 # Define dry reply patterns and low-confidence threshold
 DRY_RESPONSE_KEYWORDS = ["meh", "whatever", "nah", "idk", "fine", "ok", "no"]
 LOW_CONFIDENCE_THRESHOLD = 0.3
 
+model= os.getenv("GPT_MODEL")
+client = AsyncOpenAI()
+
 def is_dry_response(text: str) -> bool:
     return any(word in text.lower() for word in DRY_RESPONSE_KEYWORDS)
 
 
 async def emotion_fusion(db, session, user):
+    from app.services.session_manager import detect_tone_shift
     # 1. Detect tone via LLM or embedding
     last_tone_entry = session.meta_data.get("tone_history", [{}])[-1]
     tone = last_tone_entry.get("tone")
@@ -28,7 +35,7 @@ async def emotion_fusion(db, session, user):
         mood_result, mood_confidence = None, 0.5
     
     # 3. Detect coldness / disengagement
-    cold_shift = detect_tone_shift(session)
+    cold_shift = await detect_tone_shift(session)
     
     # 4. Reconcile: prioritize strong/confident signals, resolve conflicts
     if tone_confidence < 0.5 and mood_confidence > 0.7:
@@ -62,3 +69,57 @@ async def emotion_fusion(db, session, user):
     flag_modified(session, "meta_data")
     db.commit()
     return fusion
+
+# 🧠 GPT-based tone detection
+async def detect_user_is_cold(session, db) -> bool:
+    """
+    Returns True if the user has been 'cold' (dry, closed, or neutral) in at least 2 of their last 3 messages.
+    Uses LLM to classify each message's tone from a fixed set of allowed labels.
+    """
+    
+    user_msgs = [i for i in session.interactions if i.sender == SenderEnum.User][-3:]
+    if len(user_msgs) < 2:
+        return False
+
+    dry_like_count = 0
+    allowed_labels = [
+        "chill",
+        "chaotic",
+        "dry",
+        "genz",
+        "formal",
+        "emotional",
+        "closed",
+        "neutral"
+    ]
+
+    for i in user_msgs:
+        prompt = f"""
+            Classify the tone of this message into one of the following (respond with only one word from the list, all lowercase):
+
+            [chill, chaotic, dry, genz, formal, emotional, closed, neutral]
+
+            Message: "{i.content}"
+
+            Only use a word from this list. If you’re unsure, pick the closest match.
+            Do not add any explanation. Example output: dry
+            """
+        
+        try:
+            res = await client.chat.completions.create(
+                model=model,
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0,
+            )
+            label = res["choices"][0]["message"]["content"].strip().lower()
+
+            if label in allowed_labels:
+                if label in ["dry", "closed", "neutral"]:
+                    dry_like_count += 1
+            else:
+                # log error, default to neutral, etc.
+                label = "neutral"
+        except:
+            continue
+
+    return dry_like_count >= 2

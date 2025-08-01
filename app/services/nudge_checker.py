@@ -3,73 +3,21 @@
 Checks sessions for inactivity after Thrum speaks and sends a gentle nudge.
 Also detects tone-shift (e.g., cold or dry replies).
 """
-
+import os
+from openai import AsyncOpenAI
+from sqlalchemy import Boolean
 from datetime import datetime, timedelta
 from app.db.session import SessionLocal
 from app.db.models.session import Session
-from app.utils.whatsapp import send_whatsapp_message
 from app.db.models.enums import SenderEnum, PhaseEnum
-import random
-import os
-from openai import AsyncOpenAI
+from app.utils.whatsapp import send_whatsapp_message
+from app.services.thrum_router.phase_followup import ask_followup_que
+from app.services.modify_thrum_reply import format_reply
+from sqlalchemy.orm.attributes import flag_modified
 from app.services.general_prompts import GLOBAL_USER_PROMPT
 
 model= os.getenv("GPT_MODEL")
 client = AsyncOpenAI()
-
-# 🧠 GPT-based tone detection
-async def detect_user_is_cold(session, db) -> bool:
-    """
-    Returns True if the user has been 'cold' (dry, closed, or neutral) in at least 2 of their last 3 messages.
-    Uses LLM to classify each message's tone from a fixed set of allowed labels.
-    """
-    
-    user_msgs = [i for i in session.interactions if i.sender == SenderEnum.User][-3:]
-    if len(user_msgs) < 2:
-        return False
-
-    dry_like_count = 0
-    allowed_labels = [
-        "chill",
-        "chaotic",
-        "dry",
-        "genz",
-        "formal",
-        "emotional",
-        "closed",
-        "neutral"
-    ]
-
-    for i in user_msgs:
-        prompt = f"""
-            Classify the tone of this message into one of the following (respond with only one word from the list, all lowercase):
-
-            [chill, chaotic, dry, genz, formal, emotional, closed, neutral]
-
-            Message: "{i.content}"
-
-            Only use a word from this list. If you’re unsure, pick the closest match.
-            Do not add any explanation. Example output: dry
-            """
-        
-        try:
-            res = await client.chat.completions.create(
-                model=model,
-                messages=[{"role": "user", "content": prompt}],
-                temperature=0,
-            )
-            label = res["choices"][0]["message"]["content"].strip().lower()
-
-            if label in allowed_labels:
-                if label in ["dry", "closed", "neutral"]:
-                    dry_like_count += 1
-            else:
-                # log error, default to neutral, etc.
-                label = "neutral"
-        except:
-            continue
-
-    return dry_like_count >= 2
 
 async def check_for_nudge():
     db = SessionLocal()
@@ -120,4 +68,75 @@ async def check_for_nudge():
             
             db.commit()
 
+    db.close()
+
+async def ask_for_name_if_needed():
+    db = SessionLocal()
+    now = datetime.utcnow()
+
+    sessions = db.query(Session).join(Session.user).filter(
+        Session.last_thrum_timestamp.isnot(None),
+        Session.meta_data["dont_give_name"].astext.cast(Boolean) == False
+    ).all()
+
+    for s in sessions:
+        s = db.query(Session).filter(Session.session_id == s.session_id).one()
+        user = s.user
+         # ✅ EARLY SKIP if flag is already True (safety net)
+        if s.meta_data.get("dont_give_name", True):
+            continue
+        if user.name is None:
+            delay = timedelta(seconds=15)
+            # Check if the delay time has passed since the last interaction
+            print(f"Checking if we need to ask for name for user {user.phone_number} in session {s.session_id} ::  dont_give_name  {s.meta_data['dont_give_name']}")
+            if now - s.last_thrum_timestamp > delay:
+                # Ensure the session meta_data flag is set to avoid re-asking the name
+                s.meta_data["dont_give_name"] = True
+                s.meta_data["ask_for_rec_friend"] = True
+                flag_modified(s, "meta_data")
+                db.commit()
+                db.refresh(s) 
+                print(f"Session {s.session_id} :: Asking for name for user {user.phone_number} :: dont_give_name  {s.meta_data['dont_give_name']}")
+                user_interactions = [i for i in s.interactions if i.sender == SenderEnum.User]
+                last_user_reply = user_interactions[-1].content if user_interactions else ""
+                
+                # Ask for the user's name
+                response_prompt = (
+                    "Generate a polite, natural message (max 10–12 words) asking the user for their name.\n"
+                    "The tone should be friendly and casual, without being too formal or overly casual.\n"
+                    "Ensure it doesn’t feel forced, just a simple request to know their name.\n"
+                    "Output only the question, no extra explanations or examples."
+                    "Do not use emoji. Ask like Thrum wants to remember for next time."
+                    "→ Never suggest a game on your own if there is no game found"
+                )
+                
+                reply = await format_reply(db=db, session=s, user_input=last_user_reply, user_prompt=response_prompt)
+                if reply is None:
+                    reply = "what's your name? so I can remember for next time."
+                await send_whatsapp_message(user.phone_number, reply)
+
+    db.close()  # Close the DB session
+
+async def get_followup():
+    db = SessionLocal()
+    now = datetime.utcnow()
+
+    sessions = db.query(Session).filter(
+        Session.awaiting_reply == True,
+        Session.followup_triggered == True
+    ).all()
+    for s in sessions:
+        user = s.user
+        if not s.last_thrum_timestamp:
+            continue
+
+        delay = timedelta(seconds=3)
+        if now - s.last_thrum_timestamp > delay:
+            s.followup_triggered = False
+            db.commit()
+            reply = await ask_followup_que(s)
+            await send_whatsapp_message(user.phone_number, reply)
+            s.last_thrum_timestamp = now
+            s.awaiting_reply = True
+        db.commit()
     db.close()

@@ -1,19 +1,8 @@
-from app.services.session_memory import confirm_input_summary
 from app.db.models.enums import SenderEnum
-from app.db.models.session import Session
-from app.db.session import SessionLocal
-from datetime import datetime, timedelta
-from sqlalchemy import Boolean
-from app.utils.whatsapp import send_whatsapp_message
-from app.services.modify_thrum_reply import format_reply
-from sqlalchemy.orm.attributes import flag_modified
 from app.db.models.game import Game
 from app.db.models.game_platforms import GamePlatform
 from app.services.general_prompts import GLOBAL_USER_PROMPT
 from app.services.central_system_prompt import THRUM_PROMPT
-
-async def handle_confirmation(session):
-    return await confirm_input_summary(session)
 
 async def handle_confirmed_game(db, user, session):
     """
@@ -89,6 +78,7 @@ async def handle_confirmed_game(db, user, session):
             → Mirror their tone: dry? Teasing? Hyped? Chill? Match it naturally.
             → Do NOT reuse lines, phrasing, or emojis from earlier. Every reply must be new in rhythm and structure.
             → No structured list — just talk like someone who *gets* them.
+            → If you’re confirming something or acknowledging their input: make sure the confirmation matches the user’s tone. For example, if the user’s vibe is hype, use energetic phrases or emojis to reflect that; if the tone is chill, keep it laid-back and smooth.
             → Once they reply, reflect back in Draper style — warm, sharp, and emotionally tuned to what they shared — and slide the follow-up into the same message, keeping the rhythm natural and human:
             • If platform is known: casually offer a direct link ("Wanna play it on {platform_preference}? Here’s where to grab it.")  
             - Platform link: {platform_link if platform_link else "No link available"}
@@ -119,6 +109,7 @@ async def handle_confirmed_game(db, user, session):
                 → Mirror their tone: dry? nostalgic? hype? Reflect it naturally.
                 → NEVER reuse lines, sentence rhythm, or emoji from earlier.
                 → Use Draper style — curious, sharp, tuned in emotionally.
+                → If you’re confirming something or acknowledging their input: make sure the confirmation matches the user’s tone. For example, if the user’s vibe is hype, use energetic phrases or emojis to reflect that; if the tone is chill, keep it laid-back and smooth.
                 → Once they answer, follow up lightly: ask if they’re open to something similar — a follow-up rec, same vibe, or something adjacent.
                 → Don’t ask “do you want another?”
                 → Ask like a close friend would:
@@ -133,20 +124,21 @@ async def handle_confirmed_game(db, user, session):
             
         else:
             user_prompt = f"""
-{THRUM_PROMPT}
+                {THRUM_PROMPT}
 
-SITUATION: User confirmed they liked **{game_title}**.
-{memory_context}
+                SITUATION: User confirmed they liked **{game_title}**.
+                {memory_context}
 
-Reply in a warm, humble manner expressing happiness that they liked your recommendation.
-→ Keep message open and engaging
-→ Avoid language that closes or ends conversation
-→ No more than 2 sentences or 25 words
-→ Match their {tone} tone
-→ Make it feel like a friend who's genuinely happy their suggestion worked out
+                Reply in a warm, humble manner expressing happiness that they liked your recommendation.
+                → Keep message open and engaging
+                → Avoid language that closes or ends conversation
+                → No more than 2 sentences or 25 words
+                → Match their {tone} tone
+                → Make it feel like a friend who's genuinely happy their suggestion worked out
+                → If you’re confirming something or acknowledging their input: make sure the confirmation matches the user’s tone. For example, if the user’s vibe is hype, use energetic phrases or emojis to reflect that; if the tone is chill, keep it laid-back and smooth.
 
-Return only the new user-facing message.
-""".strip()
+                Return only the new user-facing message.
+                """.strip()
     
     # Initialize metadata if needed
     if session.meta_data is None:
@@ -162,75 +154,34 @@ Return only the new user-facing message.
     db.commit()
     return user_prompt
 
-async def ask_for_name_if_needed():
-    db = SessionLocal()
-    now = datetime.utcnow()
-
-    sessions = db.query(Session).join(Session.user).filter(
-        Session.last_thrum_timestamp.isnot(None),
-        Session.meta_data["dont_give_name"].astext.cast(Boolean) == False
-    ).all()
-
-    for s in sessions:
-        s = db.query(Session).filter(Session.session_id == s.session_id).one()
-        user = s.user
-         # ✅ EARLY SKIP if flag is already True (safety net)
-        if s.meta_data.get("dont_give_name", True):
-            continue
-        if user.name is None:
-            delay = timedelta(seconds=15)
-            # Check if the delay time has passed since the last interaction
-            print(f"Checking if we need to ask for name for user {user.phone_number} in session {s.session_id} ::  dont_give_name  {s.meta_data['dont_give_name']}")
-            if now - s.last_thrum_timestamp > delay:
-                # Ensure the session meta_data flag is set to avoid re-asking the name
-                s.meta_data["dont_give_name"] = True
-                s.meta_data["ask_for_rec_friend"] = True
-                flag_modified(s, "meta_data")
-                db.commit()
-                db.refresh(s) 
-                print(f"Session {s.session_id} :: Asking for name for user {user.phone_number} :: dont_give_name  {s.meta_data['dont_give_name']}")
-                user_interactions = [i for i in s.interactions if i.sender == SenderEnum.User]
-                last_user_reply = user_interactions[-1].content if user_interactions else ""
-                
-                # Ask for the user's name
-                response_prompt = (
-                    "Generate a polite, natural message (max 10–12 words) asking the user for their name.\n"
-                    "The tone should be friendly and casual, without being too formal or overly casual.\n"
-                    "Ensure it doesn’t feel forced, just a simple request to know their name.\n"
-                    "Output only the question, no extra explanations or examples."
-                    "Do not use emoji. Ask like Thrum wants to remember for next time."
-                    "→ Never suggest a game on your own if there is no game found"
-                )
-                
-                reply = await format_reply(db=db, session=s, user_input=last_user_reply, user_prompt=response_prompt)
-                if reply is None:
-                    reply = "what's your name? so I can remember for next time."
-                await send_whatsapp_message(user.phone_number, reply)
-
-    db.close()  # Close the DB session
-
-async def generate_low_effort_response(session):
+async def confirm_input_summary(session) -> str:
     """
-    Generate a low-effort response when the user indicates they want to keep it simple.
+    Uses gpt-4o to generate a short, human-sounding confirmation line from mood, genre, and platform.
+    No game names or suggestions — just a fun, natural acknowledgment.
     """
-    user_interactions = [i for i in session.interactions if i.sender == SenderEnum.User]
-    user_input = user_interactions[-1].content if user_interactions else ""
-    tone = session.meta_data.get("tone", "friendly")
-    user_prompt = f"""
-
-        THRUM — NO RESPONSE OR ONE-WORD REPLY
-
-        User said: "{user_input}"  
-        Tone: {tone} 
-
-        → The user gave minimal feedback — like “cool,” “nice”, “like”,“ok,” “thanks,” or nothing at all. These are low-effort replies that don’t show real engagement.  
-        → Your job is to keep the chat alive — casually, without pressure.  
-        → You may tease or nudge — in a totally fresh, emotional, generative way. No examples. No recycled phrasing.  
-        → Create a moment by offering a light new direction — like a surprising game type or a change in vibe — but always based on what you know about them, based on recent chat history.
-        → NEVER ask “do you want another?” or “should I try again?”  
-        → NEVER repeat any phrasing, emoji, or fallback line from earlier chats.  
-        → Let this feel like natural conversation drift — like two friends texting, one goes quiet, and the other drops a playful line or two to keep it going.  
-        → Never suggest a game on your own if there is no game found
-        🌟 Goal: Reopen the door without sounding robotic. Be warm, real, and emotionally alert — like someone who cares about the moment to open the door to a new game discovery.
-        """.strip()
-    return user_prompt
+    session.intent_override_triggered = True
+    mood = session.exit_mood or None
+    genre_list = session.genre or []
+    platform_list = session.platform_preference or []
+    genre = genre_list[-1] if isinstance(genre_list, list) and genre_list else None
+    platform = platform_list[-1] if isinstance(platform_list, list) and platform_list else None
+    if not any([mood, genre, platform]):
+        return "Got it — let me find something for you."
+    # Human tone prompt
+    user_prompt = (
+        f"{GLOBAL_USER_PROMPT}\n"
+        f"USER PROFILE SNAPSHOT:\n"
+        f"– Mood: {mood if mood else ''}\n"
+        f"– Genre: {genre if genre else ''}\n"
+        f"– Platform: {platform if platform else ''}\n\n"
+        "Write a single-line confirmation message that reflects the user’s mood, use the draper style, genre, gameplay, and/or platform if known.\n"
+        "Never suggest a game. Do not ask questions. This is a warm, human-style check-in — like a friend saying over whatsapp 'got you'.\n"
+        "Mirror the mood — e.g., if mood is 'cozy', make the line cozy too.\n"
+        "Do not reuse lines or sentence structure from earlier messages. Make each one unique.\n"
+        "If one or more values are missing, still reply naturally, but use the draper style so they will feel heard, like a human would. Never say 'Not shared'.\n"
+        "Examples (do not copy):\n"
+        "- ‘Chill vibe + story-rich on Switch? You’re speaking my language.’\n"
+        "- ‘Okay okay — strategy + dark mood + PC. Noted.’\n"
+        "- ‘You’re in a horror mood? Gotcha. I’ll keep it spooky.’"
+    )
+    return user_prompt 

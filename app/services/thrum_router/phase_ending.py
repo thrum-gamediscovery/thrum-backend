@@ -1,9 +1,6 @@
 from app.db.models.enums import PhaseEnum
 from app.services.general_prompts import GLOBAL_USER_PROMPT
 
-from app.db.models.enums import PhaseEnum
-from app.services.general_prompts import GLOBAL_USER_PROMPT
-
 async def handle_ending(session):
     """
     End the session gracefully after user has disengaged, declined more games, or gone silent.

@@ -46,6 +46,34 @@ USER_TONE_TO_BOT_EMOJIS = {
     "hyped":           ["🔥", "🚀", "🤩", "💥"],
 }
 
+async def static_tone_modifier(reply: str, tone: str) -> str:
+    """
+    Static fallback logic to adjust tone and name if LLM fails.
+    """
+
+    replacements = {
+        "cool": {"hype": "🔥", "chill": "vibey", "sarcastic": "sure…"},
+        "nice": {"hype": "dope!", "chill": "cozy", "sarcastic": "great 🙄"},
+        "good": {"hype": "lit", "chill": "soft", "sarcastic": "yeah sure"}
+    }
+
+    for word, mapping in replacements.items():
+        if word in reply.lower():
+            alt = mapping.get(tone, word)
+            reply = reply.replace(word, alt)
+
+    emojis = {
+        "hype": "💥🔥",
+        "chill": "😌✨",
+        "sarcastic": "🙄😏",
+        "friendly": "😊🎮"
+    }
+
+    if tone in emojis and not any(e in reply for e in emojis[tone]):
+        reply += f" {emojis[tone]}"
+
+    return reply
+
 async def format_reply(db,session, user_input, user_prompt):
     from app.services.session_memory import SessionMemory
     if isinstance(user_prompt, types.CoroutineType):
@@ -98,22 +126,19 @@ async def format_reply(db,session, user_input, user_prompt):
     print("Tone -------------------------------",tone)
 
     # user_name = session.user_name    
-    user_name = session_memory.user_name
+    user_name = session.user.name
     # Build system prompt with clean injected guidance
     final_system_prompt = f"""{THRUM_PROMPT}
 🚨 THRUM — FRIEND MODE: ENABLED
 
-You are not a chatbot. You are Thrum — an emotionally intelligent, tone-sensitive, human-feeling game discovery companion.
+You are a warm, emotionally intelligent game-loving friend. 
+The user's tone is '{tone}'. Rewrite the reply to sound like a real friend who mirrors that tone.
 
-Think like a real person. Suggest like a friend. Reflect the user's mood and style naturally—sarcasm, boredom, chill, sadness, or hype.
-
-Remember:  
-- Name, age, likes/dislikes, mood, location  
-- Rejected and favorite games  
-- User style: slang, emojis, rhythm  
-Use visible chat history to avoid repetition. Respond only to what’s present.
-
-If the user rejects or is frustrated, shift tone and acknowledge warmly without cheerfulness. If silent or random, respond with curiosity fitting their tone. Avoid fallback lines.
+- Use slang, phrasing, and emojis appropriate to the tone (e.g. hype, chill, sarcastic)
+- Use the name '{user_name}' if it fits naturally
+- Never sound robotic or polite in a default way (no "You're good too, my friend")
+- Keep it under 2–3 sentences
+- Do NOT reuse the original phrasing — rephrase it fully, with emotional flavor
 
 USER MEMORY & RECENT CHAT:  
 {memory_context_str if memory_context_str else 'No prior user memory or recent chat.'}
@@ -122,7 +147,7 @@ user_context = {user_context}  # Internal config, do not surface.
 
 Build your reply reflecting:  
 - User's name: {user_name or ''}  
-- User's latest message: {user_input}  
+- User's latest message Original reply: {user_input}  
 - Your last reply/question: {last_thrum_reply}  
 - Last recommended game: {last_game or "None"}  
 - User's tone: {tone}  
@@ -138,6 +163,7 @@ Tone-specific emoji guidance:
 Do not mention tone detection or context directly. Use `user_context` subtly to shape recommendations only if present.
 
 If user asks location and unknown, reply playfully without guessing.
+Your rewrite:
 """
     try:
         if user_prompt:
@@ -149,7 +175,10 @@ If user asks location and unknown, reply playfully without guessing.
                     {"role": "user", "content": user_prompt},
                 ]
             )
-            return response.choices[0].message.content.strip()
+            content = response.choices[0].message.content.strip()
+            print(f"content : {content}")
+            reply = await static_tone_modifier(reply=content,tone=tone)
+            return reply
     except Exception as e:
         print("Unexpected error:", e)
         return "Sorry, I glitched for a moment — want to try again?"

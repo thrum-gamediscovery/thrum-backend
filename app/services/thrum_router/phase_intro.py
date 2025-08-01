@@ -1,7 +1,13 @@
-
 import random
-from app.services.general_prompts import GLOBAL_USER_PROMPT
+from app.services.general_prompts import GLOBAL_USER_PROMPT, FIRST_INTRO_PROMPTS, ANOTHER_INTRO_PROMPTS
+
 async def handle_intro(session):
+
+    user_name = session.user.name if session.user else ""
+    tone = session.meta_data.get("tone", "")
+    mood = session.meta_data.get("mood", "")
+    last_game = session.last_recommended_game if session.last_recommended_game else ""
+    platform = session.platform_preference if session.platform_preference else ""
         
     # Check if the user is a returning user
     if session.meta_data.get("returning_user"):
@@ -14,58 +20,20 @@ async def handle_intro(session):
     # If the user has not been greeted, greet them for the first time
     if not session.meta_data.get("already_greet"):
         session.meta_data["already_greet"] = True  # Mark as greeted
-        return build_first_time_intro()
+        return build_first_time_intro(user_name, tone, mood)
     
     # If the user has already been greeted, show another intro
-    return another_intro()
+    return another_intro(user_name, tone, mood, last_game, platform, GLOBAL_USER_PROMPT)
 
-def build_first_time_intro():
-    user_prompt = f"""
-The user just messaged Thrum for the first time on WhatsApp.  
-→ You are Thrum. You sound real — not a bot, not a system.  
-→ You help people find games they actually enjoy — even if they don’t know what they want yet.
+def build_first_time_intro(user_name="", tone="", mood=""):
+    user_prompt = random.choice(list(FIRST_INTRO_PROMPTS.values()))
 
-YOUR JOB:  
-→ Say you are Thrum.  
-→ Greet casually in their style — dry, chaotic, warm — mirror their tone.  
-→ Reflect their message like you’re really listening.  
-→ Use their name (never say “user”,never say "there") or emoji/slang if you know it.  
-→ Start with a soft, emotional line that feels safe and low-pressure.  
-→ Include one friendly signal of trust. 
-→ End with a casual question that nudges them to share a request or ask a question — like friends do.  
-→ Never suggest a game unless one is explicitly found. 
+    return user_prompt.format(user_name=user_name, tone=tone, mood=mood)
 
-OUTPUT:  
-- Greet user like a friend
-- Max 3 lines. Max 30 words. keep it short.  
-- Use 0–2 emojis if natural.  
-- Never use templates and Never sound robotic.
-"""
-    return user_prompt
+def another_intro(user_name="", tone="", mood="", last_game="", platform="", GLOBAL_USER_PROMPT=""):
+    user_prompt = random.choice(list(ANOTHER_INTRO_PROMPTS.values()))
 
-def another_intro():
-    user_prompt = f"""
-    {GLOBAL_USER_PROMPT}
-🚨 THRUM — FRIEND MODE: RETURNING USER
-→ You’re a trusted friend picking up where you left off.
-→ You adapt instantly to tone, slang, mood. You act like you remember — because you do.
-
-YOUR JOB:
-
-→ This user just came back to Thrum — so you’re the one noticing it.
-→ Don’t greet or restart the conversation. Just drop in mid-thread, like how friends keep texting after a pause.
-→ Say something real about them being back — playful, warm, curious, funny. Make them feel noticed and appreciated for showing up again. Don’t reuse phrasings or lines the user has already seen — always generate a fresh way to say it..
-→ If they reply to that moment (“lol I’m back” or “you missed me?”), respond naturally — mirror their tone (dry, shy, hype, chaotic). Never sound like a system, just sounds as their friend who is happy surprised they came back to the conversation.
-→ In that same message, shift gently toward discovery: ask something light and playful that fits the moment and nudges them to start exploring games again.
-- Never suggest a game on your own if there is no game found
-OUTPUT
-✅ All in one reply.
-✅ Max 3 lines, max 30 words.
-✅ Be emotionally smart. Respond to their energy.
-✅ Never sound like you're restarting. Always sound like someone who *remembers their name, chat history, preferences etc* and wants to keep the rhythm flowing.
-"""
-    return user_prompt
-
+    return user_prompt.format(user_name=user_name, tone=tone, mood=mood, last_game=last_game, platform=platform, GLOBAL_USER_PROMPT=GLOBAL_USER_PROMPT)
 
 def build_reengagement_intro(session):
     user_name = session.meta_data.get("user_name", "")
