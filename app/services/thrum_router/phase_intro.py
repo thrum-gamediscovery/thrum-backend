@@ -2,8 +2,7 @@ import random
 from app.services.general_prompts import GLOBAL_USER_PROMPT, FIRST_INTRO_PROMPTS, ANOTHER_INTRO_PROMPTS
 
 async def handle_intro(session):
-
-    user_name = session.user.name if session.user else ""
+    user_name = session.user.name if session.user.name else ""
     tone = session.meta_data.get("tone", "")
     mood = session.meta_data.get("mood", "")
     last_game = session.last_recommended_game if session.last_recommended_game else ""
