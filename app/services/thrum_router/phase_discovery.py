@@ -1,4 +1,5 @@
 from app.services.thrum_router.phase_confirmation import confirm_input_summary
+from app.utils.link_helpers import maybe_add_link_hint
 from app.services.tone_engine import get_last_user_tone_from_session
 from app.db.models.enums import PhaseEnum, SenderEnum
 import os
@@ -393,6 +394,7 @@ async def handle_discovery(db, session, user):
         user_platform = preferred_platforms[-1] if preferred_platforms else None
         game_platforms = game.get("platforms", [])
         platform_link = game.get("link", None)
+        request_link = session.meta_data.get("request_link", False)
         description = game.get("description",None)
         # Dynamic platform line (not templated)
         if user_platform and user_platform in game_platforms:
@@ -438,6 +440,7 @@ async def handle_discovery(db, session, user):
 
                 Start mid-thought, as if texting a close friend.
             """.strip()
+        user_prompt = maybe_add_link_hint(user_prompt, platform_link, request_link)
         return user_prompt
 
     else:

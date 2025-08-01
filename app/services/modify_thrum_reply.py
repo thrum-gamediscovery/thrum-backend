@@ -126,7 +126,7 @@ async def format_reply(db,session, user_input, user_prompt):
     print("Tone -------------------------------",tone)
 
     # user_name = session.user_name    
-    user_name = session.user.name
+    user_name = session.user.name if session.user else "friend"
     # Build system prompt with clean injected guidance
     final_system_prompt = f"""{THRUM_PROMPT}
 🚨 THRUM — FRIEND MODE: ENABLED
