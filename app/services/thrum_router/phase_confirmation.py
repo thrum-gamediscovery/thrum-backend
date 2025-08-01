@@ -1,8 +1,8 @@
 from app.db.models.enums import SenderEnum
 from app.db.models.game import Game
 from app.db.models.game_platforms import GamePlatform
-from app.services.general_prompts import GLOBAL_USER_PROMPT
-from app.services.central_system_prompt import THRUM_PROMPT
+import random
+from app.services.general_prompts import GLOBAL_USER_PROMPT,GAME_LIKED_FEEDBACK, ALREADY_PLAYED_GAME, GAME_LIKED_NOT_PLAYED, PROFILE_SNAPSHOT
 
 async def handle_confirmed_game(db, user, session):
     """
@@ -66,29 +66,8 @@ async def handle_confirmed_game(db, user, session):
     if not session.meta_data.get("played_yet", False):
         
         # First time accepting this game
-        user_prompt = f"""
-            {GLOBAL_USER_PROMPT}\n
-            ---
-            THRUM — GAME LIKED FEEDBACK
-            User said: "{user_input}"
-            Tone: {tone}
-            → The user liked the game you recommended.
-            → Respond like a close friend — curious, warm, and totally in the moment.
-            → First: ask what made it click — gameplay, tone, mechanics, art, pace — whatever fits. Make it sound emotionally real, not scripted.
-            → Mirror their tone: dry? Teasing? Hyped? Chill? Match it naturally.
-            → Do NOT reuse lines, phrasing, or emojis from earlier. Every reply must be new in rhythm and structure.
-            → No structured list — just talk like someone who *gets* them.
-            → If you’re confirming something or acknowledging their input: make sure the confirmation matches the user’s tone. For example, if the user’s vibe is hype, use energetic phrases or emojis to reflect that; if the tone is chill, keep it laid-back and smooth.
-            → Once they reply, reflect back in Draper style — warm, sharp, and emotionally tuned to what they shared — and slide the follow-up into the same message, keeping the rhythm natural and human:
-            • If platform is known: casually offer a direct link ("Wanna play it on {platform_preference}? Here’s where to grab it.")  
-            - Platform link: {platform_link if platform_link else "No link available"}
-            • If platform is unknown: offer 1–2 likely platform options based on availability. Ask like a friend who’s just excited to help.
-                Examples:
-                - “Think it’d slap harder on mobile or Game Pass?”
-                - “Wanna try it on Steam or Switch?”
-             → Never suggest a game on your own if there is no game found
-            🌟  Goal: Make them feel seen. Use this moment to bond deeper — and casually invite them to play if the vibe feels open.
-        """.strip()
+        prompt = random.choice(GAME_LIKED_NOT_PLAYED)
+        user_prompt=  prompt.format(GLOBAL_USER_PROMPT=GLOBAL_USER_PROMPT,user_input=user_input,tone=tone,platform_preference=platform_preference)
         
         # Mark that we've handled first acceptance
         if session.meta_data is None:
@@ -98,47 +77,14 @@ async def handle_confirmed_game(db, user, session):
     else:
         # They've played and are giving feedback
         if session.meta_data.get("ask_confirmation", True):
-            user_prompt = (f"""
-                {GLOBAL_USER_PROMPT}\n
-                ---
-                THRUM — GAME ALREADY PLAYED
-                User said: "{user_input}"
-                Tone: {tone}
-                → The user already played the game you recommended.
-                → Ask casually how they felt about it — gameplay, vibe, story, pace — whatever fits. Don’t assume they liked or disliked it.
-                → Mirror their tone: dry? nostalgic? hype? Reflect it naturally.
-                → NEVER reuse lines, sentence rhythm, or emoji from earlier.
-                → Use Draper style — curious, sharp, tuned in emotionally.
-                → If you’re confirming something or acknowledging their input: make sure the confirmation matches the user’s tone. For example, if the user’s vibe is hype, use energetic phrases or emojis to reflect that; if the tone is chill, keep it laid-back and smooth.
-                → Once they answer, follow up lightly: ask if they’re open to something similar — a follow-up rec, same vibe, or something adjacent.
-                → Don’t ask “do you want another?”
-                → Ask like a close friend would:
-                - “Want me to find something with that same vibe?”
-                - “Wanna see what else kinda hits like that?”
-                - “Feel like playing something in that zone again?”
-                → Never suggest a game on your own if there is no game found
-                🌟  Goal: Use their memory as the hook — reflect back emotionally, then glide into a similar recommendation request like a friend who gets their taste.
-            """)
+            prompt = random.choice(ALREADY_PLAYED_GAME)
+            user_prompt=  prompt.format(GLOBAL_USER_PROMPT=GLOBAL_USER_PROMPT,user_input=user_input,tone=tone)
             
             session.meta_data["ask_confirmation"] = False
             
         else:
-            user_prompt = f"""
-                {THRUM_PROMPT}
-
-                SITUATION: User confirmed they liked **{game_title}**.
-                {memory_context}
-
-                Reply in a warm, humble manner expressing happiness that they liked your recommendation.
-                → Keep message open and engaging
-                → Avoid language that closes or ends conversation
-                → No more than 2 sentences or 25 words
-                → Match their {tone} tone
-                → Make it feel like a friend who's genuinely happy their suggestion worked out
-                → If you’re confirming something or acknowledging their input: make sure the confirmation matches the user’s tone. For example, if the user’s vibe is hype, use energetic phrases or emojis to reflect that; if the tone is chill, keep it laid-back and smooth.
-
-                Return only the new user-facing message.
-                """.strip()
+            prompt = random.choice(GAME_LIKED_FEEDBACK)
+            user_prompt=  prompt.format(GLOBAL_USER_PROMPT=GLOBAL_USER_PROMPT,game_title=game_title,tone=tone)
     
     # Initialize metadata if needed
     if session.meta_data is None:
@@ -160,28 +106,14 @@ async def confirm_input_summary(session) -> str:
     No game names or suggestions — just a fun, natural acknowledgment.
     """
     session.intent_override_triggered = True
-    mood = session.exit_mood or None
+    mood = session.exit_mood if session.exit_mood is not None else ""
     genre_list = session.genre or []
     platform_list = session.platform_preference or []
-    genre = genre_list[-1] if isinstance(genre_list, list) and genre_list else None
-    platform = platform_list[-1] if isinstance(platform_list, list) and platform_list else None
+    genre = genre_list[-1] if isinstance(genre_list, list) and genre_list else ""
+    platform = platform_list[-1] if isinstance(platform_list, list) and platform_list else ""
     if not any([mood, genre, platform]):
         return "Got it — let me find something for you."
     # Human tone prompt
-    user_prompt = (
-        f"{GLOBAL_USER_PROMPT}\n"
-        f"USER PROFILE SNAPSHOT:\n"
-        f"– Mood: {mood if mood else ''}\n"
-        f"– Genre: {genre if genre else ''}\n"
-        f"– Platform: {platform if platform else ''}\n\n"
-        "Write a single-line confirmation message that reflects the user’s mood, use the draper style, genre, gameplay, and/or platform if known.\n"
-        "Never suggest a game. Do not ask questions. This is a warm, human-style check-in — like a friend saying over whatsapp 'got you'.\n"
-        "Mirror the mood — e.g., if mood is 'cozy', make the line cozy too.\n"
-        "Do not reuse lines or sentence structure from earlier messages. Make each one unique.\n"
-        "If one or more values are missing, still reply naturally, but use the draper style so they will feel heard, like a human would. Never say 'Not shared'.\n"
-        "Examples (do not copy):\n"
-        "- ‘Chill vibe + story-rich on Switch? You’re speaking my language.’\n"
-        "- ‘Okay okay — strategy + dark mood + PC. Noted.’\n"
-        "- ‘You’re in a horror mood? Gotcha. I’ll keep it spooky.’"
-    )
+    prompt = random.choice(PROFILE_SNAPSHOT)
+    user_prompt=  prompt.format(GLOBAL_USER_PROMPT=GLOBAL_USER_PROMPT,mood=mood,genre=genre,platform=platform)
     return user_prompt 

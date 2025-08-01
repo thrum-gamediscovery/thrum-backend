@@ -2,6 +2,7 @@ import random
 from app.services.general_prompts import GLOBAL_USER_PROMPT, FIRST_INTRO_PROMPTS, ANOTHER_INTRO_PROMPTS
 
 async def handle_intro(session):
+
     user_name = session.user.name if session.user.name else ""
     tone = session.meta_data.get("tone", "")
     mood = session.meta_data.get("mood", "")
@@ -22,15 +23,14 @@ async def handle_intro(session):
         return build_first_time_intro(user_name, tone, mood)
     
     # If the user has already been greeted, show another intro
-    return another_intro(user_name, tone, mood, last_game, platform, GLOBAL_USER_PROMPT)
+    return another_intro(user_name, tone, mood, last_game, platform)
 
 def build_first_time_intro(user_name="", tone="", mood=""):
-    user_prompt = random.choice(list(FIRST_INTRO_PROMPTS.values()))
-
+    user_prompt = random.choice(FIRST_INTRO_PROMPTS)
     return user_prompt.format(user_name=user_name, tone=tone, mood=mood)
 
-def another_intro(user_name="", tone="", mood="", last_game="", platform="", GLOBAL_USER_PROMPT=""):
-    user_prompt = random.choice(list(ANOTHER_INTRO_PROMPTS.values()))
+def another_intro(user_name="", tone="", mood="", last_game="", platform=""):
+    user_prompt = random.choice(ANOTHER_INTRO_PROMPTS)
 
     return user_prompt.format(user_name=user_name, tone=tone, mood=mood, last_game=last_game, platform=platform, GLOBAL_USER_PROMPT=GLOBAL_USER_PROMPT)
 

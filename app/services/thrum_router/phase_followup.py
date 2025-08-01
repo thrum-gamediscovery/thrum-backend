@@ -4,11 +4,12 @@ from app.db.models.session import Session
 from datetime import datetime, timedelta
 import openai
 import os
+import random
 from app.db.models.game_recommendations import GameRecommendation
 from app.db.models.game import Game
 from app.db.models.game_platforms import GamePlatform
 from app.services.session_memory import SessionMemory
-from app.services.general_prompts import GLOBAL_USER_PROMPT
+from app.services.general_prompts import GLOBAL_USER_PROMPT, RECENT_ACCEPTANCE_PROMPT, DELAYED_ACCEPTANCE_PROMPT, STANDARD_FOLLOWUP_PROMPT
 
 
 openai.api_key = os.getenv("OPENAI_API_KEY")
@@ -49,75 +50,22 @@ async def ask_followup_que(session) -> str:
             return f"Awesome, enjoy {game_title}! I'll check back with you later to see how it went."
         # If it's been more than 2 minutes but less than 3 hours, ask about the suggestion
         elif accepted_at and (datetime.utcnow() - accepted_at) < timedelta(hours=3):
-            prompt = f"""
-
-                You are Thrum — an emotionally aware, tone-matching gaming companion.
-
-                The user accepted your recommendation for {game_title} just a few minutes ago.
-                Write ONE short, natural follow-up to ask what they think about the suggestion (not if they've played it yet).
-
-                Your response must:
-                - Reflect the user's tone: {last_user_tone} (e.g., chill, genz, hype, unsure, etc.)
-                - Use fresh and varied phrasing every time — never repeat past follow-up styles
-                - Be no more than 20 words. If you reach 20 words, stop immediately.
-                - Ask about their thoughts on the {game_title} suggestion
-                - Do not suggest any new games
-                - Avoid any fixed templates or repeated phrasing
-                - Never mention any other game title besides {game_title}. Do not invent or recall games outside the provided data.
-
-                Tone must feel warm, casual, playful, or witty — depending on the user's tone.
-
-                Only output one emotionally intelligent follow-up. Nothing else.
-                """
+            prompt = random.choice(RECENT_ACCEPTANCE_PROMPT).format(
+                game_title=game_title,
+                last_user_tone=last_user_tone
+            )
             return prompt
         # If it's been more than 3 hours, ask about their experience with the game
         elif accepted_at:
-            prompt = f"""
-
-                You are Thrum — an emotionally aware, tone-matching gaming companion.
-
-                The user accepted your recommendation for {game_title} a while ago.
-                Now, write ONE short, natural follow-up to check if they had a chance to try the game and how they liked it.
-                If they haven't played it yet, ask if they'd like a different recommendation.
-
-                Your response must:
-                - Reflect the user's tone: {last_user_tone} (e.g., chill, genz, hype, unsure, etc.)
-                - Use fresh and varied phrasing every time — never repeat past follow-up styles
-                - Be no more than 25 words. If you reach 25 words, stop immediately.
-                - Specifically ask about their experience with {game_title}
-                - Include a question about whether they want something different if they haven't played
-                - Avoid any fixed templates or repeated phrasing
-                - Never mention any other game title besides {game_title}. Do not invent or recall games outside the provided data.
-
-                Tone must feel warm, casual, playful, or witty — depending on the user's tone.
-
-                Only output one emotionally intelligent follow-up. Nothing else.
-                """
+            prompt = random.choice(DELAYED_ACCEPTANCE_PROMPT).format(
+                game_title=game_title,
+                last_user_tone=last_user_tone
+            )
     else:
         # Standard follow-up for non-accepted games
-        prompt = f"""
-
-            You are Thrum — an emotionally aware, tone-matching gaming companion.
-
-            The user was just recommended a game.
-
-            Now, write ONE short, natural follow-up to check:
-            – if the game sounds good to them  
-            – OR if they’d like another game
-
-            Your response must:
-            - Reflect the user’s tone: {last_user_tone} (e.g., chill, genz, hype, unsure, etc.)
-            - Use fresh and varied phrasing every time — never repeat past follow-up styles
-            - Be no more than 15 words. If you reach 15 words, stop immediately.
-            - Do not mention or summarize the game or use the word "recommendation".
-            - Do not use robotic phrases like “Did that one hit the mark?”
-            - Avoid any fixed templates or repeated phrasing
-            - Never mention any game titles. Do not invent or recall games outside the provided data.
-
-            Tone must feel warm, casual, playful, or witty — depending on the user’s tone.
-
-            Only output one emotionally intelligent follow-up. Nothing else.
-            """
+        prompt = random.choice(STANDARD_FOLLOWUP_PROMPT).format(
+            last_user_tone=last_user_tone
+        )
 
     response = await client.chat.completions.create(
         model=model,
