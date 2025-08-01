@@ -427,11 +427,16 @@ You must infer from both keywords and tone—even if the user is casual, brief, 
   → Do NOT skip implied dislikes or features the user reacts negatively to, even if not directly stated as “dislike.”
   → Return all such terms as an array of strings; if not present, return [].
 
-  17. played_yet (boolean or "None")
+17. played_yet (boolean or "None")
   → Determine whether the user has actually played the game or is only reacting to it, based strictly on their current input.
   → Return true if the user’s message clearly indicates personal gameplay experience through their words, tone, or described actions.
   → Return false if the user is only commenting based on impressions, appearance, or what they have heard about the game, without indicating they have played it.
   → If the input does not refer to a specific game, or if it cannot be determined from the input, return "None".
+
+18. request_link (boolean)
+   → Return true if the user is asking where to find the game, asking for a store link, asking how to download, or mentioning “link” explicitly.
+   → Return false if they are not asking for a link.
+   → If unclear, return false.
 
 ---
 
@@ -466,7 +471,8 @@ You must infer from both keywords and tone—even if the user is casual, brief, 
   "gameplay_elements": ["..."],
   "preferred_keywords": ["..."],
   "disliked_keywords": ["..."],
-  "played_yet": true/false/None
+  "played_yet": true/false/None,
+  "request_link": true/false
 }}
 
 🧠 HINTS:
@@ -524,7 +530,8 @@ Now classify into the format below.
                 "gameplay_elements": [],
                 "preferred_keywords": [],
                 "disliked_keywords": [],
-                "played_yet": False
+                "played_yet": False,
+                "request_link": False
             }
 
         print(f"Classification Result: {result}")
@@ -549,7 +556,8 @@ Now classify into the format below.
                 "gameplay_elements": [],
                 "preferred_keywords": [],
                 "disliked_keywords": [],
-                "played_yet": False
+                "played_yet": False,
+                "request_link": False
             }
 
     print(f"Classification Result: {result}")
