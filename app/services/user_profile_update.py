@@ -15,6 +15,17 @@ from app.utils.genre import get_best_genre_match
 from app.utils.platform_utils import get_best_platform_match, get_default_platform
 from app.services.session_memory import SessionMemory
 
+async def set_pending_action(db, session, action_type, payload=None):
+    if 'pending_action' not in session.meta_data:
+        session.meta_data["pending_action"] = {}
+    session.meta_data["pending_action"] = {"type": action_type, "payload": payload}
+    flag_modified(session,"meta_data")
+    db.commit()
+
+async def consume_pending_action(db, session):
+    session.meta_data.pop("pending_action", None)
+    db.commit()
+
 # ✅ Update user profile with parsed classification fields
 async def update_game_feedback_from_json(db, user_id: UUID, session,feedback_data: list) -> None:
     if not isinstance(feedback_data, list) or not feedback_data:
@@ -120,6 +131,10 @@ async def update_user_from_classification(db: Session, user, classification: dic
     played_yet = classification.get("played_yet", False)
     request_link = classification.get("request_link", False)
 
+    if session.meta_data.get('ask_for_link'):
+        session.meta_data['ask_for_link'] = False
+        flag_modified(session, "meta_data")
+        db.commit()
     # -- Played Yet
     if played_yet is not None and isinstance(played_yet, bool):
         session.meta_data["played_yet"] = played_yet
@@ -128,8 +143,12 @@ async def update_user_from_classification(db: Session, user, classification: dic
     
     # -- Request Link
     if request_link is not None and isinstance(request_link, bool):
+        if session.meta_data is None:
+            session.meta_data = {}
         session.meta_data["request_link"] = request_link
         flag_modified(session, "meta_data")
+        if request_link:
+            await consume_pending_action(db=db, session=session)
         print(f"✅ Stored request_link status: {request_link} in session.meta_data")
 
     # -- Name

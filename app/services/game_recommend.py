@@ -2,6 +2,7 @@ from sentence_transformers import SentenceTransformer
 from sqlalchemy.orm import Session
 from app.db.models.game_platforms import GamePlatform
 from app.db.models.game_recommendations import GameRecommendation
+from app.services.user_profile_update import set_pending_action
 from app.db.models.enums import PhaseEnum
 from app.db.models.game import Game
 from sqlalchemy import func, cast, Integer
@@ -13,12 +14,20 @@ model = SentenceTransformer("BAAI/bge-base-en-v1.5")
 
 # Function to get the platform link for a given game and preferred platform
 def get_game_platform_link(game_id, preferred_platform, db_session):
-    platform_entry = db_session.query(GamePlatform).filter_by(
-        game_id=game_id,
-        platform=preferred_platform
-    ).first()
-    if platform_entry and platform_entry.link:
-        return platform_entry.link
+    if preferred_platform is not None:
+        platform_entry = db_session.query(GamePlatform).filter_by(
+            game_id=game_id,
+            platform=preferred_platform
+        ).first()
+        if platform_entry and platform_entry.link:
+            return platform_entry.link
+    else:
+        platform_entry = db_session.query(GamePlatform).filter(
+            GamePlatform.game_id == game_id,
+            GamePlatform.link != None,
+        ).first()
+        if platform_entry and platform_entry.link:
+            return platform_entry.link
     return None
 
 # Helper function to convert vector arrays to a consistent format
@@ -159,6 +168,7 @@ async def game_recommendation(db: Session, user, session):
             # session.followup_triggered = True
             print(f"[Step 4] Early fallback: Random game recommended: {random_game.title}")
             session.meta_data["ask_confirmation"] = True
+            await set_pending_action(db, session,'send_link',link)
             return {
                 "title": random_game.title,
                 "description": random_game.description if random_game.description else None,
@@ -374,6 +384,7 @@ async def game_recommendation(db: Session, user, session):
     print(f"[Step 15] Last session game is used: {last_session_liked_game.game.title if last_session_liked_game else None}")
     session.meta_data["ask_confirmation"] = True
     session.last_recommended_game = top_game.title
+    await set_pending_action(db, session,'send_link',link)
     return {
             "title": top_game.title,
             "description": top_game.description if top_game.description else None,

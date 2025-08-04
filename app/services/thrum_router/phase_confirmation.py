@@ -1,6 +1,7 @@
 from app.db.models.enums import SenderEnum
 from app.db.models.game import Game
 from app.db.models.game_platforms import GamePlatform
+from app.utils.link_helpers import maybe_add_link_hint
 import random
 from app.services.general_prompts import GLOBAL_USER_PROMPT,GAME_LIKED_FEEDBACK, ALREADY_PLAYED_GAME, GAME_LIKED_NOT_PLAYED, PROFILE_SNAPSHOT
 
@@ -42,7 +43,7 @@ async def handle_confirmed_game(db, user, session):
         print(f"`No preferred platform found for user #############`")
         gp_row = (
             db.query(GamePlatform)
-            .filter(GamePlatform.game_id == game_id, GamePlatform.link.isnot(None))
+            .filter(GamePlatform.game_id == game_id, GamePlatform.link != None)
             .first()
         )
         platform_link = gp_row.link if gp_row else None
@@ -85,19 +86,19 @@ async def handle_confirmed_game(db, user, session):
         else:
             prompt = random.choice(GAME_LIKED_FEEDBACK)
             user_prompt=  prompt.format(GLOBAL_USER_PROMPT=GLOBAL_USER_PROMPT,game_title=game_title,tone=tone)
-    
+
+    user_prompt = await maybe_add_link_hint(db, session, user_prompt, platform_link)
     # Initialize metadata if needed
     if session.meta_data is None:
         session.meta_data = {}
-    
-    # Set default values
-    if "dont_give_name" not in session.meta_data:
-        print("Setting default metadata for session")
-        session.meta_data["dont_give_name"] = False
-    if 'ask_for_rec_friend' not in session.meta_data:
-        session.meta_data['ask_for_rec_friend'] = True
-    
-    db.commit()
+    if not session.meta_data.get('ask_for_link'):
+        # Set default values
+        if "dont_give_name" not in session.meta_data:
+            print("Setting default metadata for session")
+            session.meta_data["dont_give_name"] = False
+        if 'ask_for_rec_friend' not in session.meta_data:
+            session.meta_data['ask_for_rec_friend'] = True
+        db.commit()
     return user_prompt
 
 async def confirm_input_summary(session) -> str:

@@ -1,5 +1,4 @@
 from app.services.game_recommend import game_recommendation
-from app.utils.link_helpers import maybe_add_link_hint
 from app.services.input_classifier import have_to_recommend
 from app.db.models.enums import PhaseEnum, SenderEnum
 from app.db.models.session import Session 
@@ -72,7 +71,6 @@ async def get_recommend(db, user, session):
                 Start mid-thought, as if texting a close friend.
             """.strip()
     print(f"User prompt: {user_prompt}")
-    user_prompt = maybe_add_link_hint(user_prompt, platform_link, request_link)
     return user_prompt
 
 async def explain_last_game_match(session):
@@ -216,7 +214,6 @@ async def handle_reject_Recommendation(db,session, user,  classification):
                 - Sound like a friend who just read their reply
                 - Feel totally in-flow — like the next thought in a real text thread
                 """
-                user_prompt = maybe_add_link_hint(user_prompt, platform_link, request_link)
                 return user_prompt
             else:
                 explanation_response = await explain_last_game_match(session=session)
@@ -297,7 +294,6 @@ async def deliver_game_immediately(db: Session, user, session) -> str:
 
                 Start mid-thought, as if texting a close friend.
             """.strip()
-            user_prompt = maybe_add_link_hint(user_prompt, platform_link, request_link)
             return user_prompt
 
 async def diliver_similar_game(db: Session, user, session) -> str:
@@ -372,7 +368,6 @@ async def diliver_similar_game(db: Session, user, session) -> str:
                 → NEVER repeat phrasing, emoji, or sentence structure from earlier replies.
                 🌟  Goal: Make the moment feel human — like you're really listening and about to serve something *even better*. Rebuild energy and keep the conversation alive.
             """
-        user_prompt = maybe_add_link_hint(user_prompt, platform_link, request_link)
         return user_prompt
 
 async def recommend_game():

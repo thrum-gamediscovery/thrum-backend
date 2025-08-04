@@ -1,5 +1,6 @@
 from app.services.tone_engine import get_last_user_tone_from_session
-from app.db.models.enums import PhaseEnum
+from app.utils.link_helpers import maybe_add_link_hint
+from app.db.models.enums import PhaseEnum, SenderEnum
 from app.db.models.session import Session
 from datetime import datetime, timedelta
 import openai
@@ -77,22 +78,10 @@ async def ask_followup_que(session) -> str:
     return response.choices[0].message.content.strip()
 
 
-def maybe_add_link_hint(user_prompt: str, platform_link: str, request_link: bool) -> str:
-    """Adds link hint as part of the prompt so it’s dynamically phrased by the model."""
-    if platform_link and not request_link:
-        user_prompt += """
-        
-        ---
-        Friendly reminder for Thrum:
-        - If a store/platform link exists but wasn’t requested, casually offer it in ONE short, fresh sentence.
-        - Vary the phrasing each time (never reuse the same sentence).
-        - Keep it natural, playful, and in-flow with the user’s mood.
-        - Do not push — just a soft nudge like a friend offering a quick shortcut.
-        - Example vibes (don’t copy directly): “Want me to toss you the store link?”, “Need the link for it?”, “Should I send where you can grab it?”
-        """
-    return user_prompt
-
 async def handle_game_inquiry(db: Session, user, session, user_input: str) -> str:
+    thrum_interactions = [i for i in session.interactions if i.sender == SenderEnum.Thrum]
+    last_thrum_reply = thrum_interactions[-1].content if thrum_interactions else ""
+    
     game_id = session.meta_data.get("find_game")
     request_link = session.meta_data.get("request_link", False)
     session_memory = SessionMemory(session,db)
@@ -193,6 +182,8 @@ Reference Data for context (do not repeat unless asked):
     - Platforms: {game_info['platforms']}
     - Platform Link: {game_info['platform_link']}
 
+    Thrum Last Message : {last_thrum_reply}
+    User Message : {user_input}
 STRICT REPLY RULES:
 - Stay 100% on the user's question. If they ask about something specific (like a feature, platform, or your reasoning), reply to THAT only.
 - You may use info from earlier in the session (memory/context) to make your answer feel more personal or relevant.
@@ -201,7 +192,7 @@ STRICT REPLY RULES:
 - Never talk like a bot, system, or use filler words. Always sound like a real friend.
 
 """
-        return maybe_add_link_hint(user_prompt, platform_link, request_link)
+        return await maybe_add_link_hint(db, session, user_prompt, game_info['platform_link'])
     # If user inquires about a game they already liked
     liked_game = db.query(GameRecommendation).filter(
             GameRecommendation.user_id == user.user_id,
@@ -241,6 +232,9 @@ STRICT REPLY RULES:
     - Platforms: {game_info['platforms']}
     - Platform Link: {game_info['platform_link']}
 
+    Thrum Last Message : {last_thrum_reply}
+    User Message : {user_input}
+
     STRICT REPLY RULES:
     - Answer ONLY what the user asks. No over-explaining, no sales logic, and no info-dumping if their question is specific.
     - You may use user memory/context for personalization, but never go off-topic.
@@ -248,8 +242,8 @@ STRICT REPLY RULES:
     - Never sound like a bot, system, or template. Always reply as a real friend would — brief, natural, and matching their mood.
 
 """.strip()
-        return maybe_add_link_hint(user_prompt, platform_link, request_link)
-
+        return await maybe_add_link_hint(db, session, user_prompt, game_info['platform_link'])
+    
     # If already recommended → update phase and return query-resolution prompt
     if game_id in recommended_ids:
         last_rec = db.query(GameRecommendation).filter(
@@ -290,15 +284,16 @@ STRICT REPLY RULES:
                 - Mood Tags: {game_info['mood_tags']}
                 - Platforms: {game_info['platforms']}
                 - Platform Link: {game_info['platform_link']}
-
-                User message: “{user_input}”
+                
+                Thrum Last Message : {last_thrum_reply}
+                User Message : {user_input}
 
                 STRICT REPLY RULES:
-                - ONLY answer what the user asks. Never over-explain, never pitch or sell, and never add extra unless clearly invited.
+                - ONLY answer what the user asks and want. Never over-explain, never pitch or sell, and never add extra unless clearly invited.
                 - Use memory/context only if it’s needed for a natural, helpful reply.
                 - Never sound like a bot or template — always text like a real friend.
             """.strip()
-            return maybe_add_link_hint(user_prompt, platform_link, request_link)
+            return await maybe_add_link_hint(db, session, user_prompt, game_info['platform_link'])
         else:
             print(f"If already recommended in that session #####################")
             user_prompt = f"""
@@ -331,12 +326,15 @@ STRICT REPLY RULES:
                 - Platforms: {game_info['platforms']}
                 - Platform Link: {game_info['platform_link']}
 
+                Thrum Last Message : {last_thrum_reply}
+                User Message : {user_input}
+
                 STRICT REPLY RULES:
                 - ONLY answer the user’s current question or prompt. Never over-explain, never pitch, never info-dump.
                 - Use context or memory for personal touch, but never go off-topic or repeat unless needed.
                 - Never sound like a bot or use canned lines. Always reply like a real friend, brief, in-flow, and mood-matched.
             """.strip()
-            return maybe_add_link_hint(user_prompt, platform_link, request_link)
+            return await maybe_add_link_hint(db, session, user_prompt, game_info['platform_link'])
 
 
     # Else, it’s a new inquiry → recommend + save + followup
@@ -385,6 +383,8 @@ STRICT REPLY RULES:
         - Mood Tags: {game_info['mood_tags']}
         - Platforms: {game_info['platforms']}
         - Platform Link: {game_info['platform_link']}
-        User message: “{user_input}”
+        
+        Thrum Last Message : {last_thrum_reply}
+        User Message : {user_input}
     """.strip()
-    return maybe_add_link_hint(user_prompt, platform_link, request_link)
+    return await maybe_add_link_hint(db, session, user_prompt, game_info['platform_link'])

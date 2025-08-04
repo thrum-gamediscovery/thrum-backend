@@ -43,10 +43,13 @@ async def classify_user_intent(user_input: str, session,db):
     memory_context_str = session_memory.to_prompt()
 
     user_prompt = f"""
-USER MEMORY & RECENT CHAT:
+USER MEMORY & RECENT CHAT (for your knowledge):
 {memory_context_str if memory_context_str else 'No prior user memory or recent chat.'}
-User message: "{user_input}"
+
+--- 
+
 You are a classification engine for a conversational game assistant.
+User message: "{user_input}" (You have to classify from this.)
 last thrum reply: {last_thrum_reply} (This is the reply that Thrum gave to the user's last message)
 """
   
@@ -80,17 +83,6 @@ Carefully consider the context of the conversation and the specific tone or dire
 - **Request_Quick_Recommendation**: Triggered when the user explicitly asks for a game suggestion at that time, OR asks for a suggestion on a different platform than last recommended, or asking for a game directly like "suggest a game","want a game", etc.
 - true ONLY when user clearly asks for a new game suggestion.
 - if user just looking for some specific game then do not trigger it(for eg, user say im'm looking for genre, or any scpecification then do not trigger it.). untill they want game immediately, or directly ask for a game suggestion.
-- Do not Trigger it as True when user is not asking for a new game recommendation and user just giving information about game or user input is just an statement which is not include the intent for new or other game.
-- Do NOT trigger if user is just inquiring about platform availability or requesting a store/platform link for a specific game.
-- "for mobile?" or "on Android?" only triggers if it's an explicit request for a new rec, not just checking if a game is available.
-  This intent is activated for phrases like:
-    - "give me a game"
-    - "suggest one for me"
-
-- **Request_Quick_Recommendation**: Triggered when the user explicitly asks for a game suggestion at that time, OR asks for a suggestion on a different platform than last recommended, or asking for a game directly like "suggest a game","want a game", etc.
-- true ONLY when user clearly asks for a new game suggestion.
-- if user just looking for some specific game then do not trigger it.(for eg, user say im'm looking for genre, or any scpecification then do not trigger it.)
-- Do not trigger this intent if the user is just giving information about a game or if the user is just stating something that does not include the intent for new or other game.
 - Do not Trigger it as True when user is not asking for a new game recommendation and user just giving information about game or user input is just an statement which is not include the intent for new or other game.
 - Do NOT trigger if user is just inquiring about platform availability or requesting a store/platform link for a specific game.
 - "for mobile?" or "on Android?" only triggers if it's an explicit request for a new rec, not just checking if a game is available.
@@ -363,10 +355,11 @@ You must infer from both keywords and tone—even if the user is casual, brief, 
      - “Before bed” → "night"
    → If not mentioned, return "None".
 
-11. reject_tags (list of strings)  
-   → What they dislike. Genres, moods, mechanics, or platforms.  
-   → e.g., ["horror", "mobile", "realistic"]  
-   → Hints: “I don't like shooters”, “not into mobile games”, “too realistic”.
+11. reject_tags (list of strings)
+   → What they dislike. Genres, moods, mechanics, or platforms. even if the user wants to avoid certain game platforms or genres, or if they express a dislike for specific game genre or platforms, these should be captured here.
+   → if user input is like forget xyz genre or xyz platform or "i dont like that genre or platform" then add that in reject_tags.
+   → e.g., ["horror", "mobile", "realistic"]
+   → Hints: “I don't like shooters”, “not into mobile games”, “too realistic”, "forget about horror games", "forget about driving", "i dont like windows platform"
    → add anthing in reject_tag when user say i dont like this never when user talk like this is not in game.
    → only add anything in reject_tag if it is sure otherwise not
    → If not mentioned, return [].
@@ -434,7 +427,8 @@ You must infer from both keywords and tone—even if the user is casual, brief, 
 
 18. request_link (boolean)
    → Return true if the user is asking where to find the game, asking for a store link, asking how to download, or mentioning “link” explicitly.
-   → Return false if they are not asking for a link.
+   → Return true if the user replies with any affirmative word or phrase, such as "yes", "yeah", "yep", "sure", "ok", "okay", or similar, indicating they want the link.
+   → Return false if the user says "no", "nope", "nah", "not really", or any negative response, or is not asking for a link.
    → If unclear, return false.
 
 ---
