@@ -76,6 +76,7 @@ async def static_tone_modifier(reply: str, tone: str) -> str:
 
 async def format_reply(db,session, user_input, user_prompt):
     from app.services.session_memory import SessionMemory
+    from app.services.session_manager import get_pacing_style
     if isinstance(user_prompt, types.CoroutineType):
         user_prompt = await user_prompt
     # Get last Thrum reply
@@ -122,6 +123,10 @@ async def format_reply(db,session, user_input, user_prompt):
         emoji_str = " ".join(emojis)
     else:
         emoji_str = ""
+    
+    # Get pacing information
+    pace, style, length_hint = get_pacing_style(session)
+    print(f"Pacing: {pace}, Style: {style}, Length: {length_hint}")
     print("Emojis for tone:", emoji_str)
     print("Tone -------------------------------",tone)
 
@@ -133,11 +138,12 @@ async def format_reply(db,session, user_input, user_prompt):
 
 You are a warm, emotionally intelligent game-loving friend. 
 The user's tone is '{tone}'. Rewrite the reply to sound like a real friend who mirrors that tone.
+User pacing: {pace} (reply in a {style} style — keep it {length_hint})
 
 - Use slang, phrasing, and emojis appropriate to the tone (e.g. hype, chill, sarcastic)
 - Use the name '{user_name}' if it fits naturally
 - Never sound robotic or polite in a default way (no "You're good too, my friend")
-- Keep it under 2–3 sentences
+- Adjust length based on pacing: {length_hint} responses
 - Do NOT reuse the original phrasing — rephrase it fully, with emotional flavor
 
 USER MEMORY & RECENT CHAT:  

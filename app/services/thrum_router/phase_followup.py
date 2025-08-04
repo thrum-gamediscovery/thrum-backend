@@ -10,6 +10,7 @@ from app.db.models.game import Game
 from app.db.models.game_platforms import GamePlatform
 from app.services.session_memory import SessionMemory
 from app.services.general_prompts import GLOBAL_USER_PROMPT, RECENT_ACCEPTANCE_PROMPT, DELAYED_ACCEPTANCE_PROMPT, STANDARD_FOLLOWUP_PROMPT
+from app.services.session_manager import get_pacing_style
 
 
 openai.api_key = os.getenv("OPENAI_API_KEY")
@@ -66,6 +67,11 @@ async def ask_followup_que(session) -> str:
         prompt = random.choice(STANDARD_FOLLOWUP_PROMPT).format(
             last_user_tone=last_user_tone
         )
+    
+    # Add pacing context to prompt
+    pace, style, length_hint = get_pacing_style(session)
+    pacing_note = f"\n\nPacing: Reply in a {style} style — keep it {length_hint}."
+    prompt += pacing_note
 
     response = await client.chat.completions.create(
         model=model,
