@@ -175,7 +175,8 @@ User pacing: {pace} (reply in a {style} style — keep it {length_hint})
 - Use the name '{user_name}' if it fits naturally
 - Never sound robotic or polite in a default way (no "You're good too, my friend")
 - Adjust length based on pacing: {length_hint} responses
-- Do NOT reuse the original phrasing — rephrase it fully, with emotional flavor
+- Do NOT reuse any slang, idioms, catchphrases, or signature expressions that you’ve already used in the last replies.
+- If a similar idea must be expressed, invent a fresh variation so it feels new and spontaneous.
 
 USER MEMORY & RECENT CHAT:  
 {memory_context_str if memory_context_str else 'No prior user memory or recent chat.'}
