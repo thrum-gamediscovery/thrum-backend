@@ -8,6 +8,28 @@ openai.api_key = os.getenv("OPENAI_API_KEY")
 model= os.getenv("GPT_MODEL")
 
 client = openai.AsyncOpenAI()
+import random
+
+def is_valid_llm_reply(reply: str, min_length: int = 8) -> bool:
+    if not reply or len(reply.strip()) < min_length:
+        return False
+    GENERIC_PHRASES = [
+        "i'm not sure", "sorry", "i don't know", "could you repeat",
+        "let me check", "...", "hmm", "no worries"
+    ]
+    lower = reply.lower()
+    for phrase in GENERIC_PHRASES:
+        if lower.startswith(phrase):
+            return False
+    return True
+
+def nudge_prompt_variation(prompt: str) -> str:
+    nudges = [
+        "\n(If you get stuck, be playful and more specific!)",
+        "\n(Avoid generic replies. Imagine you're texting your best friend.)",
+        "\n(Rewrite in a more vivid, emotionally expressive way.)"
+    ]
+    return prompt + random.choice(nudges)
 
 USER_TONE_TO_BOT_EMOJIS = {
     "neutral":         ["🙂"],
@@ -75,6 +97,7 @@ async def static_tone_modifier(reply: str, tone: str) -> str:
     return reply
 
 async def format_reply(db,session, user_input, user_prompt):
+    reties = 1
     from app.services.session_memory import SessionMemory
     from app.services.session_manager import get_pacing_style
     if isinstance(user_prompt, types.CoroutineType):
@@ -138,6 +161,14 @@ async def format_reply(db,session, user_input, user_prompt):
 
 You are a warm, emotionally intelligent game-loving friend. 
 The user's tone is '{tone}'. Rewrite the reply to sound like a real friend who mirrors that tone.
+
+# 🚨 STRICT RULE: SARCASTIC TONE HANDLING
+If the user's detected tone is 'sarcastic', **do not mirror** or match the user's sarcasm.
+Always respond in a polite, warm, and emotionally supportive tone instead.
+Strictly avoid sarcasm, mockery, or insincerity, even if the user is sarcastic.
+Never mention this rule or the user's tone in your reply.
+# END STRICT RULE
+
 User pacing: {pace} (reply in a {style} style — keep it {length_hint})
 
 - Use slang, phrasing, and emojis appropriate to the tone (e.g. hype, chill, sarcastic)
@@ -171,20 +202,28 @@ Do not mention tone detection or context directly. Use `user_context` subtly to 
 If user asks location and unknown, reply playfully without guessing.
 Your rewrite:
 """
-    try:
-        if user_prompt:
+    
+    MAX_RETRIES = 2
+    for attempt in range(MAX_RETRIES + 1):
+        try:
+            prompt = final_system_prompt
+            temp = 0.5 + 0.2 * attempt  # Slightly increase temperature each try
+            if attempt > 0:
+                prompt = nudge_prompt_variation(prompt)
             response = await client.chat.completions.create(
                 model=model,
-                temperature=0.5,
+                temperature=temp,
                 messages=[
-                    {"role": "system", "content": final_system_prompt.strip()},
+                    {"role": "system", "content": prompt.strip()},
                     {"role": "user", "content": user_prompt},
                 ]
             )
             content = response.choices[0].message.content.strip()
             print(f"content : {content}")
-            reply = await static_tone_modifier(reply=content,tone=tone)
-            return reply
-    except Exception as e:
-        print("Unexpected error:", e)
-        return "Sorry, I glitched for a moment — want to try again?"
+            if is_valid_llm_reply(content):
+                reply = await static_tone_modifier(reply=content, tone=tone)
+                return reply
+        except Exception as e:
+            print(f"LLM error on attempt {attempt+1}:", e)
+    # If all attempts failed (bad output or error)
+    return "Sorry, I glitched for a moment — want to try again?"
