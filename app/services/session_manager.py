@@ -4,6 +4,7 @@ from app.db.models.session import Session
 from app.db.models.enums import SessionTypeEnum
 from app.services.tone_shift_detection import detect_user_is_cold  # ✅ import smart tone checker
 from app.db.models.enums import SenderEnum
+from sqlalchemy.orm.attributes import flag_modified
 
 def update_returning_user_flag(session):
     last_interaction_str = session.meta_data.get("last_interaction")
@@ -229,4 +230,79 @@ async def detect_tone_shift(session, window: int = 5, disengage_threshold: int =
         return True
 
     return False
+
+def update_user_pacing(session):
+    """
+    Track user reply speed and determine pacing preference.
+    Updates session.meta_data with pacing info.
+    """
+    if not session.interactions:
+        return
+    
+    # Get user interactions only
+    user_interactions = [i for i in session.interactions if i.sender == SenderEnum.User]
+    if len(user_interactions) < 2:
+        return
+    
+    # Calculate intervals between last 5 user messages
+    recent_intervals = []
+    for i in range(1, min(6, len(user_interactions))):
+        current = user_interactions[-i]
+        previous = user_interactions[-i-1]
+        interval = (current.timestamp - previous.timestamp).total_seconds()
+        recent_intervals.append(interval)
+    
+    if not recent_intervals:
+        return
+    
+    # Calculate average reply interval
+    avg_interval = sum(recent_intervals) / len(recent_intervals)
+    
+    # Determine pace
+    if avg_interval < 5:  # Under 5 seconds = fast
+        pace = "fast"
+        style = "snappy"
+    elif avg_interval > 30:  # Over 30 seconds = slow
+        pace = "slow" 
+        style = "gentle"
+    else:
+        pace = "medium"
+        style = "balanced"
+    
+    # Update session metadata
+    session.meta_data = session.meta_data or {}
+    session.meta_data["reply_interval"] = avg_interval
+    session.meta_data["pace"] = pace
+    session.meta_data["style"] = style
+    session.meta_data["message_count"] = session.meta_data.get("message_count", 0) + 1
+    
+    # Reset pacing every 10 messages or on tone shift
+    if session.meta_data["message_count"] >= 10 or session.tone_shift_detected:
+        session.meta_data["message_count"] = 0
+        session.meta_data["pace_reset"] = True
+        if session.tone_shift_detected:
+            session.tone_shift_detected = False
+    
+    flag_modified(session, "meta_data")
+
+def get_pacing_style(session):
+    """
+    Get current pacing style for prompt building.
+    Returns tuple of (pace, style, length_hint)
+    """
+    if not session.meta_data:
+        return "medium", "balanced", "normal"
+    
+    pace = session.meta_data.get("pace", "medium")
+    style = session.meta_data.get("style", "balanced")
+    
+    # Length hints based on pace
+    length_hints = {
+        "fast": "short",
+        "medium": "normal", 
+        "slow": "detailed"
+    }
+    
+    length_hint = length_hints.get(pace, "normal")
+    return pace, style, length_hint
 

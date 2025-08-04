@@ -9,7 +9,7 @@ from app.db.models.user_profile import UserProfile
 from app.db.deps import get_db
 from app.db.models.enums import PlatformEnum
 from app.api.v1.endpoints.chat import user_chat_with_thrum, bot_chat_with_thrum, ChatRequest
-from app.services.session_manager import update_or_create_session, is_session_idle
+from app.services.session_manager import update_or_create_session, is_session_idle, update_user_pacing
 from app.services.create_reply import generate_thrum_reply
 from app.utils.region_utils import infer_region_from_phone, get_timezone_from_region
 from app.utils.whatsapp import send_whatsapp_message
@@ -100,6 +100,10 @@ async def whatsapp_webhook(
     # ---------- 7. Process User Chat ----------
     payload = ChatRequest(user_input=user_input)
     session, intrection = await user_chat_with_thrum(request=request, payload=payload, db=db)
+    
+    # ---------- 7.1. Update User Pacing ----------
+    update_user_pacing(session)
+    db.commit()
     session.followup_triggered = False
     session.intent_override_triggered = False
     if session.awaiting_reply:
