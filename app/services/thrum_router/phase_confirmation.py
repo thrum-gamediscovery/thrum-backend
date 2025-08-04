@@ -2,7 +2,7 @@ from app.db.models.enums import SenderEnum
 from app.db.models.game import Game
 from app.db.models.game_platforms import GamePlatform
 import random
-from app.services.general_prompts import GLOBAL_USER_PROMPT,GAME_LIKED_FEEDBACK, ALREADY_PLAYED_GAME, GAME_LIKED_NOT_PLAYED, PROFILE_SNAPSHOT
+from app.services.general_prompts import GLOBAL_USER_PROMPT,GAME_LIKED_FEEDBACK, ALREADY_PLAYED_GAME, GAME_LIKED_NOT_PLAYED, PROFILE_SNAPSHOT, CONFIRMATION_PROMPTS
 
 async def handle_confirmed_game(db, user, session):
     """
@@ -102,8 +102,8 @@ async def handle_confirmed_game(db, user, session):
 
 async def confirm_input_summary(session) -> str:
     """
-    Uses gpt-4o to generate a short, human-sounding confirmation line from mood, genre, and platform.
-    No game names or suggestions — just a fun, natural acknowledgment.
+    Uses varied confirmation prompts to generate unique, human-sounding confirmation lines.
+    Rotates between different prompt styles based on session context.
     """
     session.intent_override_triggered = True
     mood = session.exit_mood if session.exit_mood is not None else ""
@@ -111,9 +111,27 @@ async def confirm_input_summary(session) -> str:
     platform_list = session.platform_preference or []
     genre = genre_list[-1] if isinstance(genre_list, list) and genre_list else ""
     platform = platform_list[-1] if isinstance(platform_list, list) and platform_list else ""
+    tone = session.meta_data.get("tone", "neutral")
+    
     if not any([mood, genre, platform]):
         return "Got it — let me find something for you."
-    # Human tone prompt
-    prompt = random.choice(PROFILE_SNAPSHOT)
-    user_prompt=  prompt.format(GLOBAL_USER_PROMPT=GLOBAL_USER_PROMPT,mood=mood,genre=genre,platform=platform)
+    
+    # Select prompt variant based on session context
+    if mood in ["excited", "hyped", "energetic"]:
+        prompt_index = 0  # CONFIRMATION MOMENT
+    elif tone in ["chill", "relaxed", "calm"]:
+        prompt_index = 1  # VIBE CHECK COMPLETE
+    elif session.game_rejection_count > 0:
+        prompt_index = 2  # LOCKED AND LOADED
+    else:
+        prompt_index = 3  # FREQUENCY MATCHED
+    
+    prompt = CONFIRMATION_PROMPTS[prompt_index]
+    user_prompt = prompt.format(
+        GLOBAL_USER_PROMPT=GLOBAL_USER_PROMPT,
+        mood=mood,
+        genre=genre,
+        platform=platform,
+        tone=tone
+    )
     return user_prompt 
