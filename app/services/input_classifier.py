@@ -73,12 +73,16 @@ Carefully consider the context of the conversation and the specific tone or dire
 - **Greet**: Triggered when the user greets the bot. This intent is **must not be triggered** if Thrum’s last message was already a greeting.
 
 - **Phase_Discovery**: Triggered only if Thrum's last reply is a greeting message, and the user gives a positive response (e.g., affirmatives like "yeah", "cool", "okay", "let's go", "yup"). This intent indicates that the user is ready to proceed to the discovery phase (in which we are going to ask questions) without needing any further prompting.
+  - Phase_Discovery must be True when Thrum's last reply is a greeting message, and according the thrum's question user does not ask directly game recommendation or not asking for a game suggestion immediately, but rather giving information about their preferences or interests. if it is not clear that user want game immediately in the reply of greeting message then Phase_Discovery must be True.
+  - Do not trigger Phase_Discovery if the user input is just random stuff not looking like answer in anyway of the thrum's question.
+  - Phase_Discovery must be set to True when Thrum's last reply is a greeting and the user's response is not a direct request for a game suggestion. If the user’s reply does not clearly ask for a game, or simply shares a preference, mood, or gives a neutral/curious reply, always set Phase_Discovery to True.
+  - if Thrum's last message is about asking user's favourite game or asking about their preferences and user is giving the information about that then Phase_Discovery must be True, even if user input is containing the game title the Phase_Discovery must be true.(carefully check that when user provide the game name it must be ans of thrum's question of favourite game.)
   
 - **Request_Similar_Game**: Triggered when the user asks for a game similar to one they already like or have played. This intent is activated when the user explicitly asks for a game that is similar to their preferences or past games. this intent is specifically for when the user is looking for a game that matches their previous interests or experiences, not just any game recommendation.
 
 - **Request_Quick_Recommendation**: Triggered when the user explicitly asks for a game suggestion at that time, OR asks for a suggestion on a different platform than last recommended, or asking for a game directly like "suggest a game","want a game", etc.
 - true ONLY when user clearly asks for a new game suggestion.
-- if user just looking for some specific game then do not trigger it(for eg, user say im'm looking for genre, or any scpecification then do not trigger it.). untill they want game immediately, or directly ask for a game suggestion.
+- if user just looking for some specific game then do not trigger it(for eg, user say im'm looking for genre, or any specification then do not trigger it.). until they want game immediately, or directly ask for a game suggestion.
 - Do not Trigger it as True when user is not asking for a new game recommendation and user just giving information about game or user input is just an statement which is not include the intent for new or other game.
 - Do NOT trigger if user is just inquiring about platform availability or requesting a store/platform link for a specific game.
 - "for mobile?" or "on Android?" only triggers if it's an explicit request for a new rec, not just checking if a game is available.
@@ -89,14 +93,15 @@ Carefully consider the context of the conversation and the specific tone or dire
 - **Reject_Recommendation**: Triggered when the user directly rejects the game suggested in the previous response.
   This can be a clear refusal such as "Not that one," "I don’t like this," or any other similar phrases with same intent that reject the previously suggested game.
   - Be especially strict and accurate in detecting when the user is rejecting a game. Do not miss it, even if the language is casual, short, or slang. Always classify these as Reject_Recommendation.
-  - if user is giving the reason why they are rejecting the game then it, then at that time Request_Quick_Recommendation should be True or triggered, as user alrady provide the reason why they are rejecting the game. but if they do not provide the reason and just mean they did not like without reason then Request_Quick_Recommendation should be False and Reject_Recommendation must be true or triggered.
+  - if user is giving the reason why they are rejecting the game then it, then at that time Request_Quick_Recommendation should be True or triggered, as user already provide the reason why they are rejecting the game. but if they do not provide the reason and just mean they did not like without reason then Request_Quick_Recommendation should be False and Reject_Recommendation must be true or triggered.
   - If the user’s rejection is not strongly negative, but instead is neutral or based on context. For example, the user might say “not right now” (meaning they’re interested but just not at the moment) or “too expensive” (meaning the price, not the game itself, is the issue). In these situations, the system should recognize that it’s not a true dislike of the game, but rather a situational or soft rejection, so this should not trigger Reject_Recommendation.
   - If thrum's last message was to ask what they did not like about the game and user is giving the reason why they did not like the game then Request_Quick_Recommendation should be True or triggered.
 
 - **Inquire_About_Game**: must be set to true if:
     1. The user message contains the title of a specific game (matching the game catalog) then Inquire_About_Game should True, must check if user providing the game title when thrum's last message is about asking for their favorite game then "Phase_Discovery" should True. OR
     2. The user asks for a link, platform, or store for any game, even if the main question is about the link.
-    3. if the user has been asked that they want more information about game(in different phrase or words with this intention) and if they positively respond about they want the more information(not they like the game but want to know more) or they want to know more(then Inquire_About_Game must be true , Confirm_Game must be false in that case.), indicating they want to know more about it. The user expresses a desire to know more about a game, such as its features, gameplay mechanics, or storyline. must triggered when the user lazyly says positive response but not confirming the game (last thrum messge to recommend a game).
+    3. if the user has been asked that they want more information about game(in different phrase or words with this intention) and if they positively respond about they want the more information(not they like the game but want to know more) or they want to know more(then Inquire_About_Game must be true , Confirm_Game must be false in that case.), indicating they want to know more about it. The user expresses a desire to know more about a game, such as its features, gameplay mechanics, or storyline. must triggered when the user lazily says positive response but not confirming the game (last thrum message to recommend a game).
+    - If Thrum’s previous message presents a game and the user’s response expresses interest in obtaining more information, details, or clarification about the game (rather than directly confirming or accepting it), classify as Inquire_About_Game.
 
 - **Give_Info**: Triggered when the user provides information about their preferences, such as genre, mood, or game style. This includes providing keywords or short phrases like "action", "chill", or "strategy". The response should classify when the user provides any kind of self-description related to their preferences. if last thrum message is to ask about what user likes or dislikes about the game and user is giving the information about that then Give_Info should not be triggered.
   - If the user’s reply relates to Thrum’s previous question about preferences or interests—whether the user provides specific details, indicates uncertainty, or chooses not to answer—map the response to the question and set Give_Info to true, unless a direct game request is made.
@@ -105,6 +110,7 @@ Carefully consider the context of the conversation and the specific tone or dire
 - **Opt_Out**: Triggered when the user opts out or indicates they no longer wish to continue the conversation. This intent is activated when phrases like "I'm done," "Stop," "Not interested," or "Leave me alone" are used to end or discontinue the conversation.
 
 - **Confirm_Game**: Triggered when the user confirms their interest in a game that was previously recommended(if input is just "yes" then it might be for know more information depends on previous thrum message in that case Inquire_About_Game should be true.). The confirmation could be something like "like that game" or "I like that game." or "like that one" or similar to that, This is explicitly confirming the previous game suggestion, meaning that the user is showing interest in the exact game Thrum recommended they liked that. also triggered when user is giving the reason why they liked the game or what they liked about the game(so check thrum's last message and user's reply).
+  - When Thrum’s previous message delivers a game recommendation and invites any form of decision, acceptance, or engagement, classify a clear affirmative user response as Confirm_Game. This includes any short or positive reply that communicates agreement, willingness, or acceptance of the recommended game, unless the user’s reply clearly requests further information or details (then set Inquire_About_Game).
 
 - **want_to_share_friend**: Triggered when the user expresses a desire to share Thrum with friends or family. This intent is activated when Explicit requests for share link or mention of sharing Thrum with friends, such as "I want to share this with my friend".
   - If thrum's last message is about asking about soft sentence that suggests they might want to share Thrum with some of their friends, and the user responds positively or expressing a desire or willingness or just confuse to answer that to share Thrum with friends or other, then this intent(want_to_share_friend) must be set to true.
@@ -128,7 +134,7 @@ Carefully consider the context of the conversation and the specific tone or dire
 - **Other_Question**: Triggered when the user asks a question that is not directly related to game or recommendation.
 
 - **Other**:
-  Must Triggerd when chat is not relted to any game or game recommendation, or when user is giving information about game or user input is just an statement which is not include the intent for new or other game. so must check the user input and thrum's last message.
+  Must Triggered when chat is not related to any game or game recommendation, or when user is giving information about game or user input is just an statement which is not include the intent for new or other game. so must check the user input and thrum's last message.
   Triggered for any input that doesn’t match the above categories, or when user is input is just an statement which shares some information about the game.
   This could include irrelevant or non-conversational responses, random input, or statements that do not fall within the intent framework.
 ---
@@ -300,6 +306,9 @@ You must infer from both keywords and tone—even if the user is casual, brief, 
   → The goal is to identify what *feels* like a genre by detecting **player interaction patterns**, such as:
     - **Exploration, Racing, Fighting, Simulation**, etc.
   → Do not rely on hardcoded genre names but instead dynamically map based on user language and gameplay description.
+  → If Thrum asks the user if they want to continue with a previously used genre (genre mention in thrum's message) and the user affirms (e.g., "yes", "same", "sure") then return the genre.  
+  → If the user declines or says they want something different, do not return genre and set genre to "None".
+
 
 5. favourite_games (list of strings)
 → Only return the exact title of the game they refer to as their favorite or most liked.
@@ -315,13 +324,12 @@ You must infer from both keywords and tone—even if the user is casual, brief, 
      "Nintendo Switch", "Nintendo Switch 2", "Nintendo Wii U", "Oculus Quest",
      "PlayStation 3", "PlayStation 4", "PlayStation 5", "PlayStation Vita",
      "Web Browser", Windows, "Xbox 360", "Xbox One", "Xbox Series X|S", iPad, "iPhone / iPod Touch"
-   → Also accept these generic terms as-is:
-     "mobile", "pc", "console"
-   → If user says "Android", return "Android"
-     If user says "mobile", return "mobile"
-     If user says "console", return "console"
+   → Also accept these generic terms as-is and return them:
+     "mobile", "pc", "console", "Epic", "stadia", "gog", "steam", "wii"
    → Do NOT map or infer platforms from phrases like “on my couch” or “on the train” — only extract explicit matches.
    → If not mentioned, return "None".
+   → If Thrum asks the user if they want to continue with a previously used platform (platform mention in thrum's message) and the user affirms (e.g., "yes", "same", "sure") then return the platform.  
+   → If the user declines or says they want something different, do not return platform and set platform to "None".
 
 7. region (string)  
    → Location like India, US, UK, etc.  
@@ -356,7 +364,7 @@ You must infer from both keywords and tone—even if the user is casual, brief, 
    → if user input is like forget xyz genre or xyz platform or "i dont like that genre or platform" then add that in reject_tags.
    → e.g., ["horror", "mobile", "realistic"]
    → Hints: “I don't like shooters”, “not into mobile games”, “too realistic”, "forget about horror games", "forget about driving", "i dont like windows platform"
-   → add anthing in reject_tag when user say i dont like this never when user talk like this is not in game.
+   → add anything in reject_tag when user say i dont like this never when user talk like this is not in game.
    → only add anything in reject_tag if it is sure otherwise not
    → If not mentioned, return [].
 
@@ -483,7 +491,7 @@ last recommended game:
 "{last_game}"
 
 - Strictly extract the fields above from the user current reply not from USER MEMORY & RECENT CHAT (USER MEMORY & RECENT CHAT is just for reference).
-- classify based on user's reply and thrum's message (undersand it deeply what they want to say.)
+- classify based on user's reply and thrum's message (understand it deeply what they want to say.)
 Now classify into the format below.
 '''
 
