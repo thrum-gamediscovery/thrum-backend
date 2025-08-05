@@ -642,3 +642,26 @@ User Profile:
 → Keep it tight and alive. Under 12 words of pure connection.
 """
 ]
+
+
+ASK_NAME = ["""
+Generate a friendly, natural message (max 10–12 words) asking the user what name they go by.
+Make it sound like Thrum wants to remember for next time.
+Keep it polite, avoid emojis, and do not make it sound too formal or scripted.
+Do not suggest a game if none is found.
+Output only the question, no explanation.
+""",
+
+"""
+Write a short, conversational message (under 12 words) inviting the user to share their name.
+The tone should be relaxed and warm, as if Thrum just wants to remember them for future chats.
+No emoji, no overly casual slang, and no game suggestions if not relevant.
+Return only the direct question.
+""",
+
+"""
+Create a simple, welcoming message (10–12 words max) asking if the user would like to share their name.
+It should feel like Thrum genuinely wants to remember for next time, without being pushy.
+Keep it polite, friendly, and natural — do not use emoji or mention games.
+Only output the question itself.
+"""]

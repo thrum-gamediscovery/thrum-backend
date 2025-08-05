@@ -70,54 +70,6 @@ async def check_for_nudge():
 
     db.close()
 
-async def ask_for_name_if_needed():
-    print('ask_for_name_if_needed...................................................!!')
-    db = SessionLocal()
-    now = datetime.utcnow()
-
-    sessions = db.query(Session).join(Session.user).filter(
-        Session.last_thrum_timestamp.isnot(None),
-        Session.meta_data["dont_give_name"].astext.cast(Boolean) == False
-    ).all()
-
-    for s in sessions:
-        s = db.query(Session).filter(Session.session_id == s.session_id).one()
-        user = s.user
-         # ✅ EARLY SKIP if flag is already True (safety net)
-        if s.meta_data.get("dont_give_name", True):
-            continue
-        if user.name is None:
-            delay = timedelta(seconds=15)
-            # Check if the delay time has passed since the last interaction
-            print(f"Checking if we need to ask for name for user {user.phone_number} in session {s.session_id} ::  dont_give_name  {s.meta_data['dont_give_name']}")
-            if now - s.last_thrum_timestamp > delay:
-                # Ensure the session meta_data flag is set to avoid re-asking the name
-                s.meta_data["dont_give_name"] = True
-                s.meta_data["ask_for_rec_friend"] = True
-                flag_modified(s, "meta_data")
-                db.commit()
-                db.refresh(s) 
-                print(f"Session {s.session_id} :: Asking for name for user {user.phone_number} :: dont_give_name  {s.meta_data['dont_give_name']}")
-                user_interactions = [i for i in s.interactions if i.sender == SenderEnum.User]
-                last_user_reply = user_interactions[-1].content if user_interactions else ""
-                
-                # Ask for the user's name
-                response_prompt = (
-                    "Generate a polite, natural message (max 10–12 words) asking the user for their name.\n"
-                    "The tone should be friendly and casual, without being too formal or overly casual.\n"
-                    "Ensure it doesn’t feel forced, just a simple request to know their name.\n"
-                    "Output only the question, no extra explanations or examples."
-                    "Do not use emoji. Ask like Thrum wants to remember for next time."
-                    "→ Never suggest a game on your own if there is no game found"
-                )
-                
-                reply = await format_reply(db=db, session=s, user_input=last_user_reply, user_prompt=response_prompt)
-                if reply is None:
-                    reply = "what's your name? so I can remember for next time."
-                await send_whatsapp_message(user.phone_number, reply)
-
-    db.close()  # Close the DB session
-
 async def get_followup():
     db = SessionLocal()
     now = datetime.utcnow()

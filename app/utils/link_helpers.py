@@ -24,4 +24,8 @@ async def maybe_add_link_hint(db, session, user_prompt: str, platform_link: str)
         - Example tone (don’t repeat exactly): “Want me to send the link?”, “Need the link for it?”, “Should I drop the store link?”
         - Only one sentence offering it, no over-explaining.
         """
+    else:
+        if session.meta_data is None:
+            session.meta_data = {}
+        session.meta_data['ask_for_link'] = False
     return user_prompt

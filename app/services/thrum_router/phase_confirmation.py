@@ -3,7 +3,9 @@ from app.db.models.game import Game
 from app.db.models.game_platforms import GamePlatform
 from app.utils.link_helpers import maybe_add_link_hint
 import random
-from app.services.general_prompts import GLOBAL_USER_PROMPT,GAME_LIKED_FEEDBACK, ALREADY_PLAYED_GAME, GAME_LIKED_NOT_PLAYED, PROFILE_SNAPSHOT, CONFIRMATION_PROMPTS
+from app.utils.whatsapp import send_whatsapp_message
+from app.services.modify_thrum_reply import format_reply
+from app.services.general_prompts import GLOBAL_USER_PROMPT,GAME_LIKED_FEEDBACK, ALREADY_PLAYED_GAME, GAME_LIKED_NOT_PLAYED, PROFILE_SNAPSHOT, CONFIRMATION_PROMPTS, ASK_NAME
 
 async def handle_confirmed_game(db, user, session):
     """
@@ -93,12 +95,24 @@ async def handle_confirmed_game(db, user, session):
         session.meta_data = {}
     if not session.meta_data.get('ask_for_link'):
         # Set default values
-        if "dont_give_name" not in session.meta_data:
-            print("Setting default metadata for session")
-            session.meta_data["dont_give_name"] = False
         if 'ask_for_rec_friend' not in session.meta_data:
             session.meta_data['ask_for_rec_friend'] = True
-        db.commit()
+            db.commit()
+        print(f"++++++++++++++++++++++++++++== meta_data : {session.meta_data} : dont_give_name : {'dont_give_name' not in session.meta_data}")
+        if "dont_give_name" not in session.meta_data:
+            print(f"------------------------------------- dont_give_name checkkkk -----------------------")
+            if user.name is None:
+                reply = await format_reply(db=db, session=session, user_input=user_input, user_prompt=user_prompt)
+                await send_whatsapp_message(user.phone_number, reply)
+                print("Setting default metadata for session")
+                session.meta_data["dont_give_name"] = True
+                db.commit()
+                prompt = random.choice(ASK_NAME)
+                return prompt
+            else:
+                session.meta_data["dont_give_name"] = True
+                db.commit()
+        
     return user_prompt
 
 async def confirm_input_summary(session) -> str:
