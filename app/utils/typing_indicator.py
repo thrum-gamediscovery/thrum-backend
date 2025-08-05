@@ -6,7 +6,7 @@ from app.utils.whatsapp import send_whatsapp_message
 client = AsyncOpenAI()
 model = os.getenv("GPT_MODEL")
 
-async def send_typing_indicator(phone_number: str, session, delay: float = 2.5):
+async def send_typing_indicator(phone_number: str, session, delay: float = 4.0):
     """Send typing indicator after delay if processing takes too long"""
     await asyncio.sleep(delay)
     
