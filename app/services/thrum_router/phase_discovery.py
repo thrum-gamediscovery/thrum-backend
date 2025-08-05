@@ -355,7 +355,7 @@ Only return one message, like one bubble in a chat.
 
 
 @safe_call("Hmm, I had trouble figuring out what to ask next. Let's try something fun instead! 🎮")
-async def handle_discovery(db, session, user):
+async def handle_discovery(db, session, user,user_input):
     session_memory = SessionMemory(session,db)
     memory_context_str = session_memory.to_prompt()
     session.meta_data = session.meta_data or {}
@@ -365,7 +365,7 @@ async def handle_discovery(db, session, user):
     discovery_data = await extract_discovery_signals(session)
     if discovery_data.is_complete() and session.game_rejection_count < 2:
         session.phase = PhaseEnum.CONFIRMATION
-        return await confirm_input_summary(session)
+        return await confirm_input_summary(db=db,session=session,user=user,user_input=user_input)
     elif (session.meta_data.get("session_phase") == "Activate" and session.discovery_questions_asked >= 2) or (session.meta_data.get("session_phase") == "Onboarding" and session.discovery_questions_asked >= 3):
         session.meta_data = session.meta_data or {}
         if "dont_ask_que" not in session.meta_data:

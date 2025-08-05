@@ -106,12 +106,13 @@ async def whatsapp_webhook(
     db.commit()
     session.followup_triggered = False
     session.intent_override_triggered = False
-    if session.awaiting_reply:
+    if user.awaiting_reply:
         now = datetime.utcnow()
-        if session.last_thrum_timestamp and now - session.last_thrum_timestamp < timedelta(seconds=180):
+        if user.last_thrum_timestamp and now - user.last_thrum_timestamp < timedelta(seconds=180):
             if session.user.silence_count <= 3:
                 session.user.silence_count = 0
-        session.awaiting_reply = False
+        user.awaiting_reply = False
+    user.last_thrum_timestamp = None
     db.commit()
 
     # ---------- 8. Generate and Send Bot Reply ----------
@@ -132,8 +133,8 @@ async def whatsapp_webhook(
     # ---------- 9. Update Bot Chat State ----------
     # (Register bot reply in chat memory)
     session = await bot_chat_with_thrum(request=request, bot_reply=reply,db=db)
-    session.awaiting_reply = True
-    session.last_thrum_timestamp = datetime.utcnow()
+    user.awaiting_reply = True
+    user.last_thrum_timestamp = datetime.utcnow()
     db.commit()
 
     # ---------- 10. Clear reply-in-progress flag ----------

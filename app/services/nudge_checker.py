@@ -8,6 +8,7 @@ from openai import AsyncOpenAI
 from sqlalchemy import Boolean
 from datetime import datetime, timedelta
 from app.db.session import SessionLocal
+from app.db.models.user_profile import UserProfile
 from app.db.models.session import Session
 from app.db.models.enums import SenderEnum, PhaseEnum
 from app.utils.whatsapp import send_whatsapp_message
@@ -22,21 +23,17 @@ client = AsyncOpenAI()
 async def check_for_nudge():
     db = SessionLocal()
     now = datetime.utcnow()
-    sessions = db.query(Session).filter(Session.awaiting_reply == True, Session.phase != PhaseEnum.ENDING).all()
+    users = db.query(UserProfile).filter(UserProfile.awaiting_reply == True).all()
 
-    for s in sessions:
-        user = s.user
-        if not s.last_thrum_timestamp:
+    for user in users:
+
+        if user.last_thrum_timestamp is None:
             continue
 
         # ⏱️ Adaptive delay based on silence count
         delay = timedelta(seconds=180)
 
-        if now - s.last_thrum_timestamp > delay:
-            if user.name:
-                user_name = user.name
-            else:
-                user_name = "unkonwn"
+        if now - user.last_thrum_timestamp > delay:
 
             prompt = f"""
                 {GLOBAL_USER_PROMPT}
@@ -63,33 +60,9 @@ async def check_for_nudge():
             await send_whatsapp_message(user.phone_number, nudge)
 
             # 🧠 Track nudge + potential coldness
-            s.awaiting_reply = False
+            user.awaiting_reply = False
             user.silence_count = (user.silence_count or 0) + 1
             
             db.commit()
 
-    db.close()
-
-async def get_followup():
-    db = SessionLocal()
-    now = datetime.utcnow()
-
-    sessions = db.query(Session).filter(
-        Session.awaiting_reply == True,
-        Session.followup_triggered == True
-    ).all()
-    for s in sessions:
-        user = s.user
-        if not s.last_thrum_timestamp:
-            continue
-
-        delay = timedelta(seconds=3)
-        if now - s.last_thrum_timestamp > delay:
-            s.followup_triggered = False
-            db.commit()
-            reply = await ask_followup_que(s)
-            await send_whatsapp_message(user.phone_number, reply)
-            s.last_thrum_timestamp = now
-            s.awaiting_reply = True
-        db.commit()
     db.close()

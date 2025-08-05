@@ -1,6 +1,7 @@
-from app.db.models.enums import SenderEnum
+from app.db.models.enums import SenderEnum, PhaseEnum
 from app.db.models.game import Game
 from app.db.models.game_platforms import GamePlatform
+from app.services.thrum_router.phase_delivery import get_recommend
 from app.utils.link_helpers import maybe_add_link_hint
 import random
 from app.utils.whatsapp import send_whatsapp_message
@@ -115,12 +116,11 @@ async def handle_confirmed_game(db, user, session):
         
     return user_prompt
 
-async def confirm_input_summary(session) -> str:
+async def confirm_input_summary(db, session, user, user_input) -> str:
     """
     Uses varied confirmation prompts to generate unique, human-sounding confirmation lines.
     Rotates between different prompt styles based on session context.
     """
-    session.intent_override_triggered = True
     mood = session.exit_mood if session.exit_mood is not None else ""
     genre_list = session.genre or []
     platform_list = session.platform_preference or []
@@ -149,4 +149,11 @@ async def confirm_input_summary(session) -> str:
         platform=platform,
         tone=tone
     )
-    return user_prompt 
+    session.phase = PhaseEnum.CONFIRMATION
+    db.commit()
+    reply = await format_reply(db=db,session=session, user_input=user_input, user_prompt=user_prompt)
+    await send_whatsapp_message(user.phone_number, reply)
+    session.phase = PhaseEnum.DELIVERY
+    db.commit()
+    user_prompt = await get_recommend(db=db, session=session, user=user)
+    return user_prompt

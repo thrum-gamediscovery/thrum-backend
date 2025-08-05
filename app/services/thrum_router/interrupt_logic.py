@@ -23,16 +23,16 @@ async def check_intent_override(db, user_input, user, session, classification, i
         return await generate_low_effort_response(session)
     # Check if the user is in the discovery phase
     if classification_intent.get("Phase_Discovery"):
-        return await handle_discovery(db=db, session=session, user=user)
+        return await handle_discovery(db=db, session=session, user=user,user_input=user_input)
     
     # Handle rejection of recommendation
     if classification_intent.get("Reject_Recommendation"):
-        return await handle_reject_Recommendation(db, session, user, classification_intent)
+        return await handle_reject_Recommendation(db, session, user, classification_intent,user_input=user_input)
 
     # Handle request for quick game recommendation
     elif classification_intent.get("Request_Quick_Recommendation"):
         session.phase = PhaseEnum.DELIVERY
-        return await deliver_game_immediately(db, user, session)
+        return await deliver_game_immediately(db, user, session,user_input=user_input)
 
     # Handle user inquiry about a game
     elif classification_intent.get("Inquire_About_Game"):
@@ -42,7 +42,7 @@ async def check_intent_override(db, user_input, user, session, classification, i
     # Handle information provided by the user
     elif classification_intent.get("Give_Info"):
         session.phase = PhaseEnum.DISCOVERY
-        return await handle_discovery(db=db, session=session, user=user)
+        return await handle_discovery(db=db, session=session, user=user,user_input=user_input)
 
     # Handle user opting out
     elif classification_intent.get("Opt_Out"):
@@ -82,7 +82,7 @@ async def check_intent_override(db, user_input, user, session, classification, i
 
     if classification_intent.get("Request_Similar_Game"):
         session.phase = PhaseEnum.DELIVERY
-        return await diliver_similar_game(db, user, session)
+        return await diliver_similar_game(db, user, session,user_input=user_input)
     
     # Default handling if no specific intent is detected
     return None

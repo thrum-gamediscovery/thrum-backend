@@ -121,10 +121,8 @@ async def handle_delivery(db: Session, session, user, classification):
         explanation_response = await explain_last_game_match(session=session)
         return explanation_response  # Return the explanation of the last game
 
-async def handle_reject_Recommendation(db,session, user,  classification):
+async def handle_reject_Recommendation(db,session, user,  classification,user_input):
     if session.meta_data.get("ask_confirmation", False):
-        user_interactions = [i for i in session.interactions if i.sender == SenderEnum.User]
-        user_input = user_interactions[-1].content if user_interactions else ""
         tone = session.meta_data.get("tone", "neutral")
         print("---------------:handle_reject_Recommendation:-----------------")
         user_prompt = f"""
@@ -154,7 +152,7 @@ async def handle_reject_Recommendation(db,session, user,  classification):
         from app.services.thrum_router.phase_discovery import handle_discovery
         if session.game_rejection_count >= 2:
             session.phase = PhaseEnum.DISCOVERY
-            return await handle_discovery(db=db, session=session, user=user)
+            return await handle_discovery(db=db, session=session, user=user,user_input=user_input)
         else:
             should_recommend = await have_to_recommend(db=db, user=user, classification=classification, session=session)
             session_memory = SessionMemory(session,db)
@@ -219,7 +217,7 @@ async def handle_reject_Recommendation(db,session, user,  classification):
                 explanation_response = await explain_last_game_match(session=session)
                 return explanation_response
             
-async def deliver_game_immediately(db: Session, user, session) -> str:
+async def deliver_game_immediately(db: Session, user, session, user_input) -> str:
     from app.services.thrum_router.phase_discovery import handle_discovery
     """
     Instantly delivers a game recommendation, skipping discovery.
@@ -230,7 +228,7 @@ async def deliver_game_immediately(db: Session, user, session) -> str:
     session_memory = SessionMemory(session,db)
     if session.game_rejection_count >= 2:
             session.phase = PhaseEnum.DISCOVERY
-            return await handle_discovery(db=db, session=session, user=user)
+            return await handle_discovery(db=db, session=session, user=user,user_input=user_input)
     else:
         game, _ = await game_recommendation(db=db, user=user, session=session)
         print(f"Game recommendation: {game}")
@@ -296,7 +294,7 @@ async def deliver_game_immediately(db: Session, user, session) -> str:
             """.strip()
             return user_prompt
 
-async def diliver_similar_game(db: Session, user, session) -> str:
+async def diliver_similar_game(db: Session, user, session, user_input) -> str:
     from app.services.thrum_router.phase_discovery import handle_discovery
     """
     Delivers a game similar to the user's last liked game.
@@ -306,7 +304,7 @@ async def diliver_similar_game(db: Session, user, session) -> str:
     session_memory = SessionMemory(session,db)
     if session.game_rejection_count >= 2:
         session.phase = PhaseEnum.DISCOVERY
-        return await handle_discovery(db=db, session=session, user=user)
+        return await handle_discovery(db=db, session=session, user=user,user_input=user_input)
     game, _ = await game_recommendation(db=db, user=user, session=session)
     print(f"Similar game recommendation: {game}")
     if not game:
@@ -369,33 +367,4 @@ async def diliver_similar_game(db: Session, user, session) -> str:
                 🌟  Goal: Make the moment feel human — like you're really listening and about to serve something *even better*. Rebuild energy and keep the conversation alive.
             """
         return user_prompt
-
-async def recommend_game():
-    db = SessionLocal()
-    now = datetime.utcnow()
-
-    sessions = db.query(Session).filter(
-        Session.awaiting_reply == True,
-        Session.intent_override_triggered == True
-    ).all()
     
-    for s in sessions:
-        user = s.user
-        if s.last_thrum_timestamp is None:
-            continue
-        delay = timedelta(seconds=3)
-        # Ensure last_thrum_timestamp is a Python datetime, not a SQLAlchemy column
-        last_thrum_timestamp = getattr(s, "last_thrum_timestamp", None)
-        if last_thrum_timestamp and (now - last_thrum_timestamp > delay):
-            s.intent_override_triggered = False
-            db.commit()
-            user_prompt = await get_recommend(db=db, session=s, user=user)
-            user_interactions = [i for i in s.interactions if i.sender == SenderEnum.User]
-            user_input = user_interactions[-1].content if user_interactions else ""
-            reply = await format_reply(db=db,session=s, user_input=user_input, user_prompt=user_prompt)
-            await send_whatsapp_message(user.phone_number, reply)
-            s.phase = PhaseEnum.FOLLOWUP
-            # :brain: Track nudge + potential coldness
-            s.last_thrum_timestamp = now
-        db.commit()
-    db.close()

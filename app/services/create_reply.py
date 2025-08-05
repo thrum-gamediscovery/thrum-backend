@@ -36,10 +36,10 @@ async def generate_thrum_reply(db: Session, user_input: str, session, user, intr
         return await handle_intro(session)
 
     elif phase == PhaseEnum.DISCOVERY:
-        return await handle_discovery(db=db, session=session, user=user)
+        return await handle_discovery(db=db, session=session, user=user,user_input=user_input)
 
     elif phase == PhaseEnum.CONFIRMATION:
-        return await confirm_input_summary(session)
+        return await confirm_input_summary(db=db,session=session,user=user,user_input=user_input)
 
     elif phase == PhaseEnum.DELIVERY:
         return await handle_delivery(db=db, session=session, user=user, classification=classification)

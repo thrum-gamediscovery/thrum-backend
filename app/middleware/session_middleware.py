@@ -32,7 +32,6 @@ class SessionIDMiddleware(BaseHTTPMiddleware):
                 last_active = last_session.end_time or last_session.start_time
                 new_state = get_session_state(last_active)
                 last_session.state = new_state
-                last_session.end_time = datetime.utcnow()
                 db.commit()
                 request.state.session_id = last_session.session_id
             else:

@@ -10,7 +10,7 @@ It maintains relationships with both the UserProfile and Interaction models.
 from uuid import uuid4
 from datetime import datetime
 from sqlalchemy import (
-    Column, String, ForeignKey, TIMESTAMP, DateTime,
+    Column, String, ForeignKey, TIMESTAMP,
     Boolean, Integer, ARRAY
 )
 from sqlalchemy.dialects.postgresql import UUID, JSON
@@ -32,8 +32,6 @@ class Session(Base):
     # Timestamps
     start_time = Column(TIMESTAMP(timezone=False), server_default=func.now())
     end_time = Column(TIMESTAMP(timezone=False), server_default=func.now())
-    awaiting_reply = Column(Boolean, default=False)
-    last_thrum_timestamp = Column(DateTime, nullable=True)
 
     # Phase control
     phase = Column(SQLAlchemyEnum(PhaseEnum), default=PhaseEnum.INTRO)
