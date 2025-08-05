@@ -23,33 +23,42 @@ async def handle_confirmed_game(db, user, session):
     game_id = db.query(Game).filter_by(title=game_title).first().game_id if game_title else None
     tone = session.meta_data.get("tone", "friendly")
     
+    # 1. Get user's last message (optional, but keep if you use user_input below)
     user_interactions = [i for i in session.interactions if i.sender == SenderEnum.User]
     user_input = user_interactions[-1].content if user_interactions else ""
+
+    # 2. Get all platforms available for this game
     platform_rows = db.query(GamePlatform.platform).filter_by(game_id=game_id).all()
     platform_list = [p[0] for p in platform_rows] if platform_rows else []
-    # Get user's preferred platform (last non-empty entry in the array)
+
+    # 3. Find user's preferred platform (last non-empty entry)
     platform_preference = None
     if session.platform_preference:
         non_empty = [p for p in session.platform_preference if p]
         if non_empty:
             platform_preference = non_empty[-1]
-    else:
+
+    # 4. Fallback: if no user preference, pick the first available platform for this game
+    if not platform_preference:
         gameplatform_row = db.query(GamePlatform).filter_by(game_id=game_id).first()
-        platform_preference = gameplatform_row.platform
-    # Fetch the platform link for that game and platform
+        if gameplatform_row:
+            platform_preference = gameplatform_row.platform
+
+    # 5. Fetch the platform link for that game/platform (if any)
     platform_link = None
     if platform_preference:
         gp_row = db.query(GamePlatform).filter_by(game_id=game_id, platform=platform_preference).first()
+        if gp_row and gp_row.link:
+            platform_link = gp_row.link
+
+    # 6. If still no link (e.g. platform missing, no user preference, or no link for that platform), fallback: any available link for this game
+    if not platform_link:
+        print("No preferred platform found for user #############")
+        gp_row = db.query(GamePlatform).filter(GamePlatform.game_id == game_id, GamePlatform.link != None).first()
         if gp_row:
-            platform_link = gp_row.link  # This is the URL/link for the user's preferred platform
-    else:
-        print(f"`No preferred platform found for user #############`")
-        gp_row = (
-            db.query(GamePlatform)
-            .filter(GamePlatform.game_id == game_id, GamePlatform.link != None)
-            .first()
-        )
-        platform_link = gp_row.link if gp_row else None
+            platform_preference = gp_row.platform
+            platform_link = gp_row.link
+
     # Get memory context for personalization
     memory_context = ""
     if session.meta_data:

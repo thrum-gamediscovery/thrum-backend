@@ -109,34 +109,42 @@ async def handle_game_inquiry(db: Session, user, session, user_input: str) -> st
             """
         return prompt
     game = db.query(Game).filter_by(game_id=game_id).first()
-    # Get platforms for the game
+    # Get all available platforms for this game
     platform_rows = db.query(GamePlatform.platform).filter_by(game_id=game_id).all()
     platform_list = [p[0] for p in platform_rows] if platform_rows else []
+
     # Get user's preferred platform (last non-empty entry in the array)
     platform_preference = None
     if session.platform_preference:
         non_empty = [p for p in session.platform_preference if p]
         if non_empty:
             platform_preference = non_empty[-1]
-    else:
+
+    # Fallback: pick first available platform if no preference
+    if not platform_preference:
         gameplatform_row = db.query(GamePlatform).filter_by(game_id=game_id).first()
-        platform_preference = gameplatform_row.platform
+        platform_preference = gameplatform_row.platform if gameplatform_row else None
+
     # Fetch the platform link for that game and platform
     platform_link = None
     if platform_preference:
         gp_row = db.query(GamePlatform).filter_by(game_id=game_id, platform=platform_preference).first()
-        if gp_row:
-            platform_link = gp_row.link  # This is the URL/link for the user's preferred platform
-    else:
-        print(f"`No preferred platform found for user #############`")
+        if gp_row and gp_row.link:
+            platform_link = gp_row.link
+
+    # Fallback: If still no link, pick any available platform with a link
+    if not platform_link:
+        print(f"No preferred platform found for user/game_id={game_id}")
         gp_row = (
             db.query(GamePlatform)
             .filter(GamePlatform.game_id == game_id, GamePlatform.link.isnot(None))
             .first()
         )
-        platform_link = gp_row.link if gp_row else None
+        if gp_row:
+            platform_preference = gp_row.platform
+            platform_link = gp_row.link
 
-    # Check if already recommended
+    # ...your recommendation check follows as before
     recommended_ids = set(
         str(r[0]) for r in db.query(GameRecommendation.game_id).filter(
             GameRecommendation.session_id == session.session_id
@@ -194,6 +202,7 @@ STRICT REPLY RULES:
 - Stay 100% on the user's question. If they ask about something specific (like a feature, platform, or your reasoning), reply to THAT only.
 - You may use info from earlier in the session (memory/context) to make your answer feel more personal or relevant.
 - Do NOT summarize, repeat, or pitch the game if it’s unrelated to the question.
+- If the user asks about something that’s not available in the game data or is “none,” reply politely that you don’t have that info (in a friendly, casual way).
 - If the user is closed off, sarcastic, or says ‘not interested,’ just acknowledge and move on naturally, without trying to win them back.
 - Never talk like a bot, system, or use filler words. Always sound like a real friend.
 
@@ -245,6 +254,7 @@ STRICT REPLY RULES:
     - Answer ONLY what the user asks. No over-explaining, no sales logic, and no info-dumping if their question is specific.
     - You may use user memory/context for personalization, but never go off-topic.
     - Never summarize, pitch, or add details unless the user invites it.
+    - If the user asks about something that’s not available in the game data or is “none,” reply politely that you don’t have that info (in a friendly, casual way).
     - Never sound like a bot, system, or template. Always reply as a real friend would — brief, natural, and matching their mood.
 
 """.strip()
@@ -297,6 +307,7 @@ STRICT REPLY RULES:
                 STRICT REPLY RULES:
                 - ONLY answer what the user asks and want. Never over-explain, never pitch or sell, and never add extra unless clearly invited.
                 - Use memory/context only if it’s needed for a natural, helpful reply.
+                - If the user asks about something that’s not available in the game data or is “none,” reply politely that you don’t have that info (in a friendly, casual way).
                 - Never sound like a bot or template — always text like a real friend.
             """.strip()
             return await maybe_add_link_hint(db, session, user_prompt, game_info['platform_link'])
@@ -338,6 +349,7 @@ STRICT REPLY RULES:
                 STRICT REPLY RULES:
                 - ONLY answer the user’s current question or prompt. Never over-explain, never pitch, never info-dump.
                 - Use context or memory for personal touch, but never go off-topic or repeat unless needed.
+                - If the user asks about something that’s not available in the game data or is “none,” reply politely that you don’t have that info (in a friendly, casual way).
                 - Never sound like a bot or use canned lines. Always reply like a real friend, brief, in-flow, and mood-matched.
             """.strip()
             return await maybe_add_link_hint(db, session, user_prompt, game_info['platform_link'])
@@ -376,6 +388,7 @@ STRICT REPLY RULES:
         → If the user's message invites it, you can end with a question or light hook to re-engage, but never force it if they’re closed or matter-of-fact.
         → Never explain or summarize the whole game. Never format anything. Never say “click here,” never list features.
         - Never suggest a new game on your own if there is no game found
+        - If the user asks about something that’s not available in the game data or is “none,” reply politely that you don’t have that info (in a friendly, casual way).
 
         Use this if you need to pull from:
         - Title: {game_info['title']}
