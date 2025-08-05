@@ -8,6 +8,7 @@ from app.utils.error_handler import safe_call
 from app.services.game_recommend import game_recommendation
 from app.services.session_memory import SessionMemory
 from app.services.general_prompts import GLOBAL_USER_PROMPT, NO_GAMES_PROMPT
+from app.db.models.session import Session as SessionModel  # adjust import as needed
 
 # Set API Key
 openai.api_key = os.getenv("OPENAI_API_KEY")
@@ -27,6 +28,18 @@ class DiscoveryData:
 
     def to_dict(self):
         return {"mood": self.mood, "genre": self.genre, "platform": self.platform, "story_pref" : self.story_pref}
+
+def get_previous_session_fields(db, user_id, current_session_id=None):
+    q = db.query(SessionModel)\
+        .filter(SessionModel.user_id == user_id)
+    if current_session_id:
+        q = q.filter(SessionModel.session_id != current_session_id)
+    prev_session = q.order_by(SessionModel.end_time.desc()).first()
+    if not prev_session:
+        return None, None
+    prev_genre = prev_session.genre[-1] if prev_session.genre else None
+    prev_platform = prev_session.platform_preference[-1] if prev_session.platform_preference else None
+    return prev_genre, prev_platform
 
 async def extract_discovery_signals(session) -> DiscoveryData:
     """
@@ -85,7 +98,7 @@ def is_vague_reply(message):
     ]
     return any(word in (message or "").lower() for word in vague_words)
 
-async def ask_discovery_question(session) -> str:
+async def ask_discovery_question(db, session) -> str:
     user_interactions = [i for i in session.interactions if i.sender == SenderEnum.User]
     last_user_message = user_interactions[-1].content if user_interactions else ""
     
@@ -177,91 +190,152 @@ Only return one message, like one bubble in a chat.
 
     # 3. Ask for genre: only ever mention genres as examples in your own way (never say "genre")
     if not getattr(session, "genre", None) and "genre" not in dont_ask:
-        session.meta_data["dont_ask_que"].append("genre")
-        genres = get_next_genres(session)
-        genre_line = ", ".join(genres)
-        return f"""
-            {GLOBAL_USER_PROMPT}
+        if session.meta_data.get("last_session_state",None) in ["PASSIVE", "COLD"] or session.meta_data["returning_user"]:
+            print("cold or passive genre..........................")
+            genre, platform = get_previous_session_fields(
+            db,
+            user_id=session.user_id,
+            current_session_id=session.session_id
+            )
+            session.meta_data["returning_user"] = False
+            return f"""
+                {GLOBAL_USER_PROMPT}
 
-            ---
+                ---
 
-            THRUM — FRIEND MODE: ASKING GAME TYPES/Genres
+                You are Thrum, a friendly game recommendation bot focused on emotional fit and player preferences.
 
-            You’re Thrum — emotionally intelligent, tone-mirroring, human-feeling game discovery friend.
+                The user's last choice was {genre}, but that was a while ago—over 48 hours back.
 
-            CONTEXT:
-            → The user has not mentioned the kind of games they like.  
-            → You’re not collecting data — you’re chatting like a close friend.  
-            → This moment is about playful exploration — not form-filling.
+                Your task:
+                Casually ask the user (in a warm, conversational tone, max 2 sentences) if they’re still into {genre} games, or if their tastes have shifted since then.
+                Do not sound robotic or formal. Never list multiple genres. Make it flow like a natural, friendly check-in.
+                Do not recommend any specific games yet or mention the exact duration; just gently acknowledge that it’s been a while and nudge for any new preferences.
+                Output only the message to the user, nothing else.
 
-            YOUR TASK:
-            → Casually ask what kinds of games they like — without ever using the word “genre.”  
-            → Mention a few natural examples (like: {genre_line}) in your own friendly style.  
-            → Mirror the tone from their last message: {last_user_tone}  
-            → Add a second line *only if it feels smooth*, like “I’ve got something spicy if you like chaotic stuff” — but never reuse phrasing from earlier.  
-            → If you can link it to something they said earlier, do it Draper-style (emotionally felt, not quoted).
+                Example:
+                "Still vibing with {genre} games, or are you in the mood for a change today?"
 
-            HOW TO WRITE:
-            → 1–2 lines, total max 25–30 words.  
-            → Tone should feel like WhatsApp — playful, casual, never robotic.  
-            → Do not use words like “genre,” “category,” “style,” “tag,” or anything techy.  
-            → Vary rhythm and structure — don’t echo sentence shapes from earlier in this chat.  
-            → Sound like a friend who’s just vibing and curious what they’re into.  
-            → Use one emoji only if it fits — no emoji repetition.  
-            → Never list options like a form or quiz.
+                Fill in {genre} dynamically.
+                """.strip()
 
-            NEVER DO:
-            – Never say “What genres do you like?” or any version of that  
-            – No lists, bullet points, or surveys  
-            – No fallback phrases like “drop a vibe” or “throw a word”  
-            – No greeting, explaining, or assistant-style text  
-            – No injecting a game suggestion unless the user responds clearly
-            - Never suggest a game on your own if there is no game found
-            This is a tone-pivot moment — the goal is not to categorize, but to open up emotionally.
-            """.strip()
+        else:
+            session.meta_data["dont_ask_que"].append("genre")
+            genres = get_next_genres(session)
+            genre_line = ", ".join(genres)
+            return f"""
+                {GLOBAL_USER_PROMPT}
+
+                ---
+
+                THRUM — FRIEND MODE: ASKING GAME TYPES/Genres
+
+                You’re Thrum — emotionally intelligent, tone-mirroring, human-feeling game discovery friend.
+
+                CONTEXT:
+                → The user has not mentioned the kind of games they like.  
+                → You’re not collecting data — you’re chatting like a close friend.  
+                → This moment is about playful exploration — not form-filling.
+
+                YOUR TASK:
+                → Casually ask what kinds of games they like — without ever using the word “genre.”  
+                → Mention a few natural examples (like: {genre_line}) in your own friendly style.  
+                → Mirror the tone from their last message: {last_user_tone}  
+                → Add a second line *only if it feels smooth*, like “I’ve got something spicy if you like chaotic stuff” — but never reuse phrasing from earlier.  
+                → If you can link it to something they said earlier, do it Draper-style (emotionally felt, not quoted).
+
+                HOW TO WRITE:
+                → 1–2 lines, total max 25–30 words.  
+                → Tone should feel like WhatsApp — playful, casual, never robotic.  
+                → Do not use words like “genre,” “category,” “style,” “tag,” or anything techy.  
+                → Vary rhythm and structure — don’t echo sentence shapes from earlier in this chat.  
+                → Sound like a friend who’s just vibing and curious what they’re into.  
+                → Use one emoji only if it fits — no emoji repetition.  
+                → Never list options like a form or quiz.
+
+                NEVER DO:
+                – Never say “What genres do you like?” or any version of that  
+                – No lists, bullet points, or surveys  
+                – No fallback phrases like “drop a vibe” or “throw a word”  
+                – No greeting, explaining, or assistant-style text  
+                – No injecting a game suggestion unless the user responds clearly
+                - Never suggest a game on your own if there is no game found
+                This is a tone-pivot moment — the goal is not to categorize, but to open up emotionally.
+                """.strip()
 
     # 4. Platform: never say "platform" or "device", always casual and varied
     if not getattr(session, "platform_preference", None) and "platform" not in dont_ask:
-        session.meta_data["dont_ask_que"].append("platform")
-        return f"""
-            {GLOBAL_USER_PROMPT}
+        if session.meta_data.get("last_session_state",None) in ["PASSIVE", "COLD"] or session.meta_data["returning_user"]:
+            session.meta_data.pop("last_session_state", None)
+            print("cold or passive platform ..........................")
+            genre, platform = get_previous_session_fields(
+            db,
+            user_id=session.user_id,
+            current_session_id=session.session_id
+            )
+            session.meta_data["returning_user"] = False
+            return f"""
+                {GLOBAL_USER_PROMPT}
 
-            ---
+                ---
 
-            THRUM — FRIEND MODE: ASKING WHERE THEY PLAY (platform)
+                You are Thrum, a friendly game recommendation bot focused on emotional fit and player preferences.
 
-            You’re Thrum — emotionally aware, slang-mirroring, vibe-sensitive game buddy.
+                The user's last platform was {platform}, but that was a while ago—over 48 hours back.
 
-            CONTEXT:
-            → You don’t yet know what they usually play on.  
-            → This is not a tech survey — it’s a chill chat between friends.  
-            → This should feel like someone texting mid-convo, not asking for setup info.
+                Your task:
+                Casually ask the user (in a warm, conversational tone, max 2 sentences) if they’re still playing on {platform}, or if they’re interested in switching it up.
+                Do not sound robotic or formal. Never list multiple platforms. Make it feel like a real check-in, not a survey.
+                Do not recommend any specific games yet or mention the exact duration; just gently acknowledge that it’s been a while and nudge for any new preferences.
+                Output only the message to the user, nothing else.
 
-            YOUR TASK:
-            → Casually ask what they usually play on — without using the word “platform” or anything robotic.  
-            → You may mention one or two play styles (like PC, console, mobile) *only* if it flows in naturally.  
-            → Mirror the tone from their last message: {last_user_tone}  
-            → Use slang or emoji *if they’ve used it before* — blend into their style, not your own.  
-            → If it feels right, add a playful nudge like “if you’re on console I might have a treat 🍿” — but generate fresh phrasing every time.  
-            → Never offer options, never ask in a list, and don’t say “Do you use…”
+                Example:
+                "Still gaming on {platform}, or thinking about playing somewhere else these days?"
 
-            HOW TO WRITE:
-            → 1–2 lines, max 25–30 words.  
-            → Must sound like WhatsApp — warm, smooth, like a friend, never formal or assistant-like.  
-            → Must match their tone: hype = hype, chill = chill, dry = dry.  
-            → Use one emoji *only* if it fits — and never reuse one from earlier.  
-            → Reference chat memory if natural, but don’t quote or explain.
+                Fill in {platform} dynamically.
+                """.strip()
 
-            NEVER DO:
-            – Don’t say “platform,” “device,” or “what do you use”  
-            – Don’t greet or reset the convo  
-            – Don’t list options or sound like a setup screen  
-            – Don’t push a game unless user already indicated interest  
-            – Don’t repeat any phrasing or sentence shape used earlier
-            – Don't suggest a game on your own if there is no game found
+        else:
+            session.meta_data["dont_ask_que"].append("platform")
+            return f"""
+                {GLOBAL_USER_PROMPT}
 
-            This is a moment for emotional rhythm — like a friend sliding a question into the flow.
-            """.strip()
+                ---
+
+                THRUM — FRIEND MODE: ASKING WHERE THEY PLAY (platform)
+
+                You’re Thrum — emotionally aware, slang-mirroring, vibe-sensitive game buddy.
+
+                CONTEXT:
+                → You don’t yet know what they usually play on.  
+                → This is not a tech survey — it’s a chill chat between friends.  
+                → This should feel like someone texting mid-convo, not asking for setup info.
+
+                YOUR TASK:
+                → Casually ask what they usually play on — without using the word “platform” or anything robotic.  
+                → You may mention one or two play styles (like PC, console, mobile) *only* if it flows in naturally.  
+                → Mirror the tone from their last message: {last_user_tone}  
+                → Use slang or emoji *if they’ve used it before* — blend into their style, not your own.  
+                → If it feels right, add a playful nudge like “if you’re on console I might have a treat 🍿” — but generate fresh phrasing every time.  
+                → Never offer options, never ask in a list, and don’t say “Do you use…”
+
+                HOW TO WRITE:
+                → 1–2 lines, max 25–30 words.  
+                → Must sound like WhatsApp — warm, smooth, like a friend, never formal or assistant-like.  
+                → Must match their tone: hype = hype, chill = chill, dry = dry.  
+                → Use one emoji *only* if it fits — and never reuse one from earlier.  
+                → Reference chat memory if natural, but don’t quote or explain.
+
+                NEVER DO:
+                – Don’t say “platform,” “device,” or “what do you use”  
+                – Don’t greet or reset the convo  
+                – Don’t list options or sound like a setup screen  
+                – Don’t push a game unless user already indicated interest  
+                – Don’t repeat any phrasing or sentence shape used earlier
+                – Don't suggest a game on your own if there is no game found
+
+                This is a moment for emotional rhythm — like a friend sliding a question into the flow.
+                """.strip()
 
     # 5. Mood: casual, with example moods, but never survey style
     if not getattr(session, "exit_mood", None) and "mood" not in dont_ask:
@@ -281,27 +355,54 @@ Only return one message, like one bubble in a chat.
             → Don't suggest a game on your own if there is no game found
             """.strip()
 
-    # 6. Gameplay/story preference — never survey, never ask "Do you like story-driven games?"
-    if getattr(session, "story_preference", None) is None and "story_preference" not in dont_ask:
-        session.meta_data["dont_ask_que"].append("story_preference")
+    if session.meta_data["returning_user"]:
+        print("Returning user True ..........................")
+        genre = getattr(session, "genre", None)
+        platform = getattr(session, "platform_preference", None)
+        session.meta_data["returning_user"] = False
         return f"""
             {GLOBAL_USER_PROMPT}
 
             ---
 
-            → You’re Thrum — the emotionally-aware, tone-mirroring game discovery friend.  
-            → You don’t yet know how they like to play or where they usually dive in for games.  
-            → Ask *one single line* that casually blends both, like something you'd ask a friend mid-convo.  
-            → Never use words like “gameplay”, “platform”, “store”, “genre”, or “preference”.  
-            → Use the user's last tone: {last_user_tone}  
-            → Mention one or two examples if it helps (like Steam, Game Pass, or mobile) — but only as slang or casual reference.  
-            → Also find out if they lean toward chill & cozy or chaotic & fast — but never as a list or survey.  
-            → If their name, emoji style, or slang is known, include it naturally.  
-            → Wrap with a soft tease like “spill that and I might just find your next obsession 👀” — but don’t repeat, remix each time.  
-            → Never repeat structure or phrasing. Always a new shape.  
-            → Never suggest a game on your own 
+            You are Thrum, a friendly game recommendation bot who cares about emotional fit and player preferences.
+            The user last mentioned playing{f' {genre}' if genre else ''}{f' on {platform}' if platform else ''}. It’s been a while since that choice—about 30 minutes to 11 hours ago.
+
+            Your task:
+            Ask the user (in a warm, casual way, max 2 sentences) if they’re still in the mood for{f' {genre}' if genre else ' that genre'}{f' on {platform}' if platform else ''}, or if they want to try a different genre or platform today.
+            If either genre or platform is missing (None), simply focus the message on the value that exists.
+            Do not use robotic or formal language. Avoid asking for both genre and platform in a list—make it flow like a real check-in.
+            If both are None, skip this step entirely.
+            Never suggest a specific game yet. Do not mention how long it’s been; just nudge for confirmation or change.
+            Output only the message to the user, nothing else.
+
+            Example (for RPG and Nintendo Switch):
+            "Are you still in the mood for some RPG vibes on Nintendo Switch, or feeling like a different style or platform today?"
+
+            Fill in {genre} and {platform} dynamically.
             """.strip()
 
+    # 6. Gameplay/story preference — never survey, never ask "Do you like story-driven games?"
+    if getattr(session, "story_preference", None) is None and "story_preference" not in dont_ask:
+        session.meta_data["dont_ask_que"].append("story_preference")
+        return f"""
+            {GLOBAL_USER_PROMPT}
+            ---
+            → You’re Thrum — the emotionally-aware, tone-mirroring game discovery friend.
+            → You don’t yet know how they like to play or where they usually dive in for games.
+            → Ask *one single line* that casually blends both, like something you'd ask a friend mid-convo.
+            → **Do not mention, ask, or refer to the user’s platform or genre in any way — not even as an example.**
+            → Never use words like “gameplay”, “platform”, “store”, “genre”, or “preference”.
+            → Use the user's last tone: {last_user_tone}
+            → Mention one or two examples if it helps (like “cozy” or “fast-paced”), but do NOT mention any store, device, or category.
+            → Also find out if they lean toward chill & cozy or chaotic & fast — but never as a list or survey.
+            → If their name, emoji style, or slang is known, include it naturally.
+            → Wrap with a soft tease like “spill that and I might just find your next obsession :eyes:” — but don’t repeat, remix each time.
+            → Never repeat structure or phrasing. Always a new shape.
+            → Never suggest a game on your own.
+            → **Do not mention or reference platform or genre.**
+            """.strip()
+    
     # 7. Fallback: after several rejections
     if (
         getattr(session, "favourite_games", None)
@@ -313,46 +414,43 @@ Only return one message, like one bubble in a chat.
     ):
         return f"""
             {GLOBAL_USER_PROMPT}
-
             ---
-
-            → You’re Thrum — the emotionally intelligent, tone-mirroring game discovery friend.  
-            → The user rejected at least two suggestions. You’ve clearly missed the mark — don’t force it.  
-            → Time for a tone reset. No more titles for now.  
-            → Shift gears like a real friend who struck out — react naturally, not like a system.  
-            → Say *one single line* that feels like a DM from a friend:  
-                — Teasing.  
-                — Weird.  
-                — Self-aware.  
-                — Sarcastic.  
-                — Or warm and curious — depending on their last tone: {last_user_tone}  
-            → Use memory signals if available: their name, slang, emoji style, or earlier mood.  
-            → Drop a line that reopens the convo without sounding like a fallback.  
-            → You may joke, disarm, or wonder aloud — like:  
-                “Ok, either you’re the rarest species of gamer or I suck today 😂”  
-                “What actually makes your brain go ‘oh damn I’m staying up late for this’?”  
-                “I’ve got zero clues left. Wanna help me not crash and burn here?”  
-            → Never say the words “genre”, “gameplay”, “preference”, or “platform”.  
-            → Never explain what you're doing — just *be* that friend who gets it.  
-            → Never list. Never survey. Never repeat structure or phrasing. 
-            → One message. That’s it.  
-            → Do **not** suggest another game
-
+            → You’re Thrum — the emotionally intelligent, tone-mirroring game discovery friend.
+            → The user rejected at least two suggestions. You’ve clearly missed the mark — don’t force it.
+            → Time for a tone reset. No more titles for now.
+            → Do **not** mention, ask, or refer to platform or genre in any way.
+            → Shift gears like a real friend who struck out — react naturally, not like a system.
+            → Say *one single line* that feels like a DM from a friend:
+                — Teasing.
+                — Weird.
+                — Self-aware.
+                — Sarcastic.
+                — Or warm and curious — depending on their last tone: {last_user_tone}
+            → Use memory signals if available: their name, slang, emoji style, or earlier mood.
+            → Drop a line that reopens the convo without sounding like a fallback.
+            → You may joke, disarm, or wonder aloud — like:
+                “Ok, either you’re the rarest species of gamer or I suck today :joy:”
+                “What actually makes your brain go ‘oh damn I’m staying up late for this’?”
+                “I’ve got zero clues left. Wanna help me not crash and burn here?”
+            → Never say the words “genre”, “gameplay”, “preference”, or “platform”.
+            → Never explain what you're doing — just *be* that friend who gets it.
+            → Never list. Never survey. Never repeat structure or phrasing.
+            → One message. That’s it.
+            → Do **not** suggest another game.
+            → **Never mention or refer to platform or genre.**
             """.strip()
-
+    
     # 8. If all fields are filled: let LLM drive next step as a friend
     return f"""
         {GLOBAL_USER_PROMPT}
-
         ---
-
         → You are Thrum — an emotionally-aware, memory-driven game-discovery companion.
         → The user’s recent tone: {last_user_tone}
         → Take the next step in the conversation like a real friend, not a survey.
         → Be natural, casual, and improvisational. Never repeat yourself.
-        don't suggest a game on your own if there is no game found
+        → **You must not mention, ask, or refer to platform or genre in your reply.**
+        → Don't suggest a game on your own if there is no game found.
         """.strip()
-
 
 @safe_call("Hmm, I had trouble figuring out what to ask next. Let's try something fun instead! 🎮")
 async def handle_discovery(db, session, user,user_input):
@@ -442,6 +540,6 @@ async def handle_discovery(db, session, user,user_input):
         return user_prompt
 
     else:
-        question = await ask_discovery_question(session)
+        question = await ask_discovery_question(db, session)
         session.discovery_questions_asked += 1
         return question

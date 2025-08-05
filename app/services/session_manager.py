@@ -94,6 +94,7 @@ async def update_or_create_session(db: DBSession, user):
             meta_data={
                 "is_user_cold": is_cold,
                 "last_interaction": datetime.utcnow().isoformat(),
+                "last_session_state": last_session.state.name,
                 "returning_user": False
             }
         )
@@ -114,7 +115,7 @@ async def update_or_create_session(db: DBSession, user):
             pass  # Fallback in case of invalid format
 
     last_session.meta_data["last_interaction"] = datetime.utcnow().isoformat()
-    update_returning_user_flag(last_session)
+    # update_returning_user_flag(last_session)
 
     return last_session
 

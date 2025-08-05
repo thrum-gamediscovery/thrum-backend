@@ -39,8 +39,8 @@ DEFAULT_PLATFORM_MAP = {
 
     "xbox": "Xbox Series X|S",
     "switch": "Nintendo Switch",
-    "wii": "Nintendo Switch",
-    "wii u": "Nintendo Switch",
+    "wii": "Nintendo Wii U",
+    "wii u": "Nintendo Wii U",
 
     # Cloud/Other
     "stadia": "Web Browser",
