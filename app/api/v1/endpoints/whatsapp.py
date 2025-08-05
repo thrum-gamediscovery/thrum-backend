@@ -14,6 +14,7 @@ from app.services.create_reply import generate_thrum_reply
 from app.utils.region_utils import infer_region_from_phone, get_timezone_from_region
 from app.utils.whatsapp import send_whatsapp_message
 from app.services.modify_thrum_reply import format_reply
+from app.utils.typing_indicator import send_typing_indicator
 
 
 router = APIRouter()
@@ -116,11 +117,21 @@ async def whatsapp_webhook(
     db.commit()
 
     # ---------- 8. Generate and Send Bot Reply ----------
-    response_prompt = await generate_thrum_reply(
-        db=db, user=user, session=session, user_input=user_input, intrection=intrection
-    )
-    print('response_prompt........................................', response_prompt)
-    reply = await format_reply(db=db, session=session, user_input=user_input, user_prompt=response_prompt)
+    # Start typing indicator task
+    typing_task = asyncio.create_task(send_typing_indicator(user.phone_number, session))
+    
+    try:
+        response_prompt = await generate_thrum_reply(
+            db=db, user=user, session=session, user_input=user_input, intrection=intrection
+        )
+        print('response_prompt........................................', response_prompt)
+        reply = await format_reply(db=db, session=session, user_input=user_input, user_prompt=response_prompt)
+        
+        # Cancel typing indicator since we have the reply
+        typing_task.cancel()
+    except Exception as e:
+        typing_task.cancel()
+        raise e
     if len(session.interactions) == 0 or is_session_idle(session):
         await asyncio.sleep(5)  # Optional: pause if new session
 
