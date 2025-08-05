@@ -6,6 +6,8 @@ async def maybe_add_link_hint(db, session, user_prompt: str, platform_link: str)
     pending_action = session.meta_data.get('pending_action') if session.meta_data else None
     ask_for_link = pending_action.get('type') == 'send_link' if pending_action else False
     request_link = session.meta_data.get('request_link')
+    if platform_link == 'N/A':
+        platform_link = None
     print(f"platform_link : {platform_link}, request_link : {request_link} , ask_for_link : {ask_for_link}")
     if platform_link and not request_link and ask_for_link:
         await consume_pending_action(db,session)

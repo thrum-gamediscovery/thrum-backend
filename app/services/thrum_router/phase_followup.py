@@ -181,6 +181,7 @@ The user passed on **{game_info['title']}**, but now they’re back asking somet
 — Mention platform only if asked — never system-like.
 — End with a soft, playful line, but do NOT make it sound like a sales pitch or push them for more.
 — Never suggest a new game unless the user asks.
+- Do not generate link on your own when platform Link is None or N/A then clearly mention to user you do not have link for this platform or game, if it is not None then only provide link if user want.
 — Never answer with general recommendations or try to convince them.
 
 Reference Data for context (do not repeat unless asked):
@@ -203,6 +204,7 @@ STRICT REPLY RULES:
 - You may use info from earlier in the session (memory/context) to make your answer feel more personal or relevant.
 - Do NOT summarize, repeat, or pitch the game if it’s unrelated to the question.
 - If the user asks about something that’s not available in the game data or is “none,” reply politely that you don’t have that info (in a friendly, casual way).
+ - Do not generate link on your own when platform Link is None or N/A then clearly mention to user you do not have link for this platform or game, if it is not None then only provide link if user want.
 - If the user is closed off, sarcastic, or says ‘not interested,’ just acknowledge and move on naturally, without trying to win them back.
 - Never talk like a bot, system, or use filler words. Always sound like a real friend.
 
@@ -255,6 +257,7 @@ STRICT REPLY RULES:
     - You may use user memory/context for personalization, but never go off-topic.
     - Never summarize, pitch, or add details unless the user invites it.
     - If the user asks about something that’s not available in the game data or is “none,” reply politely that you don’t have that info (in a friendly, casual way).
+    - Do not generate link on your own when platform Link is None or N/A then clearly mention to user you do not have link for this platform or game, if it is not None then only provide link if user want.
     - Never sound like a bot, system, or template. Always reply as a real friend would — brief, natural, and matching their mood.
 
 """.strip()
@@ -308,6 +311,7 @@ STRICT REPLY RULES:
                 - ONLY answer what the user asks and want. Never over-explain, never pitch or sell, and never add extra unless clearly invited.
                 - Use memory/context only if it’s needed for a natural, helpful reply.
                 - If the user asks about something that’s not available in the game data or is “none,” reply politely that you don’t have that info (in a friendly, casual way).
+                 - Do not generate link on your own when platform Link is None or N/A then clearly mention to user you do not have link for this platform or game, if it is not None then only provide link if user want.
                 - Never sound like a bot or template — always text like a real friend.
             """.strip()
             return await maybe_add_link_hint(db, session, user_prompt, game_info['platform_link'])
@@ -350,6 +354,7 @@ STRICT REPLY RULES:
                 - ONLY answer the user’s current question or prompt. Never over-explain, never pitch, never info-dump.
                 - Use context or memory for personal touch, but never go off-topic or repeat unless needed.
                 - If the user asks about something that’s not available in the game data or is “none,” reply politely that you don’t have that info (in a friendly, casual way).
+                 - Do not generate link on your own when platform Link is None or N/A then clearly mention to user you do not have link for this platform or game, if it is not None then only provide link if user want.
                 - Never sound like a bot or use canned lines. Always reply like a real friend, brief, in-flow, and mood-matched.
             """.strip()
             return await maybe_add_link_hint(db, session, user_prompt, game_info['platform_link'])
@@ -389,6 +394,7 @@ STRICT REPLY RULES:
         → Never explain or summarize the whole game. Never format anything. Never say “click here,” never list features.
         - Never suggest a new game on your own if there is no game found
         - If the user asks about something that’s not available in the game data or is “none,” reply politely that you don’t have that info (in a friendly, casual way).
+         - Do not generate link on your own when platform Link is None or N/A then clearly mention to user you do not have link for this platform or game, if it is not None then only provide link if user want.
 
         Use this if you need to pull from:
         - Title: {game_info['title']}
