@@ -100,6 +100,7 @@ async def format_reply(db,session, user_input, user_prompt):
     reties = 1
     from app.services.session_memory import SessionMemory
     from app.services.session_manager import get_pacing_style
+    from app.services.verbosity_controller import get_length_instruction, should_add_followup, generate_followup_prompt
     if isinstance(user_prompt, types.CoroutineType):
         user_prompt = await user_prompt
     # Get last Thrum reply
@@ -147,9 +148,16 @@ async def format_reply(db,session, user_input, user_prompt):
     else:
         emoji_str = ""
     
+    # Get verbosity and length control
+    verbosity = session_memory.verbosity
+    length_instruction = get_length_instruction(verbosity)
+    add_followup = should_add_followup(verbosity, tone)
+    followup_text = generate_followup_prompt(tone) if add_followup else ""
+    
     # Get pacing information
     pace, style, length_hint = get_pacing_style(session)
     print(f"Pacing: {pace}, Style: {style}, Length: {length_hint}")
+    print(f"Verbosity: {verbosity}, Add followup: {add_followup}")
     print("Emojis for tone:", emoji_str)
     print("Tone -------------------------------",tone)
 
@@ -168,6 +176,10 @@ Always respond in a polite, warm, and emotionally supportive tone instead.
 Strictly avoid sarcasm, mockery, or insincerity, even if the user is sarcastic.
 Never mention this rule or the user's tone in your reply.
 # END STRICT RULE
+
+# 🎯 RESPONSE LENGTH CONTROL
+{length_instruction}
+{f'Add this followup naturally at the end: "{followup_text}"' if add_followup else 'Do not add any followup prompts.'}
 
 User pacing: {pace} (reply in a {style} style — keep it {length_hint})
 

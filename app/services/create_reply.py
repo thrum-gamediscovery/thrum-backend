@@ -7,6 +7,7 @@ from app.services.thrum_router.interrupt_logic import check_intent_override
 from app.services.input_classifier import classify_user_input
 from app.services.user_profile_update import update_user_from_classification
 from app.services.session_manager import detect_tone_shift
+from app.services.verbosity_controller import detect_verbosity_request, update_session_verbosity
 from app.utils.error_handler import safe_call
 from app.db.models.session import Session
 from app.db.models.enums import PhaseEnum
@@ -19,6 +20,12 @@ async def generate_thrum_reply(db: Session, user_input: str, session, user, intr
     classification = await classify_user_input(db=db,session=session, user_input=user_input)
     if isinstance(classification, dict):
         await update_user_from_classification(db=db, user=user, classification=classification, session=session)
+    
+    # Handle verbosity requests
+    verbosity_level, is_verbosity_request = detect_verbosity_request(user_input)
+    if is_verbosity_request:
+        update_session_verbosity(session, verbosity_level)
+        db.commit()
     
     fusion = await emotion_fusion(db,session, user)
     if await detect_tone_shift(session):

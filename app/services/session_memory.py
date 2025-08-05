@@ -15,6 +15,7 @@ class SessionMemory:
         self.region = getattr(session.user, "region", None) if hasattr(session, "user") and session.user and session.user.region else ""
         self.mood = getattr(session, "exit_mood", None)
         self.tone = getattr(session, "meta_data").get("tone")
+        self.verbosity = getattr(session, "meta_data", {}).get("verbosity", "short")
         self.genre = session.genre[-1] if session.genre else None
         self.platform = session.platform_preference[-1] if session.platform_preference else None
         self.story_preference = getattr(session, "story_preference", None)
@@ -48,6 +49,7 @@ class SessionMemory:
         self.platform = None
         self.story_preference = None
         self.tone = None
+        self.verbosity = "short"
         self.rejections = []
         self.likes = []
         self.last_game = None

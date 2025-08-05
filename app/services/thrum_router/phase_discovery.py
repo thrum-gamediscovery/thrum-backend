@@ -510,6 +510,21 @@ async def handle_discovery(db, session, user,user_input):
         if is_last_session_game:
             last_session_game = game.get("last_session_game", {}).get("title")
         tone = session.meta_data.get("tone", "neutral")
+        
+        # Get verbosity setting
+        verbosity = session.meta_data.get("verbosity", "short")
+        
+        # Adjust prompt based on verbosity
+        if verbosity == "long":
+            length_instruction = "Provide detailed explanation (4-5 sentences) with rich context and storytelling."
+            story_instruction = "A detailed Draper-style story (4-5 lines) explaining why this game fits"
+        elif verbosity == "normal":
+            length_instruction = "Keep moderate length (2-3 sentences) with good context."
+            story_instruction = "A brief story (2-3 lines) explaining why this game fits"
+        else:  # short
+            length_instruction = "Keep very concise (1-2 sentences maximum). Be direct and punchy."
+            story_instruction = "A quick line explaining why this game fits"
+        
         # 🧠 Final Prompt
         user_prompt = f"""
                 {GLOBAL_USER_PROMPT}
@@ -519,12 +534,14 @@ async def handle_discovery(db, session, user,user_input):
                 You are THRUM — the friend who remembers what’s been tried and never repeats. You drop game suggestions naturally, like texting your best mate.
 
                 Recommend **{game['title']}** using a {mood} mood and {tone} tone.
+                
+                RESPONSE LENGTH: {length_instruction}
 
                 Use this game description for inspiration: {description}
 
                 INCLUDE:  
                 - Reflect the user's last message so they feel heard. 
-                - A Draper-style mini-story (3–4 lines max) explaining why this game fits based on USER MEMORY & RECENT CHAT, making it feel personalized.  
+                - {story_instruction} based on USER MEMORY & RECENT CHAT, making it feel personalized.  
                 - Platform info ({platform_note}) mentioned casually, like a friend dropping a hint.  
                 - Bold the title: **{game['title']}**.  
                 - End with a fun, playful, or emotionally tone-matched line that invites a reply — a soft nudge or spark fitting the rhythm. Never robotic or templated prompts like “want more?”.
