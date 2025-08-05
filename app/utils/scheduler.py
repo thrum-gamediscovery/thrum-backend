@@ -1,27 +1,15 @@
-import asyncio
-from apscheduler.schedulers.background import BackgroundScheduler
 from app.services.thrum_router.phase_delivery import recommend_game
 from app.services.nudge_checker import get_followup, ask_for_name_if_needed, check_for_nudge
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
-scheduler = BackgroundScheduler()
-def async_wrapper(coro_func):
-    def wrapped():
-        try:
-            loop = asyncio.get_event_loop()
-            if loop.is_running():
-                asyncio.create_task(coro_func())
-            else:
-                loop.run_until_complete(coro_func())
-        except RuntimeError:
-            asyncio.run(coro_func())
-    return wrapped
+scheduler = AsyncIOScheduler()
+
+scheduler.add_job(check_for_nudge, 'interval', seconds=25, max_instances=2)
+scheduler.add_job(recommend_game, 'interval', seconds=5, max_instances=2)
+scheduler.add_job(get_followup, 'interval', seconds=7, max_instances=2)
+scheduler.add_job(ask_for_name_if_needed, 'interval', seconds=9, max_instances=2)
 
 def start_scheduler():
-    scheduler.add_job(async_wrapper(check_for_nudge), 'interval', seconds=25, max_instances=2)
-    scheduler.add_job(async_wrapper(recommend_game), 'interval', seconds=5, max_instances=2)
-    scheduler.add_job(async_wrapper(get_followup), 'interval', seconds=7, max_instances=2)
-    scheduler.add_job(async_wrapper(ask_for_name_if_needed), 'interval', seconds=9, max_instances=2)
     scheduler.start()
-
 def stop_scheduler():
     scheduler.shutdown()

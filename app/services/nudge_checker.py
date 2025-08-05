@@ -71,6 +71,7 @@ async def check_for_nudge():
     db.close()
 
 async def ask_for_name_if_needed():
+    print('ask_for_name_if_needed...................................................!!')
     db = SessionLocal()
     now = datetime.utcnow()
 
