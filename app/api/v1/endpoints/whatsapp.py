@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 import hashlib
 from app.db.models.user_profile import UserProfile
 from app.db.deps import get_db
-from app.db.models.enums import PlatformEnum
+from app.db.models.enums import PlatformEnum, PhaseEnum
 from app.api.v1.endpoints.chat import user_chat_with_thrum, bot_chat_with_thrum, ChatRequest
 from app.services.session_manager import update_or_create_session, is_session_idle, update_user_pacing
 from app.services.create_reply import generate_thrum_reply
@@ -133,7 +133,8 @@ async def whatsapp_webhook(
     # ---------- 9. Update Bot Chat State ----------
     # (Register bot reply in chat memory)
     session = await bot_chat_with_thrum(request=request, bot_reply=reply,db=db)
-    user.awaiting_reply = True
+    if session.phase != PhaseEnum.ENDING:
+        user.awaiting_reply = True
     user.last_thrum_timestamp = datetime.utcnow()
     db.commit()
 
