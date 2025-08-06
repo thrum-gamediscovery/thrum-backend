@@ -26,7 +26,7 @@ async def check_intent_override(db, user_input, user, session, classification, i
     intrection.classification = {"input" : classification, "intent" : classification_intent, "clarification": clarification_input}
     session.meta_data["ambiguity_clarification"] = False
     db.commit()
-    if session.meta_data.get("ask_for_rec_friend")  and (classification_intent.get("Give_Info") or classification_intent.get("Other")):
+    if session.meta_data.get("ask_for_rec_friend")  and (classification_intent.get("Give_Info") or classification_intent.get("Other") or classification_intent.get("Phase_Discovery")):
         session.meta_data["ask_for_rec_friend"] = False
         session.phase = PhaseEnum.DISCOVERY
         return await share_thrum_ping(session)
