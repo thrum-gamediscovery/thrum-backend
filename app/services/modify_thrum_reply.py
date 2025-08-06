@@ -68,6 +68,12 @@ USER_TONE_TO_BOT_EMOJIS = {
     "hyped":           ["🔥", "🚀", "🤩", "💥"],
 }
 
+async def strip_outer_quotes(text):
+    # Removes only if the whole string is wrapped in a single pair of matching quotes
+    if text and ((text.startswith('"') and text.endswith('"')) or (text.startswith("'") and text.endswith("'"))):
+        return text[1:-1]
+    return text
+
 async def static_tone_modifier(reply: str, tone: str) -> str:
     """
     Static fallback logic to adjust tone and name if LLM fails.
@@ -222,7 +228,8 @@ Your rewrite:
             content = response.choices[0].message.content.strip()
             print(f"content : {content}")
             if is_valid_llm_reply(content):
-                reply = await static_tone_modifier(reply=content, tone=tone)
+                res = await static_tone_modifier(reply=content, tone=tone)
+                reply = await strip_outer_quotes(res.strip())
                 return reply
         except Exception as e:
             print(f"LLM error on attempt {attempt+1}:", e)

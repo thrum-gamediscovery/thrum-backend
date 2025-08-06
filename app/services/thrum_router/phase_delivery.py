@@ -8,7 +8,58 @@ from app.utils.whatsapp import send_whatsapp_message
 from app.services.session_memory import SessionMemory
 from app.services.modify_thrum_reply import format_reply
 from app.services.general_prompts import GLOBAL_USER_PROMPT, NO_GAMES_PROMPT
+from app.db.models.game_recommendations import GameRecommendation
+from app.db.models.game import Game
+import openai
+import os
+client = openai.AsyncOpenAI()
 
+async def get_most_similar_liked_title(db, session_id, current_title):
+    """
+    Returns the liked game title (from the session) most similar to current_title, using GPT for matching.
+    """
+    recs = (
+        db.query(GameRecommendation)
+        .filter(
+            GameRecommendation.session_id == session_id,
+            GameRecommendation.accepted == True
+        )
+        .order_by(GameRecommendation.timestamp.desc())
+        .all()
+    )
+    titles = []
+    for rec in recs:
+        # This fetches a tuple (title,), so use [0] to get the string
+        title_row = db.query(Game.title).filter(Game.game_id == rec.game_id).first()
+        if title_row and title_row[0]:
+            titles.append(title_row[0])
+    print(f"Titles from session --------------------------: {titles}")
+    if not titles:
+        return None
+    titles_quoted = ', '.join(f'"{t}"' for t in titles)
+    prompt = (
+        f"Given this list of games: {titles_quoted}.\n"
+        f"Which one is most similar (in style, genre, or vibe) to \"{current_title}\"? "
+        f"Reply with only the exact game title from the list. No extra text."
+    )
+    try:
+        model = os.getenv("GPT_MODEL")  # Assumes model name in env
+        response = await client.chat.completions.create(
+            model=model,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0,
+        )
+        content = response.choices[0].message.content if response.choices else ""
+        result = content.strip().strip('"')
+        if result in titles:
+            return result
+        else:
+            # fallback: return most recent
+            return titles[0]
+    except Exception:
+        # Fallback: return most recent
+        return titles[0] if titles else None
+    
 async def get_recommend(db, user, session):
     game, _ = await game_recommendation(db=db, session=session, user=user)
     print(f"Game recommendation: {game}")
@@ -43,6 +94,7 @@ async def get_recommend(db, user, session):
     if is_last_session_game:
         last_session_game = game.get("last_session_game", {}).get("title")
     tone = session.meta_data.get("tone", "neutral")
+    liked_game = await get_most_similar_liked_title(db=db, session_id=session.session_id, current_title = game.get("title", None))
     # 🧠 Final Prompt
     user_prompt = f"""
                 {GLOBAL_USER_PROMPT}
@@ -54,8 +106,9 @@ async def get_recommend(db, user, session):
                 Recommend **{game['title']}** using a {mood} mood and {tone} tone.
 
                 Use this game description for inspiration: {description}
-
+                The user previously liked the game: "{liked_game}"
                 INCLUDE:  
+                - If user has {liked_game} in their memory, You can draw a connection to the liked game, but don’t be obvious or repetitive. No hardcoded lines. Avoid templates like “If you liked X, you’ll love Y.”
                 - Reflect the user's last message so they feel heard. 
                 - A Draper-style mini-story (3–4 lines max) explaining why this game fits based on USER MEMORY & RECENT CHAT, making it feel personalized.  
                 - Platform info ({platform_note}) mentioned casually, like a friend dropping a hint.  
@@ -185,6 +238,7 @@ async def handle_reject_Recommendation(db,session, user,  classification,user_in
                 else:
                     platform_note = f"Available on: {', '.join(game_platforms)}."
                 tone = session.meta_data.get("tone", "neutral")
+                liked_game = await get_most_similar_liked_title(db=db, session_id=session.session_id, current_title = game.get("title", None))
                 rejected_game_title =  session.rejected_games[-1].title if session.rejected_games else None
                 # Final user prompt for GPT
                 user_prompt = f"""
@@ -193,7 +247,9 @@ async def handle_reject_Recommendation(db,session, user,  classification,user_in
                 THRUM — FRIEND MODE: GAME REJECTED + NEXT SUGGESTION
 
                 They passed on **{rejected_game_title}**. No big deal — you’re their friend, not a recommender.
+                 The user previously liked the game: "{liked_game}"
 
+                → If user has {liked_game} in their memory, You can draw a connection to the liked game, but don’t be obvious or repetitive. No hardcoded lines. Avoid templates like “If you liked X, you’ll love Y.”
                 → React like someone who gets it — mirror the user’s mood ({mood}) and tone ({tone}) using chat history and memory. Don’t reset or explain.
                 → Flow naturally into your next suggestion: **{game['title']}**.
                 → Use the description below to build a Draper-style hook that fits their current vibe: {description}
@@ -265,6 +321,7 @@ async def deliver_game_immediately(db: Session, user, session, user_input) -> st
             else:
                 platform_note = f"Available on: {', '.join(game_platforms) or 'many platforms'}."
             tone = session.meta_data.get("tone", "neutral")
+            liked_game = await get_most_similar_liked_title(db=db, session_id=session.session_id, current_title = game.get("title", None))
             # :brain: Final Prompt
             user_prompt = f"""
                 {GLOBAL_USER_PROMPT}
@@ -276,8 +333,10 @@ async def deliver_game_immediately(db: Session, user, session, user_input) -> st
                 Recommend **{game['title']}** using a {mood} mood and {tone} tone.
 
                 Use this game description for inspiration: {description}
+                 The user previously liked the game: "{liked_game}"
 
                 INCLUDE:  
+                - If user has {liked_game} in their memory, You can draw a connection to the liked game, but don’t be obvious or repetitive. No hardcoded lines. Avoid templates like “If you liked X, you’ll love Y.”
                 - Reflect the user's last message so they feel heard. 
                 - A Draper-style mini-story (3–4 lines max) explaining why this game fits based on USER MEMORY & RECENT CHAT, making it feel personalized.  
                 - Platform info ({platform_note}) mentioned casually, like a friend dropping a hint.  
@@ -333,6 +392,7 @@ async def diliver_similar_game(db: Session, user, session, user_input) -> str:
             platform_note = f"Available on: {', '.join(game_platforms) or 'many platforms'}."
         # :brain: Final Prompt\
         tone = session.meta_data.get("tone", "neutral")
+        liked_game = await get_most_similar_liked_title(db=db, session_id=session.session_id, current_title = game.get("title", None))
         user_prompt = f"""
             {GLOBAL_USER_PROMPT}\n
             ---
@@ -343,8 +403,10 @@ async def diliver_similar_game(db: Session, user, session, user_input) -> str:
                 Recommend **{game['title']}** using a {mood} mood and {tone} tone.
 
                 Use this game description for inspiration: {description}
+                
 
                 INCLUDE:  
+                - If user has {liked_game} in their memory, You can draw a connection to the liked game, but don’t be obvious or repetitive. No hardcoded lines. Avoid templates like “If you liked X, you’ll love Y.”
                 - Reflect the user's last message so they feel heard. 
                 - A Draper-style mini-story (3–4 lines max) explaining why this game fits based on USER MEMORY & RECENT CHAT, making it feel personalized.  
                 - Platform info ({platform_note}) mentioned casually, like a friend dropping a hint.  

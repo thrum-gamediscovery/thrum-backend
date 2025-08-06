@@ -6,6 +6,7 @@ import openai
 import random
 from app.utils.error_handler import safe_call
 from app.services.game_recommend import game_recommendation
+from app.services.thrum_router.phase_delivery import get_most_similar_liked_title
 from app.services.session_memory import SessionMemory
 from app.services.general_prompts import GLOBAL_USER_PROMPT, NO_GAMES_PROMPT
 from app.db.models.session import Session as SessionModel  # adjust import as needed
@@ -573,6 +574,7 @@ async def handle_discovery(db, session, user,user_input):
         if is_last_session_game:
             last_session_game = game.get("last_session_game", {}).get("title")
         tone = session.meta_data.get("tone", "neutral")
+        liked_game = await get_most_similar_liked_title(db=db, session_id=session.session_id, current_title = game.get("title", None))
         # 🧠 Final Prompt
         user_prompt = f"""
                 {GLOBAL_USER_PROMPT}
@@ -584,8 +586,10 @@ async def handle_discovery(db, session, user,user_input):
                 Recommend **{game['title']}** using a {mood} mood and {tone} tone.
 
                 Use this game description for inspiration: {description}
+                The user previously liked the game: "{liked_game}"
 
                 INCLUDE:  
+                - If user has {liked_game} in their memory, You can draw a connection to the liked game, but don’t be obvious or repetitive. No hardcoded lines. Avoid templates like “If you liked X, you’ll love Y.”
                 - Reflect the user's last message so they feel heard. 
                 - A Draper-style mini-story (3–4 lines max) explaining why this game fits based on USER MEMORY & RECENT CHAT, making it feel personalized.  
                 - Platform info ({platform_note}) mentioned casually, like a friend dropping a hint.  

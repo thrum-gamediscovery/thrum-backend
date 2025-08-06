@@ -76,6 +76,7 @@ Carefully consider the context of the conversation and the specific tone or dire
   - Phase_Discovery must be set to True when Thrum's last reply is a greeting and the user's response is not a direct request for a game suggestion. If the user’s reply does not clearly ask for a game, or simply shares a preference, mood, or gives a neutral/curious reply, always set Phase_Discovery to True.
   - if Thrum's last message is about asking user's favourite game or asking about their preferences and user is giving the information about that then Phase_Discovery must be True, even if user input is containing the game title the Phase_Discovery must be true.(carefully check that when user provide the game name it must be ans of thrum's question of favourite game.)
   - Do not trigger when last user message looking like user is inquiry about game.
+  - if the thrum's last message was about asking anything and user replies positively like good, nice then it must True the Phase_Discovery.
   
 - **Request_Similar_Game**: Triggered when the user asks for a game similar to one they already like or have played. This intent is activated when the user explicitly asks for a game that is similar to their preferences or past games. this intent is specifically for when the user is looking for a game that matches their previous interests or experiences, not just any game recommendation.
 
@@ -88,7 +89,7 @@ Carefully consider the context of the conversation and the specific tone or dire
   This intent is activated for phrases like:
     - "give me a game"
     - "suggest one for me"
-
+- untill user clearly ask for game immediately do not True Request_Quick_Recommendation.
 - **Reject_Recommendation**: Triggered when the user directly rejects the game suggested in the previous response.
   This can be a clear refusal such as "Not that one," "I don’t like this," or any other similar phrases with same intent that reject the previously suggested game.
   - Be especially strict and accurate in detecting when the user is rejecting a game. Do not miss it, even if the language is casual, short, or slang. Always classify these as Reject_Recommendation.
@@ -659,7 +660,9 @@ Answer YES only if:
 Answer NO if:
 - The user gives any specific example, game, or clear description that makes their intent obvious.
 - The input is only a greeting or only mentions a platform(to play game); these are not requests and should not trigger a clarifying question.
-
+- If user is providing name then must Return No
+- If user is providing just asnwer like yes or no then also it must return No
+- always return NO when user is asking for game immidiatly
 
 Think carefully before answering. Only output YES if you genuinely need more information about user's input. Otherwise, output NO.
 
