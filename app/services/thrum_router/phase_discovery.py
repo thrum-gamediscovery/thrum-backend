@@ -9,6 +9,8 @@ from app.services.game_recommend import game_recommendation
 from app.services.session_memory import SessionMemory
 from app.services.general_prompts import GLOBAL_USER_PROMPT, NO_GAMES_PROMPT
 from app.db.models.session import Session as SessionModel  # adjust import as needed
+from app.db.models.game_recommendations import GameRecommendation
+from app.db.models.game import Game
 
 # Set API Key
 openai.api_key = os.getenv("OPENAI_API_KEY")
@@ -28,6 +30,48 @@ class DiscoveryData:
 
     def to_dict(self):
         return {"mood": self.mood, "genre": self.genre, "platform": self.platform, "story_pref" : self.story_pref}
+
+async def two_recent_accepted_same_genre(db, session_id):
+    # Get the two most recent accepted game recs for this session
+    recs = (
+        db.query(GameRecommendation)
+        .filter(
+            GameRecommendation.session_id == session_id,
+            GameRecommendation.accepted == True
+        )
+        .order_by(GameRecommendation.timestamp.desc())
+        .limit(2)
+        .all()
+    )
+    if len(recs) < 2:
+        return False, [], []
+    genre1 = recs[0].genre or []
+    genre2 = recs[1].genre or []
+    if genre1 and genre2 and (genre1[-1] == genre2[-1]):
+        # Get both game titles simply using sync db.query
+        game_titles = []
+        for rec in recs:
+            game = db.query(Game.title).filter(Game.game_id == rec.game_id).scalar()
+            game_titles.append(game if game else "Unknown Game")
+        # Collect recent_tags from keywords['game_play_element']
+        recent_tags = []
+        for rec in recs:
+            keywords = rec.keywords or {}
+            gpe = keywords.get('game_play_element')
+            pk = keywords.get('preferred_keywords')
+            if gpe:
+                if isinstance(gpe, list):
+                    recent_tags.extend(gpe)
+                else:
+                    recent_tags.append(str(gpe))
+            # Add preferred_keywords
+            if pk:
+                if isinstance(pk, list):
+                    recent_tags.extend(pk)
+                else:
+                    recent_tags.append(str(pk))
+        return True, game_titles, recent_tags
+    return False, [], []
 
 def get_previous_session_fields(db, user_id, current_session_id=None):
     q = db.query(SessionModel)\
@@ -123,26 +167,45 @@ async def ask_discovery_question(db, session) -> str:
     print('...................Test...........', is_vague_reply(last_user_message))
     if is_vague_reply(last_user_message):
         return f"""
-{GLOBAL_USER_PROMPT}
+    {GLOBAL_USER_PROMPT}
 
----
+    ---
 
-🛑 TRIGGER: USER GAVE NO USEFUL INPUT
-→ This reply was vague, non-committal, blank, or dismissive.
-→ Examples: "idk", "whatever", "you pick", 🤷, or just silence.
-→ You are Thrum — a tone-mirroring, emotionally-aware, game-discovery friend.
-→ Pull the chat back to life, like a real friend would.
-→ Acknowledge the silence or vagueness — but don't complain.
-→ React in a playful, teasing, sarcastic, or warm way.
-→ Say one single line — it should make the user smile or re-engage.
-→ Optionally: offer one wildcard or funny guess — only if needed.
-→ Your tone must sound like WhatsApp — human, casual, emotionally aware, like how friends talk to each other out of interest.
-❌ Do NOT use phrases like "vibe," "drop a word," "throw a dart," or anything robotic.
-✅ You may be weird, sharp, random — as long as it feels like how friends joke.
-don't suggest a game on your own if there is no game found
-Only return one message, like one bubble in a chat.
-""".strip()
+    🛑 TRIGGER: USER GAVE NO USEFUL INPUT
+    → This reply was vague, non-committal, blank, or dismissive.
+    → Examples: "idk", "whatever", "you pick", 🤷, or just silence.
+    → You are Thrum — a tone-mirroring, emotionally-aware, game-discovery friend.
+    → Pull the chat back to life, like a real friend would.
+    → Acknowledge the silence or vagueness — but don't complain.
+    → React in a playful, teasing, sarcastic, or warm way.
+    → Say one single line — it should make the user smile or re-engage.
+    → Optionally: offer one wildcard or funny guess — only if needed.
+    → Your tone must sound like WhatsApp — human, casual, emotionally aware, like how friends talk to each other out of interest.
+    ❌ Do NOT use phrases like "vibe," "drop a word," "throw a dart," or anything robotic.
+    ✅ You may be weird, sharp, random — as long as it feels like how friends joke.
+    don't suggest a game on your own if there is no game found
+    Only return one message, like one bubble in a chat.
+    """.strip()
 
+    is_match, game_titles, recent_tags = await two_recent_accepted_same_genre(db, session.session_id)
+    if is_match:
+        print("Titles:", game_titles)
+        print("Recent tags:", recent_tags)
+        print("Two recent accepted same genre..........................")
+        tone = session.meta_data.get("tone", "friendly")
+        mood = session.exit_mood or session.entry_mood or "neutral"
+        return f"""
+            You are Thrum, a game discovery buddy who talks like a real friend.
+            The user has been recommended several games with similar themes: {', '.join(recent_tags)}.
+            They previously liked: {', '.join(game_titles)}.
+            Their current mood is: {mood}
+            Their tone is: {tone}
+            You're about to offer a friendly, emotionally intelligent prompt to see if the user wants something different.
+            Make it short and personal. Sound like a friend texting. Offer them a choice between continuing with the current vibe or switching to a different genre.
+            Avoid templates. Be emotionally fluid.
+            Return only the message.
+            """.strip()
+    
     # 2. Ask for favourite game—never as a survey
     if not getattr(session, "favourite_games", None) and "favourite_games" not in dont_ask:
         session.meta_data["dont_ask_que"].append("favourite_games")
