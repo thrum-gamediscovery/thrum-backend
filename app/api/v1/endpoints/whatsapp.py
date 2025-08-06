@@ -118,6 +118,9 @@ async def whatsapp_webhook(
 
     # ---------- 8. Generate and Send Bot Reply ----------
     # Start typing indicator task
+    if not session.meta_data:
+        session.meta_data = {}
+    session.meta_data["reply_ready"] = False
     typing_task = asyncio.create_task(send_typing_indicator(user.phone_number, session))
     
     try:
@@ -128,9 +131,13 @@ async def whatsapp_webhook(
         reply = await format_reply(db=db, session=session, user_input=user_input, user_prompt=response_prompt)
         
         # Cancel typing indicator since we have the reply
+        session.meta_data["reply_ready"] = True
         typing_task.cancel()
     except Exception as e:
-        typing_task.cancel()
+        try:
+            typing_task.cancel()
+        except:
+            pass
         raise e
     if len(session.interactions) == 0 or is_session_idle(session):
         await asyncio.sleep(5)  # Optional: pause if new session
