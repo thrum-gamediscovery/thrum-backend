@@ -108,6 +108,23 @@ Carefully consider the context of the conversation and the specific tone or dire
 
 - **Opt_Out**: Triggered when the user opts out or indicates they no longer wish to continue the conversation. This intent is activated when phrases like "I'm done," "Stop," "Not interested," or "Leave me alone" are used to end or discontinue the conversation.
 
+- **Soft_End**: Triggered when the user naturally winds down or closes the conversation politely without explicitly opting out.  
+  Examples:
+    - "Thanks!"
+    - "Cool rec"
+    - "That helped a lot"
+    - "That was great"
+    - "Nice one!"
+  Rules:
+    - The message is short, positive, and signals satisfaction.
+    - The user is **not asking for more info or a new game**.
+    - It feels like a light closure moment, not an abrupt exit.
+    - Must NOT trigger for sarcastic or negative tones (those should be `Reject_Recommendation` or `Other`).
+  When Soft_End is true:
+    - Thrum should give a short, warm, tone-matched closer.
+    - Reinforce memory (genres, tone, preferences).
+    - Keep door open for future re-entry.
+
 - **Confirm_Game**: Triggered when the user confirms their interest in a game that was previously recommended(if input is just "yes" then it might be for know more information depends on previous thrum message in that case Inquire_About_Game should be true.). The confirmation could be something like "like that game" or "I like that game." or "like that one" or similar to that, This is explicitly confirming the previous game suggestion, meaning that the user is showing interest in the exact game Thrum recommended they liked that. also triggered when user is giving the reason why they liked the game or what they liked about the game(so check thrum's last message and user's reply).
   - When Thrum’s previous message delivers a game recommendation and invites any form of decision, acceptance, or engagement, classify a clear affirmative user response as Confirm_Game. This includes any short or positive reply that communicates agreement, willingness, or acceptance of the recommended game, unless the user’s reply clearly requests further information or details (then set Inquire_About_Game).
 
@@ -168,6 +185,7 @@ OUTPUT FORMAT (Strict JSON) strictly deny to add another text:
     "Give_Info": true/false,
     "Share_Game": true/false,
     "Opt_Out": true/false,
+    "Soft_End": true/false,
     "Other_Question": true/false,
     "Confirm_Game": true/false,
     "want_to_share_friend": true/false,
@@ -206,6 +224,7 @@ OUTPUT FORMAT (Strict JSON) strictly deny to add another text:
                 "Give_Info": False,
                 "Share_Game": False,
                 "Opt_Out": False,
+                "Soft_End": False,
                 "Other_Question": False,
                 "Confirm_Game": False,
                 "want_to_share_friend": False,
@@ -225,6 +244,7 @@ OUTPUT FORMAT (Strict JSON) strictly deny to add another text:
                 "Give_Info": False,
                 "Share_Game": False,
                 "Opt_Out": False,
+                "Soft_End": False,
                 "Other_Question": False,
                 "Confirm_Game": False,
                 "want_to_share_friend": False,

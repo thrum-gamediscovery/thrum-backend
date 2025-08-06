@@ -75,3 +75,37 @@ async def handle_ending(session):
 )
     
     return user_prompt
+
+async def handle_soft_ending(session):
+    """
+    Handle a friendly or casual end where the user expresses thanks or light closure.
+    """
+    session.phase = PhaseEnum.ENDING  # We still end the session, but soft exit
+
+    # 🧠 Memory Push
+    recent_genres = session.genre or []
+    tone = session.exit_mood or session.entry_mood or session.meta_data.get("tone", "friendly")
+
+
+    # Build context for the closer
+    memory_context = {
+        "genres": recent_genres,
+        "tone": tone
+    }
+    user_prompt = (
+        f"{GLOBAL_USER_PROMPT}\n"
+        "THRUM — SOFT END MODE\n"
+        f"User is ending softly (e.g., 'thanks', 'cool', 'that helped').\n"
+        f"User vibe: {tone}\n"
+        f"Remembered tastes: {memory_context}\n"
+        "INSTRUCTIONS:\n"
+        "- Write a warm, natural 1–2 sentence closer as if you're a friend wrapping up.\n"
+        "- No 'goodbye' or 'see you', just light closure.\n"
+        "- Mention their taste subtly (genres/tags) if it feels natural.\n"
+        "- Keep it short, friendly, and open-ended.\n"
+        "- No templates, no robotic tone.\n"
+        "- Use emojis only if mood is friendly.\n"
+        "SIGN OFF NOW:"
+    )
+
+    return user_prompt
