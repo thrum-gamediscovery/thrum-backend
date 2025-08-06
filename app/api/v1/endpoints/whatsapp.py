@@ -113,6 +113,7 @@ async def whatsapp_webhook(
             if session.user.silence_count <= 3:
                 session.user.silence_count = 0
         user.awaiting_reply = False
+        session.meta_data['clarification_status'] = None
     user.last_thrum_timestamp = None
     db.commit()
 
