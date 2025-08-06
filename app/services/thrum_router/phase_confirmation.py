@@ -6,7 +6,20 @@ from app.utils.link_helpers import maybe_add_link_hint
 import random
 from app.utils.whatsapp import send_whatsapp_message
 from app.services.modify_thrum_reply import format_reply
-from app.services.general_prompts import GLOBAL_USER_PROMPT,GAME_LIKED_FEEDBACK, ALREADY_PLAYED_GAME, GAME_LIKED_NOT_PLAYED, PROFILE_SNAPSHOT, CONFIRMATION_PROMPTS, ASK_NAME
+from app.services.general_prompts import GLOBAL_USER_PROMPT, GAME_LIKED_FEEDBACK, ALREADY_PLAYED_GAME, GAME_LIKED_NOT_PLAYED, PROFILE_SNAPSHOT, CONFIRMATION_PROMPTS, ASK_NAME
+
+def get_unique_prompt(session, prompt_list, meta_key):
+    session.meta_data = session.meta_data or {}
+    used = session.meta_data.get(meta_key, [])
+    all_indexes = list(range(len(prompt_list)))
+    unused = [i for i in all_indexes if i not in used]
+    if not unused:
+        used = []
+        unused = all_indexes
+    chosen = random.choice(unused)
+    used.append(chosen)
+    session.meta_data[meta_key] = used
+    return prompt_list[chosen]
 
 async def handle_confirmed_game(db, user, session):
     """
@@ -77,9 +90,8 @@ async def handle_confirmed_game(db, user, session):
             """
     
     if not session.meta_data.get("played_yet", False):
-        
-        # First time accepting this game
-        prompt = random.choice(GAME_LIKED_NOT_PLAYED)
+        # First time accepting this game: use cycling prompt
+        prompt = get_unique_prompt(session, GAME_LIKED_NOT_PLAYED, "game_liked_not_played")
         user_prompt=  prompt.format(GLOBAL_USER_PROMPT=GLOBAL_USER_PROMPT,user_input=user_input,tone=tone,platform_preference=platform_preference)
         
         # Mark that we've handled first acceptance
@@ -90,13 +102,13 @@ async def handle_confirmed_game(db, user, session):
     else:
         # They've played and are giving feedback
         if session.meta_data.get("ask_confirmation", True):
-            prompt = random.choice(ALREADY_PLAYED_GAME)
+            prompt = get_unique_prompt(session, ALREADY_PLAYED_GAME, "already_played_game")
             user_prompt=  prompt.format(GLOBAL_USER_PROMPT=GLOBAL_USER_PROMPT,user_input=user_input,tone=tone)
             
             session.meta_data["ask_confirmation"] = False
             
         else:
-            prompt = random.choice(GAME_LIKED_FEEDBACK)
+            prompt = get_unique_prompt(session, GAME_LIKED_FEEDBACK, "game_liked_feedback")
             user_prompt=  prompt.format(GLOBAL_USER_PROMPT=GLOBAL_USER_PROMPT,game_title=game_title,tone=tone)
 
     user_prompt = await maybe_add_link_hint(db, session, user_prompt, platform_link)

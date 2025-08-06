@@ -10,7 +10,7 @@ from app.db.models.game_recommendations import GameRecommendation
 from app.db.models.game import Game
 from app.db.models.game_platforms import GamePlatform
 from app.services.session_memory import SessionMemory
-from app.services.general_prompts import GLOBAL_USER_PROMPT, RECENT_ACCEPTANCE_PROMPT, DELAYED_ACCEPTANCE_PROMPT, STANDARD_FOLLOWUP_PROMPT
+from app.services.general_prompts import GLOBAL_USER_PROMPT, RECENT_FOLLOWUP_PROMPT, DELAYED_FOLLOWUP_PROMPT, STANDARD_FOLLOWUP_PROMPT
 from app.services.session_manager import get_pacing_style
 
 
@@ -52,14 +52,14 @@ async def ask_followup_que(session) -> str:
             return f"Awesome, enjoy {game_title}! I'll check back with you later to see how it went."
         # If it's been more than 2 minutes but less than 3 hours, ask about the suggestion
         elif accepted_at and (datetime.utcnow() - accepted_at) < timedelta(hours=3):
-            prompt = random.choice(RECENT_ACCEPTANCE_PROMPT).format(
+            prompt = random.choice(RECENT_FOLLOWUP_PROMPT).format(
                 game_title=game_title,
                 last_user_tone=last_user_tone
             )
             return prompt
         # If it's been more than 3 hours, ask about their experience with the game
         elif accepted_at:
-            prompt = random.choice(DELAYED_ACCEPTANCE_PROMPT).format(
+            prompt = random.choice(DELAYED_FOLLOWUP_PROMPT).format(
                 game_title=game_title,
                 last_user_tone=last_user_tone
             )
