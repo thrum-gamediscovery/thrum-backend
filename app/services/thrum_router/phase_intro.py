@@ -3,16 +3,16 @@ from app.services.general_prompts import GLOBAL_USER_PROMPT, FIRST_INTRO_PROMPTS
 from app.services.session_manager import get_pacing_style
 
 async def handle_intro(session):
-
-    user_name = session.user.name if session.user.name else ""
-    tone = session.meta_data.get("tone", "")
+    user_name = session.user.name if session.user.name else "friend"
+    tone = session.meta_data.get("tone", "friendly")
     mood = session.meta_data.get("mood", "")
     last_game = session.last_recommended_game if session.last_recommended_game else ""
     platform = session.platform_preference if session.platform_preference else ""
         
     # Check if the user is a returning user
     if session.meta_data.get("returning_user"):
-        return build_reengagement_intro(session)
+        # return build_reengagement_intro(user_name, tone, mood, session)
+        return another_intro(user_name, tone, mood, last_game, platform, session)
     
     # Ensure the 'already_greet' key exists in metadata and set it to False if it's missing
     if session.meta_data.get("already_greet") is None:
@@ -37,7 +37,7 @@ def build_first_time_intro(user_name="", tone="", mood="", session=None):
     
     return user_prompt.format(user_name=user_name, tone=tone, mood=mood)
 
-def another_intro(user_name="", tone="", mood="", last_game="", platform="", session=None):
+def another_intro(user_name, tone, mood, last_game, platform, session=None):
     user_prompt = random.choice(ANOTHER_INTRO_PROMPTS)
     
     # Add pacing context if session available
@@ -48,11 +48,8 @@ def another_intro(user_name="", tone="", mood="", last_game="", platform="", ses
 
     return user_prompt.format(user_name=user_name, tone=tone, mood=mood, last_game=last_game, platform=platform, GLOBAL_USER_PROMPT=GLOBAL_USER_PROMPT)
 
-def build_reengagement_intro(session):
-    user_name = session.meta_data.get("user_name", "")
-    if not user_name:
-        user_name = "friend"  # Fallback if no name is available
-    
+def build_reengagement_intro(user_name, tone, mood, session):
+
     pace, style, length_hint = get_pacing_style(session)
     
     user_prompt = f"""
