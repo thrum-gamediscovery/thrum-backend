@@ -61,11 +61,6 @@ async def check_intent_override(db, user_input, user, session, classification, i
         session.phase = PhaseEnum.ENDING
         return await handle_ending(session)
 
-    # Handle user softly ending conversation
-    elif classification_intent.get("Soft_End"):
-        session.phase = PhaseEnum.ENDING
-        return await handle_soft_ending(session)
-
     # Handle user confirming a game recommendation
     elif classification_intent.get("Confirm_Game"):
         session.phase = PhaseEnum.CONFIRMATION
