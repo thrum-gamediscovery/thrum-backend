@@ -36,7 +36,7 @@ async def handle_intro(session):
 
 
 def build_first_time_intro(session=None):
-    print('build_first_time_intro...........................................!!')
+    print('build_first_time_intro...............................@@')
     user_interactions = [i for i in session.interactions if i.sender == SenderEnum.User]
     user_input = user_interactions[-1].content if user_interactions else ""
 
@@ -82,6 +82,8 @@ def build_first_time_intro(session=None):
         pace, style, length_hint = get_pacing_style(session)
         pacing_note = f"\n\nPacing: Reply in a {style} style — keep it {length_hint}."
         user_prompt += pacing_note
+
+    return user_prompt
 
 def another_intro(user_name, tone, mood, last_game, platform, session=None):
     user_prompt = random.choice(ANOTHER_INTRO_PROMPTS)
