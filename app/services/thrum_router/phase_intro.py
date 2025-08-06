@@ -14,6 +14,9 @@ async def handle_intro(session):
     last_game = session.last_recommended_game if session.last_recommended_game else ""
     platform = session.platform_preference if session.platform_preference else ""
 
+    print('test...................')
+    print(session.meta_data.get("returning_user"))
+    print(session.meta_data.get("already_greet"))
     # Check if the user is a returning user
     if session.meta_data.get("returning_user"):
         # return build_reengagement_intro(user_name, tone, mood, session)
@@ -33,6 +36,7 @@ async def handle_intro(session):
 
 
 def build_first_time_intro(session=None):
+    print('build_first_time_intro...........................................!!')
     user_interactions = [i for i in session.interactions if i.sender == SenderEnum.User]
     user_input = user_interactions[-1].content if user_interactions else ""
 
