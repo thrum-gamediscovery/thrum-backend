@@ -1,5 +1,6 @@
 import os
 import requests
+from datetime import datetime
 from requests.auth import HTTPBasicAuth
 from starlette.requests import Request 
 from app.db.session import SessionLocal
@@ -51,6 +52,7 @@ async def send_whatsapp_message(phone_number: str, message: str, sent_from_thrum
                 user = db.query(UserProfile).filter(UserProfile.phone_number == phone_number).first()
                 if user and sent_from_thrum:
                     request = await create_request(user.user_id)
+                    user.last_thrum_timestamp = datetime.utcnow()
                     await bot_reply(request=request, db=db, user=user, reply=message)
             except Exception as e:
                 print(f"⚠️ Failed to log bot reply: {e}")

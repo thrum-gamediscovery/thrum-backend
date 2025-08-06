@@ -1,18 +1,30 @@
-from app.services.input_classifier import classify_user_intent
+from app.services.input_classifier import classify_user_intent, classify_input_ambiguity
 from app.services.thrum_router.phase_delivery import handle_reject_Recommendation, deliver_game_immediately, diliver_similar_game
-from app.db.models.enums import PhaseEnum
+from app.db.models.enums import PhaseEnum, SenderEnum
 from app.services.thrum_router.phase_intro import handle_intro
 from app.services.thrum_router.phase_ending import handle_ending
 from app.services.thrum_router.phase_confirmation import handle_confirmed_game
 from app.services.thrum_router.share_with_friends import share_thrum_ping, share_thrum_message
-from app.services.thrum_router.phase_other import dynamic_faq_gpt, handle_other_input, generate_low_effort_response
+from app.services.thrum_router.phase_other import dynamic_faq_gpt, handle_other_input, generate_low_effort_response, ask_ambiguity_clarification
 
 async def check_intent_override(db, user_input, user, session, classification, intrection):
     from app.services.thrum_router.phase_discovery import handle_discovery
     from app.services.thrum_router.phase_followup import handle_game_inquiry
+    thrum_interactions = [i for i in session.interactions if i.sender == SenderEnum.Thrum]
+    last_thrum_reply = thrum_interactions[-1].content if thrum_interactions else ""
     # Classify the user's intent based on their input
-    classification_intent = await classify_user_intent(user_input=user_input, session=session, db=db)
-    intrection.classification = {"input" : classification, "intent" : classification_intent}
+    clarification_input = await classify_input_ambiguity(db=db ,session=session,user=user,user_input=user_input, last_thrum_reply=last_thrum_reply)
+    print(f"clarification_input : {clarification_input} +++++++++++++++++++++=")
+    ambiguity_clarification = session.meta_data["ambiguity_clarification"] if "ambiguity_clarification" in session.meta_data else False
+    if clarification_input == "YES" and not ambiguity_clarification:
+        intrection.classification = {"input" : classification, "clarification": clarification_input}
+        db.commit()
+        return await ask_ambiguity_clarification(db=db, session=session, user_input=user_input)
+    if session.meta_data is None:
+        session.meta_data = {}
+    classification_intent = await classify_user_intent(user_input=user_input, session=session, db=db, last_thrum_reply=last_thrum_reply)
+    intrection.classification = {"input" : classification, "intent" : classification_intent, "clarification": clarification_input}
+    session.meta_data["ambiguity_clarification"] = False
     db.commit()
     if session.meta_data.get("ask_for_rec_friend")  and (classification_intent.get("Give_Info") or classification_intent.get("Other")):
         session.meta_data["ask_for_rec_friend"] = False

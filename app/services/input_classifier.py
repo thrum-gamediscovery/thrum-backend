@@ -34,10 +34,8 @@ intents = [
     "About_FAQ"
 ]
 
-async def classify_user_intent(user_input: str, session,db):
+async def classify_user_intent(user_input: str, session,db, last_thrum_reply):
     from app.services.session_memory import SessionMemory
-    thrum_interactions = [i for i in session.interactions if i.sender == SenderEnum.Thrum]
-    last_thrum_reply = thrum_interactions[-1].content if thrum_interactions else ""
     
     session_memory = SessionMemory(session,db)
     memory_context_str = session_memory.to_prompt()
@@ -392,6 +390,7 @@ You must infer from both keywords and tone—even if the user is casual, brief, 
    → Can be empty list if no feedback.
 
 13. find_game(title of the game)(string)
+   → If the user ask about any specific game by giving the game title then that title only must be add in find game.
    → If the user is asking for a specific game title or name in their last message, then put that game title in the find_game variable.
    → If the user specifies that they want a game by giving the title of the game in the last message, then put that game in the find_game variable.
    → If the user is looking for a specific game and mentions the name or title for recommendation (e.g., "I don't like XYZ game"), don't add that to the variable. Only add it when the user is explicitly asking for that game or wanting to know more about it.
@@ -636,3 +635,55 @@ async def have_to_recommend(db: Session, user, classification: dict, session) ->
             return True  # Trigger new recommendation
 
     return False  # No new recommendation needed, preferences matchs
+
+async def classify_input_ambiguity(db,session,user,user_input, last_thrum_reply):
+  tone = session.meta_data.get("tone",'Nutrual')
+  mood = session.exit_mood if session.exit_mood else "nutral"
+  games = db.query(GameRecommendation).filter(GameRecommendation.session_id == session.session_id, GameRecommendation.accepted==True).all()
+  liked_games = [g.game.title for g in games if games]
+  user_prompt=  f"""
+You are Thrum — a chill, emotionally-aware game discovery buddy.
+
+last_thrum_reply : {last_thrum_reply}
+The user just said: "{user_input}"
+
+
+Should you ask for more details to understand what the user means?
+
+Instructions: (Must check last_thrum_reply and user's msg)
+
+Answer YES only if:
+- The input is genuinely vague, such as mentioning only a broad genre or mood, game_title, or asking for something without detail.
+- The input is too general to confidently recommend a specific game, with no clear style, feeling, or specific request.
+
+Answer NO if:
+- The user gives any specific example, game, or clear description that makes their intent obvious.
+- The input is only a greeting or only mentions a platform(to play game); these are not requests and should not trigger a clarifying question.
+
+
+Think carefully before answering. Only output YES if you genuinely need more information about user's input. Otherwise, output NO.
+
+Output only: YES or NO
+
+"""
+  print(f"user_promt ; {user_prompt}")
+  try:    
+    response = await client.chat.completions.create(
+      model=model,
+      messages=[
+        
+          {"role": "user", "content": user_prompt.strip()}
+      ],
+      temperature=0.7
+    )
+
+  # Try parsing the LLM output into JSON
+    try:
+      res = response.choices[0].message.content
+    except Exception:
+      print(f"exeption")
+      res = "No"
+    return res
+  except OpenAIError as e:
+    print(f"⚠️ OpenAI Error: {e}")
+    return "No"

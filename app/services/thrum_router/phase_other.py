@@ -266,3 +266,24 @@ async def generate_low_effort_response(session):
         🌟 Goal: Reopen the door without sounding robotic. Be warm, real, and emotionally alert — like someone who cares about the moment to open the door to a new game discovery.
         """.strip()
     return user_prompt
+
+async def ask_ambiguity_clarification(db, session, user_input):
+    if session.meta_data is None:
+        session.meta_data = {}
+    session.discovery_questions_asked +=1
+    session.meta_data["ambiguity_clarification"] = True
+    session.meta_data["clarification_status"] = "waiting"
+    db.commit()
+    return f"""
+You're Thrum — a game discovery buddy who sounds like a real friend.
+
+The user said: "{user_input}"
+
+Write a short, friendly clarification question. Ask what kind of vibe they’re into.
+
+Examples (don’t copy):
+- “Shooters can mean anything — chaos, tactics, or story?”
+- “When you say casual — like puzzles, idle, or chill vibes?”
+
+No templates. Match tone. 1 sentence only.
+"""
