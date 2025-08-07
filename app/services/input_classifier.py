@@ -71,12 +71,12 @@ Carefully consider the context of the conversation and the specific tone or dire
 - **Greet**: Triggered when the user greets the bot. This intent is **must not be triggered** if Thrum’s last message was already a greeting.
 
 - **Phase_Discovery**: Triggered only if Thrum's last reply is a greeting message, and the user gives a positive response (e.g., affirmatives like "yeah", "cool", "okay", "let's go", "yup"). This intent indicates that the user is ready to proceed to the discovery phase (in which we are going to ask questions) without needing any further prompting.
-  - Phase_Discovery must be True when Thrum's last reply is a greeting message, and according the thrum's question user does not ask directly game recommendation or not asking for a game suggestion immediately, but rather giving information about their preferences or interests. if it is not clear that user want game immediately in the reply of greeting message then Phase_Discovery must be True.
-  - Do not trigger Phase_Discovery if the user input is just random stuff not looking like answer in anyway of the thrum's question.
-  - Phase_Discovery must be set to True when Thrum's last reply is a greeting and the user's response is not a direct request for a game suggestion. If the user’s reply does not clearly ask for a game, or simply shares a preference, mood, or gives a neutral/curious reply, always set Phase_Discovery to True.
-  - if Thrum's last message is about asking user's favourite game or asking about their preferences and user is giving the information about that then Phase_Discovery must be True, even if user input is containing the game title the Phase_Discovery must be true.(carefully check that when user provide the game name it must be ans of thrum's question of favourite game.)
-  - Do not trigger when last user message looking like user is inquiry about game.
-  - if the thrum's last message was about asking anything and user replies positively like good, nice then it must True the Phase_Discovery.
+  - Phase_Discovery must be True when Thrum's last reply is a greeting message, and according to Thrum's question, the user does not directly ask for a game recommendation or game suggestion, but rather gives information about their preferences, interests, or responds with a positive/neutral/curious reply.
+  - Do not trigger Phase_Discovery if the user input is just random stuff not looking like an answer in any way to Thrum's question.
+  -Phase_Discovery must be set to True when Thrum's last reply is a greeting and the user's response is not a direct request for a game suggestion. If the user’s reply does not clearly ask for a game, or simply shares a preference, mood, or gives a neutral/curious reply, always set Phase_Discovery to True.
+  -If Thrum's last message is asking about user's favourite game or preferences, and the user is giving that information (including if they mention a game title in answer to favourite game), then Phase_Discovery must be True. (Carefully check that if the user provides a game name, it must be in response to Thrum’s favourite game question.)
+  - Do not trigger if the user's last message looks like an inquiry about a game and looking like user likes that game or confirm game.
+  - If Thrum's last message was asking anything and the user replies positively (e.g., "good", "nice"), Phase_Discovery must be True.
   
 - **Request_Similar_Game**: Triggered when the user asks for a game similar to one they already like or have played. This intent is activated when the user explicitly asks for a game that is similar to their preferences or past games. this intent is specifically for when the user is looking for a game that matches their previous interests or experiences, not just any game recommendation.
 
@@ -663,17 +663,18 @@ Should you ask for more details to understand what the user means?
 Instructions: (Must check last_thrum_reply and user's msg)
 
 Answer YES only if:
+- The user gives their favorite game (in response to a favorite-game question).
 - The input is genuinely vague, such as mentioning only a broad genre or mood, game_title, or asking for something without detail.
 - The input is too general to confidently recommend a specific game, with no clear style, feeling, or specific request.
 
 Answer NO if:
-- The user gives any specific example, game, or clear description that makes their intent obvious.
+- The user gives any specific example, game, or clear description that makes their intent obvious (but NOT if it’s a favorite-game reply).
 - The input is only a greeting or only mentions a platform(to play game); these are not requests and should not trigger a clarifying question.
 - If user is providing name then must Return No
 - If user is providing just asnwer like yes or no then also it must return No
 - always return NO when user is asking for game immidiatly
 
-Think carefully before answering. Only output YES if you genuinely need more information about user's input. Otherwise, output NO.
+Think carefully before answering. Only output YES if you genuinely need more information about user's input or if they provided a favorite game. Otherwise, output NO.
 
 Output only: YES or NO
 

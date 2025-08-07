@@ -6,8 +6,8 @@ import openai
 import random
 from app.utils.error_handler import safe_call
 from app.services.game_recommend import game_recommendation
-from app.services.thrum_router.phase_delivery import get_most_similar_liked_title
-from app.services.session_memory import SessionMemory
+from app.services.input_classifier import have_to_recommend
+from app.services.thrum_router.phase_delivery import get_most_similar_liked_title, explain_last_game_match
 from app.services.general_prompts import GLOBAL_USER_PROMPT, NO_GAMES_PROMPT
 from app.db.models.session import Session as SessionModel  # adjust import as needed
 from app.db.models.game_recommendations import GameRecommendation
@@ -144,17 +144,9 @@ def is_vague_reply(message):
     return any(word in (message or "").lower() for word in vague_words)
 
 async def ask_discovery_question(db, session) -> str:
-    user_interactions = [i for i in session.interactions if i.sender == SenderEnum.User]
-    last_user_message = user_interactions[-1].content if user_interactions else ""
-    
-    """
-    The one entry point for all ThRUM discovery/onboarding logic.
-    - Always starts with GLOBAL_USER_PROMPT at the very top (client's "system bootloader" rule)
-    - Handles vague/no-input
-    - Each block uses only emotionally generative, friend-style, never survey logic
-    - No templates, no steps, all prompts are written as instructions to an LLM, not fixed phrases
-    - Never mentions "genre", "platform", "preference", "story-driven", or similar
-    """
+    sorted_interactions = sorted(session.interactions, key=lambda i: i.timestamp, reverse=True)
+    user_interactions = [i for i in sorted_interactions if i.sender == SenderEnum.User]
+    last_user_message = user_interactions[0].content if user_interactions else ""
 
     last_user_tone = await get_last_user_tone_from_session(session)
     user_name = getattr(session.user, "name", None) if hasattr(session, "user") and session.user and session.user.name else ""
@@ -517,9 +509,7 @@ async def ask_discovery_question(db, session) -> str:
         """.strip()
 
 @safe_call("Hmm, I had trouble figuring out what to ask next. Let's try something fun instead! 🎮")
-async def handle_discovery(db, session, user,user_input):
-    session_memory = SessionMemory(session,db)
-    memory_context_str = session_memory.to_prompt()
+async def handle_discovery(db, session, user,user_input, classification):
     session.meta_data = session.meta_data or {}
     if "session_phase" not in session.meta_data:
         session.meta_data["session_phase"] = "Onboarding"
@@ -540,72 +530,77 @@ async def handle_discovery(db, session, user,user_input):
         
         session.phase = PhaseEnum.DELIVERY
         session.discovery_questions_asked = 0
-        
-        game, _ = await game_recommendation(db=db, session=session, user=user)
-        print(f"Game recommendation: {game}")
-        platform_link = None
-        last_session_game = None
-        description = None
-        mood = session.exit_mood  or "neutral"
-        if not game:
-            user_prompt = NO_GAMES_PROMPT
+        should_recommend = await have_to_recommend(db=db, user=user, classification=classification, session=session)
+
+        if should_recommend:
+            game, _ = await game_recommendation(db=db, session=session, user=user)
+            print(f"Game recommendation: {game}")
+            platform_link = None
+            last_session_game = None
+            description = None
+            mood = session.exit_mood  or "neutral"
+            if not game:
+                user_prompt = NO_GAMES_PROMPT
+                return user_prompt
+            # Pull platform info
+            preferred_platforms = session.platform_preference or []
+            user_platform = preferred_platforms[-1] if preferred_platforms else None
+            game_platforms = game.get("platforms", [])
+            platform_link = game.get("link", None)
+            request_link = session.meta_data.get("request_link", False)
+            description = game.get("description",None)
+            # Dynamic platform line (not templated)
+            if user_platform and user_platform in game_platforms:
+                platform_note = f"It’s available on your preferred platform: {user_platform}."
+            elif user_platform:
+                available = ", ".join(game_platforms)
+                platform_note = (
+                    f"It’s not on your usual platform ({user_platform}), "
+                    f"but is available on: {available}."
+                )
+            else:
+                platform_note = f"Available on: {', '.join(game_platforms)}."
+
+            # 🧠 User Prompt (fresh rec after rejection, warm tone, 20–25 words)
+            is_last_session_game = game.get("last_session_game",{}).get("is_last_session_game") 
+            if is_last_session_game:
+                last_session_game = game.get("last_session_game", {}).get("title")
+            tone = session.meta_data.get("tone", "neutral")
+            liked_game = await get_most_similar_liked_title(db=db, session_id=session.session_id, current_title = game.get("title", None))
+            # 🧠 Final Prompt
+            user_prompt = f"""
+                    {GLOBAL_USER_PROMPT}
+                    ---
+                THRUM — FRIEND MODE: GAME RECOMMENDATION
+
+                    You are THRUM — the friend who remembers what’s been tried and never repeats. You drop game suggestions naturally, like texting your best mate.
+
+                    Recommend **{game['title']}** using a {mood} mood and {tone} tone.
+
+                    Use this game description for inspiration: {description}
+                    The user previously liked the game: "{liked_game}"
+
+                    INCLUDE:  
+                    - If user has {liked_game} in their memory, You can draw a connection to the liked game, but don’t be obvious or repetitive. No hardcoded lines. Avoid templates like “If you liked X, you’ll love Y.”
+                    - Reflect the user's last message so they feel heard. 
+                    - A Draper-style mini-story (3–4 lines max) explaining why this game fits based on USER MEMORY & RECENT CHAT, making it feel personalized.  
+                    - Platform info ({platform_note}) mentioned casually, like a friend dropping a hint.  
+                    - Bold the title: **{game['title']}**.  
+                    - End with a fun, playful, or emotionally tone-matched line that invites a reply — a soft nudge or spark fitting the rhythm. Never robotic or templated prompts like “want more?”.
+
+                    NEVER:  
+                    - NEVER Use robotic phrasing or generic openers.  
+                    - NEVER Mention genres, filters, or system logic.  
+                    - NEVER Say “I recommend” or “available on…”.  
+                    - NEVER Mention or suggest any other game than **{game['title']}**. No invented or recalled games outside the data.
+
+                    Start mid-thought, as if texting a close friend.
+                """.strip()
             return user_prompt
-        # Pull platform info
-        preferred_platforms = session.platform_preference or []
-        user_platform = preferred_platforms[-1] if preferred_platforms else None
-        game_platforms = game.get("platforms", [])
-        platform_link = game.get("link", None)
-        request_link = session.meta_data.get("request_link", False)
-        description = game.get("description",None)
-        # Dynamic platform line (not templated)
-        if user_platform and user_platform in game_platforms:
-            platform_note = f"It’s available on your preferred platform: {user_platform}."
-        elif user_platform:
-            available = ", ".join(game_platforms)
-            platform_note = (
-                f"It’s not on your usual platform ({user_platform}), "
-                f"but is available on: {available}."
-            )
         else:
-            platform_note = f"Available on: {', '.join(game_platforms)}."
-
-        # 🧠 User Prompt (fresh rec after rejection, warm tone, 20–25 words)
-        is_last_session_game = game.get("last_session_game",{}).get("is_last_session_game") 
-        if is_last_session_game:
-            last_session_game = game.get("last_session_game", {}).get("title")
-        tone = session.meta_data.get("tone", "neutral")
-        liked_game = await get_most_similar_liked_title(db=db, session_id=session.session_id, current_title = game.get("title", None))
-        # 🧠 Final Prompt
-        user_prompt = f"""
-                {GLOBAL_USER_PROMPT}
-                ---
-               THRUM — FRIEND MODE: GAME RECOMMENDATION
-
-                You are THRUM — the friend who remembers what’s been tried and never repeats. You drop game suggestions naturally, like texting your best mate.
-
-                Recommend **{game['title']}** using a {mood} mood and {tone} tone.
-
-                Use this game description for inspiration: {description}
-                The user previously liked the game: "{liked_game}"
-
-                INCLUDE:  
-                - If user has {liked_game} in their memory, You can draw a connection to the liked game, but don’t be obvious or repetitive. No hardcoded lines. Avoid templates like “If you liked X, you’ll love Y.”
-                - Reflect the user's last message so they feel heard. 
-                - A Draper-style mini-story (3–4 lines max) explaining why this game fits based on USER MEMORY & RECENT CHAT, making it feel personalized.  
-                - Platform info ({platform_note}) mentioned casually, like a friend dropping a hint.  
-                - Bold the title: **{game['title']}**.  
-                - End with a fun, playful, or emotionally tone-matched line that invites a reply — a soft nudge or spark fitting the rhythm. Never robotic or templated prompts like “want more?”.
-
-                NEVER:  
-                - NEVER Use robotic phrasing or generic openers.  
-                - NEVER Mention genres, filters, or system logic.  
-                - NEVER Say “I recommend” or “available on…”.  
-                - NEVER Mention or suggest any other game than **{game['title']}**. No invented or recalled games outside the data.
-
-                Start mid-thought, as if texting a close friend.
-            """.strip()
-        return user_prompt
-
+            # If no new recommendation is needed, explain the last recommended game based on user feedback
+            explanation_response = await explain_last_game_match(session=session)
+            return explanation_response  # Return the explanation of the last game
     else:
         question = await ask_discovery_question(db, session)
         session.discovery_questions_asked += 1

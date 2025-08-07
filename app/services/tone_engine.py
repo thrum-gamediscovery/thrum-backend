@@ -14,7 +14,8 @@ async def get_last_user_tone_from_session(session) -> str:
     if not session or not session.interactions:
         return "neutral"
 
-    user_interactions = [i for i in session.interactions if i.sender == SenderEnum.User]
+    sorted_interactions = sorted(session.interactions, key=lambda i: i.timestamp, reverse=True)
+    user_interactions = [i for i in sorted_interactions if i.sender == SenderEnum.User]
     if not user_interactions:
         return "neutral"
 

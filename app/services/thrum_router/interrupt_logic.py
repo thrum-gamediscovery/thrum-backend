@@ -7,6 +7,17 @@ from app.services.thrum_router.phase_confirmation import handle_confirmed_game
 from app.services.thrum_router.share_with_friends import share_thrum_ping, share_thrum_message
 from app.services.thrum_router.phase_other import dynamic_faq_gpt, handle_other_input, generate_low_effort_response, ask_ambiguity_clarification
 
+async def should_trigger_referral(session, classification_intent):
+    if session.meta_data.get("ask_for_rec_friend", False)  and (classification_intent.get("Give_Info") or classification_intent.get("Phase_Discovery") or classification_intent.get("Confirm_Game") or classification_intent.get("Other")):
+        if session.shared_with_friend:
+            return False
+        if not session.meta_data.get("dont_give_name", False):
+            return False  # Wait until name is collected
+        if session.meta_data.get("message_count_since_name", 0) < 3:
+            return False
+        return True
+    return False
+    
 async def check_intent_override(db, user_input, user, session, classification, intrection):
     from app.services.thrum_router.phase_discovery import handle_discovery
     from app.services.thrum_router.phase_followup import handle_game_inquiry
@@ -32,8 +43,8 @@ async def check_intent_override(db, user_input, user, session, classification, i
     intrection.classification = {"input" : classification, "intent" : classification_intent, "clarification": clarification_input}
     session.meta_data["ambiguity_clarification"] = False
     db.commit()
-    
-    if session.meta_data.get("ask_for_rec_friend")  and (classification_intent.get("Give_Info") or classification_intent.get("Other") or classification_intent.get("Phase_Discovery")):
+    trigger_referral = await should_trigger_referral(session=session,classification_intent=classification_intent)
+    if trigger_referral:
         session.meta_data["ask_for_rec_friend"] = False
         session.phase = PhaseEnum.DISCOVERY
         return await share_thrum_ping(session)
@@ -42,7 +53,7 @@ async def check_intent_override(db, user_input, user, session, classification, i
         return await generate_low_effort_response(session)
     # Check if the user is in the discovery phase
     if classification_intent.get("Phase_Discovery"):
-        return await handle_discovery(db=db, session=session, user=user,user_input=user_input)
+        return await handle_discovery(db=db, session=session, user=user,user_input=user_input,classification=classification)
     
     # Handle rejection of recommendation
     if classification_intent.get("Reject_Recommendation"):
@@ -51,17 +62,17 @@ async def check_intent_override(db, user_input, user, session, classification, i
     # Handle request for quick game recommendation
     elif classification_intent.get("Request_Quick_Recommendation"):
         session.phase = PhaseEnum.DELIVERY
-        return await deliver_game_immediately(db, user, session,user_input=user_input)
+        return await deliver_game_immediately(db, user, session,user_input=user_input, classification=classification)
 
     # Handle user inquiry about a game
     elif classification_intent.get("Inquire_About_Game"):
         session.phase = PhaseEnum.FOLLOWUP
-        return await handle_game_inquiry(db, user, session, user_input)
+        return await handle_game_inquiry(db, user, session, user_input, classification)
 
     # Handle information provided by the user
     elif classification_intent.get("Give_Info"):
         session.phase = PhaseEnum.DISCOVERY
-        return await handle_discovery(db=db, session=session, user=user,user_input=user_input)
+        return await handle_discovery(db=db, session=session, user=user,user_input=user_input,classification=classification)
 
     # Handle user opting out
     elif classification_intent.get("Opt_Out"):
@@ -71,7 +82,7 @@ async def check_intent_override(db, user_input, user, session, classification, i
     # Handle user confirming a game recommendation
     elif classification_intent.get("Confirm_Game"):
         session.phase = PhaseEnum.CONFIRMATION
-        return await handle_confirmed_game(db, user, session)
+        return await handle_confirmed_game(db, user, session, classification)
     
     elif classification_intent.get("want_to_share_friend"):
         if session.shared_with_friend:
@@ -101,7 +112,7 @@ async def check_intent_override(db, user_input, user, session, classification, i
 
     if classification_intent.get("Request_Similar_Game"):
         session.phase = PhaseEnum.DELIVERY
-        return await diliver_similar_game(db, user, session,user_input=user_input)
+        return await diliver_similar_game(db, user, session,user_input=user_input,classification=classification)
     
     # Default handling if no specific intent is detected
     return None

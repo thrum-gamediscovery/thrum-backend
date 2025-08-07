@@ -1,12 +1,8 @@
 from app.services.game_recommend import game_recommendation
 from app.services.input_classifier import have_to_recommend
-from app.db.models.enums import PhaseEnum, SenderEnum
-from app.db.models.session import Session 
-from datetime import datetime, timedelta
-from app.db.session import SessionLocal
-from app.utils.whatsapp import send_whatsapp_message
+from app.db.models.enums import PhaseEnum
+from app.db.models.session import Session
 from app.services.session_memory import SessionMemory
-from app.services.modify_thrum_reply import format_reply
 from app.services.general_prompts import GLOBAL_USER_PROMPT, NO_GAMES_PROMPT
 from app.db.models.game_recommendations import GameRecommendation
 from app.db.models.game import Game
@@ -175,6 +171,13 @@ async def handle_delivery(db: Session, session, user, classification):
         return explanation_response  # Return the explanation of the last game
 
 async def handle_reject_Recommendation(db,session, user,  classification,user_input):
+    if classification.get("find_game", None) is None or classification.get("find_game") == "None":
+        prompt = f"""
+            {GLOBAL_USER_PROMPT}
+            ---
+            You don't know which game the user is asking or talking about. Ask them which game they're talking about in a friendly way. Keep it brief and natural.
+        """.strip()
+        return prompt
     if session.meta_data.get("ask_confirmation", False):
         tone = session.meta_data.get("tone", "neutral")
         print("---------------:handle_reject_Recommendation:-----------------")
@@ -205,7 +208,7 @@ async def handle_reject_Recommendation(db,session, user,  classification,user_in
         from app.services.thrum_router.phase_discovery import handle_discovery
         if session.game_rejection_count >= 2:
             session.phase = PhaseEnum.DISCOVERY
-            return await handle_discovery(db=db, session=session, user=user,user_input=user_input)
+            return await handle_discovery(db=db, session=session, user=user,user_input=user_input,classification=classification)
         else:
             should_recommend = await have_to_recommend(db=db, user=user, classification=classification, session=session)
             session_memory = SessionMemory(session,db)
@@ -273,7 +276,7 @@ async def handle_reject_Recommendation(db,session, user,  classification,user_in
                 explanation_response = await explain_last_game_match(session=session)
                 return explanation_response
             
-async def deliver_game_immediately(db: Session, user, session, user_input) -> str:
+async def deliver_game_immediately(db: Session, user, session, user_input, classification) -> str:
     from app.services.thrum_router.phase_discovery import handle_discovery
     """
     Instantly delivers a game recommendation, skipping discovery.
@@ -284,7 +287,7 @@ async def deliver_game_immediately(db: Session, user, session, user_input) -> st
     session_memory = SessionMemory(session,db)
     if session.game_rejection_count >= 2:
             session.phase = PhaseEnum.DISCOVERY
-            return await handle_discovery(db=db, session=session, user=user,user_input=user_input)
+            return await handle_discovery(db=db, session=session, user=user,user_input=user_input,classification=classification)
     else:
         game, _ = await game_recommendation(db=db, user=user, session=session)
         print(f"Game recommendation: {game}")
@@ -353,7 +356,7 @@ async def deliver_game_immediately(db: Session, user, session, user_input) -> st
             """.strip()
             return user_prompt
 
-async def diliver_similar_game(db: Session, user, session, user_input) -> str:
+async def diliver_similar_game(db: Session, user, session, user_input, classification) -> str:
     from app.services.thrum_router.phase_discovery import handle_discovery
     """
     Delivers a game similar to the user's last liked game.
@@ -363,7 +366,7 @@ async def diliver_similar_game(db: Session, user, session, user_input) -> str:
     session_memory = SessionMemory(session,db)
     if session.game_rejection_count >= 2:
         session.phase = PhaseEnum.DISCOVERY
-        return await handle_discovery(db=db, session=session, user=user,user_input=user_input)
+        return await handle_discovery(db=db, session=session, user=user,user_input=user_input,classification=classification)
     game, _ = await game_recommendation(db=db, user=user, session=session)
     print(f"Similar game recommendation: {game}")
     if not game:

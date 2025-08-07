@@ -241,7 +241,8 @@ def update_user_pacing(session):
         return
     
     # Get user interactions only
-    user_interactions = [i for i in session.interactions if i.sender == SenderEnum.User]
+    sorted_interactions = sorted(session.interactions, key=lambda i: i.timestamp, reverse=True)
+    user_interactions = [i for i in sorted_interactions if i.sender == SenderEnum.User]
     if len(user_interactions) < 2:
         return
     
