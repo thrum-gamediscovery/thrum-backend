@@ -104,7 +104,12 @@ async def whatsapp_webhook(
     
     # ---------- 7.1. Update User Pacing ----------
     update_user_pacing(session)
+    if session.meta_data is None:
+        session.meta_data = {}
+    if session.meta_data.get("dont_give_name"):
+        session.meta_data["message_count_since_name"] = session.meta_data.get("message_count_since_name", 0) + 1
     db.commit()
+    
     session.followup_triggered = False
     session.intent_override_triggered = False
     if user.awaiting_reply:

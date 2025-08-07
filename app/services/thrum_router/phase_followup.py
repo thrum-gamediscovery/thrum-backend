@@ -84,7 +84,7 @@ async def ask_followup_que(session) -> str:
     return response.choices[0].message.content.strip()
 
 
-async def handle_game_inquiry(db: Session, user, session, user_input: str) -> str:
+async def handle_game_inquiry(db: Session, user, session, user_input: str, classification) -> str:
     thrum_interactions = [i for i in session.interactions if i.sender == SenderEnum.Thrum]
     # Sort by timestamp descending
     thrum_interactions = sorted(thrum_interactions, key=lambda x: x.timestamp, reverse=True)
@@ -93,6 +93,15 @@ async def handle_game_inquiry(db: Session, user, session, user_input: str) -> st
     game_id = session.meta_data.get("find_game")
     request_link = session.meta_data.get("request_link", False)
     session_memory = SessionMemory(session,db)
+    
+    if classification.get("find_game", None) is None or classification.get("find_game") == "None":
+        prompt = f"""
+            {GLOBAL_USER_PROMPT}
+            ---
+            You don't know which game the user is asking or talking about. Ask them which game they're talking about in a friendly way. Keep it brief and natural.
+        """.strip()
+        return prompt
+    thrum_interactions = [i for i in session.interactions if i.sender == SenderEnum.Thrum]
     
     # Set game_interest_confirmed flag when user inquires about a game
     session.meta_data = session.meta_data or {}

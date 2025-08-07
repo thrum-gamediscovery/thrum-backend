@@ -21,7 +21,7 @@ def get_unique_prompt(session, prompt_list, meta_key):
     session.meta_data[meta_key] = used
     return prompt_list[chosen]
 
-async def handle_confirmed_game(db, user, session):
+async def handle_confirmed_game(db, user, session, classification):
     """
     Handle when user accepts a game recommendation.
     
@@ -32,6 +32,13 @@ async def handle_confirmed_game(db, user, session):
     - Never say "hope you enjoy" or "thanks"
     - Keep it playful, curious, or chill based on their tone
     """
+    if classification.get("find_game", None) is None or classification.get("find_game") == "None":
+        prompt = f"""
+            {GLOBAL_USER_PROMPT}
+            ---
+            You don't know which game the user is asking or talking about. Ask them which game they're talking about in a friendly way. Keep it brief and natural.
+        """.strip()
+        return prompt
     game_title = session.last_recommended_game
     game_id = db.query(Game).filter_by(title=game_title).first().game_id if game_title else None
     tone = session.meta_data.get("tone", "friendly")

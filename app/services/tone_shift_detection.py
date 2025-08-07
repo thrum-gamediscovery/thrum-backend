@@ -76,8 +76,9 @@ async def detect_user_is_cold(session, db) -> bool:
     Returns True if the user has been 'cold' (dry, closed, or neutral) in at least 2 of their last 3 messages.
     Uses LLM to classify each message's tone from a fixed set of allowed labels.
     """
-    
-    user_msgs = [i for i in session.interactions if i.sender == SenderEnum.User][-3:]
+    sorted_interactions = sorted(session.interactions, key=lambda i: i.timestamp)
+    user_interactions = [i for i in sorted_interactions if i.sender == SenderEnum.User]
+    user_msgs = user_interactions[-3:]
     if len(user_msgs) < 2:
         return False
 
