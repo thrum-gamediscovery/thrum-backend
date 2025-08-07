@@ -2,7 +2,7 @@ from app.services.input_classifier import classify_user_intent, classify_input_a
 from app.services.thrum_router.phase_delivery import handle_reject_Recommendation, deliver_game_immediately, diliver_similar_game
 from app.db.models.enums import PhaseEnum, SenderEnum
 from app.services.thrum_router.phase_intro import handle_intro
-from app.services.thrum_router.phase_ending import handle_ending, handle_soft_ending
+from app.services.thrum_router.phase_ending import handle_ending
 from app.services.thrum_router.phase_confirmation import handle_confirmed_game
 from app.services.thrum_router.share_with_friends import share_thrum_ping, share_thrum_message
 from app.services.thrum_router.phase_other import dynamic_faq_gpt, handle_other_input, generate_low_effort_response, ask_ambiguity_clarification
