@@ -8,7 +8,7 @@ from app.services.thrum_router.share_with_friends import share_thrum_ping, share
 from app.services.thrum_router.phase_other import dynamic_faq_gpt, handle_other_input, generate_low_effort_response, ask_ambiguity_clarification
 
 async def should_trigger_referral(session, classification_intent):
-    if session.meta_data.get("ask_for_rec_friend", False)  and (classification_intent.get("Give_Info") or classification_intent.get("Phase_Discovery") or classification_intent.get("Confirm_Game") or classification_intent.get("Other")):
+    if session.meta_data.get("ask_for_rec_friend", False)  and (classification_intent.get("Other") or classification_intent.get("Confirm_Game")):
         if session.shared_with_friend:
             return False
         if not session.meta_data.get("dont_give_name", False):

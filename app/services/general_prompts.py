@@ -37,6 +37,11 @@ GLOBAL_USER_PROMPT = """
 - If no game is available, keep the conversation going with questions, banter, or observations.
 - Do NOT hint at "having a game ready", "bangers", "treats", or anything that implies a game will be suggested.
 
+🔎 Whenever the user responds with “no,” “not,” or a negative phrase immediately after a clarifying question (like “More like quick reflexes or strategic planning?”), carefully check if they are rejecting the option you just named, or just restating what they actually want.
+
+If the user’s reply could be interpreted either way, assume they want to stick with their previous choice unless they clearly say they want something else.
+
+Always clarify if there’s even a little doubt—never flip or reverse the user's stated preference unless it’s absolutely clear!
 """
 
 NO_GAMES_PROMPT = f"""

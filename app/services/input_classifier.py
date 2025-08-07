@@ -278,6 +278,10 @@ You are a classification engine inside a mood-based game recommendation bot.
 Your job is to extract and return the following user profile fields based on the user's input message.  
 You must infer from both keywords and tone—even if the user is casual, brief, or vague. Extract even subtle clues.
 
+Strict rules:
+- Must read RECENT CHAT to classify the user input Must check last message (because user mostly answer based on last message.).
+- Must slay on user's tone so it would be helpful to classify the user input.
+
 ---
 
 🎯 FIELDS TO EXTRACT:
@@ -429,7 +433,7 @@ You must infer from both keywords and tone—even if the user is casual, brief, 
   → Focus on all NEGATIVE experiences, unwanted features, or game elements the user wishes to avoid.
   → Include anything the user describes as frustrating, boring, stressful, unappealing, annoying, or not enjoyable.
   → Extract every word or phrase about bad gameplay patterns, disliked mechanics, monetization issues, emotional triggers, or negative play experiences.
-  → Look for any mention of what the user does NOT like in games, even if it’s subtle or implied (such as “no pay-to-win,” “hate grinding,” “too easy,” etc.).
+  → Look for any mention of what the user does NOT like in games, even if it’s subtle or implied (such as “hate grinding,” “too easy,” etc.).
   → Do NOT skip implied dislikes or features the user reacts negatively to, even if not directly stated as “dislike.”
   → Return all such terms as an array of strings; if not present, return [].
 
@@ -570,6 +574,16 @@ Now classify into the format below.
     print(f"Classification Result: {result}")
     return result
 
+async def safe_to_list(val):
+    """Ensure value is a list of strings (ignore non-str)."""
+    if val is None:
+        return []
+    if isinstance(val, list):
+        return [v for v in val if isinstance(v, str)]
+    if isinstance(val, str):
+        return [val]
+    return []
+
 async def have_to_recommend(db: Session, user, classification: dict, session) -> bool:
     # Retrieve the last game recommendation for the user in the current session
     last_rec = db.query(GameRecommendation).filter(
@@ -580,71 +594,83 @@ async def have_to_recommend(db: Session, user, classification: dict, session) ->
     if not last_rec:
         return True
     
-    # Extract the user's current preferences from the classification dictionary
+     # Extract user's current preferences from classification
     user_genre = classification.get('genre', None)
     user_mood = classification.get('mood', None)
     user_platform = classification.get('platform_pref', None)
     user_reject_tags = classification.get('reject_tags', [])
     user_game_feedback = classification.get("game_feedback", [])
 
-    # Extract the preferences of the last recommended game
+    # Extract preferences of last recommended game
     today = datetime.utcnow().date().isoformat()
     last_rec_mood = user.mood_tags.get(today)
-    last_rec_genre = last_rec.game.genre if last_rec.game else None
-    last_rec_platforms = [gp.platform for gp in last_rec.game.platforms] if last_rec.game else []  # Platforms from GamePlatform table
-    last_rec_reject_tags = user.reject_tags.get("genre", [])  # Extracted from the user's reject tags
+    last_rec_genre = last_rec.game.genre if last_rec.game else []
+    last_rec_platforms = [gp.platform for gp in last_rec.game.platforms] if last_rec.game else []
+    # NOTE: user.reject_tags may have categories. We'll use genre as example.
+    last_rec_reject_tags = user.reject_tags.get("genre", []) if getattr(user, "reject_tags", None) else []
 
-    # Fetch the genre preferences from the user's profile (UserProfile table)
-    user_profile_genre = user.genre_prefs.get(today, []) if user.genre_prefs else []
-    user_profile_platform = user.platform_prefs.get(today, []) if user.platform_prefs else []
+    # Fetch profile preferences (UserProfile table)
+    user_profile_genre = user.genre_prefs.get(today, []) if getattr(user, "genre_prefs", None) else []
+    user_profile_platform = user.platform_prefs.get(today, []) if getattr(user, "platform_prefs", None) else []
 
+    # Normalize all to lists of strings
+    user_genre_list = await safe_to_list(user_genre)
+    last_rec_genre_list = await safe_to_list(last_rec_genre)
+    user_profile_genre_list = await safe_to_list(user_profile_genre)
+    user_platform_list = await safe_to_list(user_platform)
+    last_rec_platforms_list = await safe_to_list(last_rec_platforms)
+    user_profile_platform_list = await safe_to_list(user_profile_platform)
+    user_reject_genres = await safe_to_list(last_rec_reject_tags)
 
-    # Check if the genre in classification matches the user's profile genre
-    if user_genre:
-        # Check if any genre in user_profile_genre matches the genres in last_rec_genre
-        if user_profile_genre and not any(user_genre.lower() in genre.lower() for genre in last_rec_genre):
+    # GENRE CHECK
+    if user_genre_list:
+        # Check if any genre in user_profile_genre matches genres in last_rec_genre_list
+        if user_profile_genre_list and not any(
+            ug.lower() in (genre.lower() for genre in last_rec_genre_list)
+            for ug in user_profile_genre_list
+        ):
             last_rec.accepted = False
-            last_rec.reason = f"likes specific {user_genre} games"
+            last_rec.reason = f"likes specific {user_genre_list} games"
             db.commit()
             return True  # Genre mismatch, new recommendation needed
-    
-    # # Check if the mood in classification matches the user's last mood
+
+    # MOOD CHECK (Uncomment if you want to use it)
     # if user_mood:
-    #     today = datetime.utcnow().date().isoformat()
     #     if user.mood_tags.get(today) != last_rec_mood:
     #         last_rec.accepted = False
     #         last_rec.reason = f"want game of specific {user_mood}"
     #         db.commit()
     #         return True  # Mood mismatch, new recommendation needed
 
-    # Check if the platform preference matches any of the platforms in last_rec_platforms
-    if user_platform:
-        if user_profile_platform and not any(p.lower() in [lp.lower() for lp in last_rec_platforms] for p in user_profile_platform):
+    # PLATFORM CHECK
+    if user_platform_list:
+        if user_profile_platform_list and not any(
+            p.lower() in (lp.lower() for lp in last_rec_platforms_list)
+            for p in user_profile_platform_list
+        ):
             last_rec.accepted = False
-            last_rec.reason = f"want {user_platform} games but this is not in that platform"
+            last_rec.reason = f"want {user_platform_list} games but this is not in that platform"
             db.commit()
             return True  # Platform mismatch
 
-    # Check for reject tag mismatches
-    # Flatten all tags from user.reject_tags across all categories
-    user_reject_genres = user.reject_tags.get("genre", []) if user.reject_tags else []
+    # REJECT TAG (GENRE) CHECK
     last_genre_reject_tag = user_reject_genres[-1] if user_reject_genres else None
 
-    if last_genre_reject_tag and last_rec_genre:
-        if any(last_genre_reject_tag.lower() == genre.lower() for genre in last_rec_genre):
-            print(f"❌ Last rejected genre '{last_genre_reject_tag}' is present in game's genre: {last_rec_genre}")
+    if last_genre_reject_tag and last_rec_genre_list:
+        if any(last_genre_reject_tag.lower() == genre.lower() for genre in last_rec_genre_list):
+            print(f"❌ Last rejected genre '{last_genre_reject_tag}' is present in game's genre: {last_rec_genre_list}")
             last_rec.accepted = False
             last_rec.reason = f"user recently rejected genre: {last_genre_reject_tag}"
             db.commit()
             return True
 
-    # Loop through feedbacks and update last_rec if any are negative
+    # GAME FEEDBACK CHECK
     for fb in user_game_feedback:
         if isinstance(fb, dict) and fb.get("accepted") is False:
             print("🛑 Feedback: user rejected a game")
             return True  # Trigger new recommendation
 
-    return False  # No new recommendation needed, preferences matchs
+    return False  # No new recommendation needed, preferences match
 
 async def classify_input_ambiguity(db,session,user,user_input, last_thrum_reply):
   tone = session.meta_data.get("tone",'Nutrual')
