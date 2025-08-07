@@ -35,8 +35,9 @@ async def send_typing_indicator(phone_number: str, session, delay: float = 5.0):
         return
 
     # Get last user message from interactions
-    user_interactions = [i for i in session.interactions if i.sender == SenderEnum.User]
-    user_input = user_interactions[-1].content if user_interactions else ""
+    sorted_interactions = sorted(session.interactions, key=lambda i: i.timestamp, reverse=True)
+    user_interactions = [i for i in sorted_interactions if i.sender == SenderEnum.User]
+    user_input = user_interactions[0].content if user_interactions else ""
     
     # Cancel if goodbye or session ending
     if (session.phase == PhaseEnum.ENDING or 

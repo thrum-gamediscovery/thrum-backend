@@ -248,7 +248,9 @@ async def classify_user_input(db,session, user_input: str) -> dict | str:
     from app.services.session_memory import SessionMemory
     # Get the last message from Thrum to include as context
     thrum_interactions = [i for i in session.interactions if i.sender == SenderEnum.Thrum]
-    last_thrum_reply = thrum_interactions[-1].content if thrum_interactions else ""
+    # Sort by timestamp descending
+    thrum_interactions = sorted(thrum_interactions, key=lambda x: x.timestamp, reverse=True)
+    last_thrum_reply = thrum_interactions[0].content if thrum_interactions else ""
     last_game_obj = session.game_recommendations[-1].game if session.game_recommendations else None
     if last_game_obj is not None:
         last_game = {
@@ -287,12 +289,12 @@ You must infer from both keywords and tone—even if the user is casual, brief, 
 2. mood (list of strings)  
    → Emotion or energy. e.g., relaxed, excited, tired, focused, bored, sad, hyped.  
    → Use tone, emojis, or even context like “long day” → “tired”.  
-   → If unsure, return "None".
+   → If unsure, return [].
    → if user input contains mood from the given list, then directly return from this [happy,sad,angry,anxious,relaxed,excited,bored,focused,restless,playful,cozy,lonely,confident,insecure,curious,frustrated,romantic,tired,energized,melancholic,nostalgic,competitive,peaceful,social,introverted,extroverted,motivated,lazy,grateful,moody,overwhelmed,optimistic,pessimistic,calm,stressed,hopeful,ashamed,proud,guilty,shy,fearful,inspired,jealous,empathetic,creative,apathetic,sarcastic,weird,neutral,excitable]
    
 3. game_vibe (list of strings)  
    → How the game should feel: relaxing, intense, wholesome, adventurous, spooky, cheerful, emotional, mysterious, dark, fast-paced, thoughtful.
-   → If not mentioned, return "None".
+   → If not mentioned, return [].
    → if user directly give vibe then directly return from this [adventurous,beautiful,challenging,cheerful,comedic,contemplative,creative,dark,destructive,disconcerting,energetic,epic,exciting,ingenious,laidback,liberating,light-hearted,morbid,mysterious,optimistic,"power fantasy",relaxing,sentimental,serious,surreal,suspenseful,tragic,wholesome]
 
 4. genre (list of strings)  
@@ -307,23 +309,23 @@ You must infer from both keywords and tone—even if the user is casual, brief, 
     - “music” → music
     - “car” or “racing” → racing or driving
     - new genre added dynamically based on user input
-  → If not explicitly mentioned or if input cannot be mapped directly, return "None".  
+  → If not explicitly mentioned or if input cannot be mapped directly, return [].  
   → This classification system is flexible and adapts to new terms, ensuring that any user-specific genre or activity is categorized appropriately without manual mapping.  
 
   → The goal is to identify what *feels* like a genre by detecting **player interaction patterns**, such as:
     - **Exploration, Racing, Fighting, Simulation**, etc.
   → Do not rely on hardcoded genre names but instead dynamically map based on user language and gameplay description.
   → If Thrum asks the user if they want to continue with a previously used genre (genre mention in thrum's message) and the user affirms (e.g., "yes", "same", "sure") then return the genre.  
-  → If the user declines or says they want something different, do not return genre and set genre to "None".
+  → If the user declines or says they want something different, do not return genre and set genre to [].
 
 
 5. favourite_games (list of strings)
 → Only return the exact title of the game they refer to as their favorite or most liked.
-→ If the user does not mention a favorite, return "None".
+→ If the user does not mention a favorite, return [].
 → If the user mentions more than one, choose the one they describe most positively.
 → Do not infer, guess, or include games that are not explicitly mentioned as a favorite.
 → Your response must only be the game title as a string (no explanation or extra text).
-→ If unclear or not mentioned, return "None".
+→ If unclear or not mentioned, return [].
   
 6. platform_pref (list of strings)
    → Use platform **exactly as provided** if it matches one of these:
@@ -334,9 +336,9 @@ You must infer from both keywords and tone—even if the user is casual, brief, 
    → Also accept these generic terms as-is and return them:
      "mobile", "pc", "console", "Epic", "stadia", "gog", "steam", "wii"
    → Do NOT map or infer platforms from phrases like “on my couch” or “on the train” — only extract explicit matches.
-   → If not mentioned, return "None".
+   → If not mentioned, return [.
    → If Thrum asks the user if they want to continue with a previously used platform (platform mention in thrum's message) and the user affirms (e.g., "yes", "same", "sure") then return the platform.  
-   → If the user declines or says they want something different, do not return platform and set platform to "None".
+   → If the user declines or says they want something different, do not return platform and set platform to [.
 
 7. region (string)  
    → Location like India, US, UK, etc.  
@@ -364,7 +366,7 @@ You must infer from both keywords and tone—even if the user is casual, brief, 
      - “Weekend gamer” → "weekends"  
      - “On the train” → "commute"  
      - “Before bed” → "night"
-   → If not mentioned, return "None".
+   → If not mentioned, return [.
 
 11. reject_tags (list of strings)
    → What they dislike. Genres, moods, mechanics, or platforms. even if the user wants to avoid certain game platforms or genres, or if they express a dislike for specific game genre or platforms, these should be captured here.

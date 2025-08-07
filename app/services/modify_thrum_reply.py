@@ -69,9 +69,17 @@ USER_TONE_TO_BOT_EMOJIS = {
 }
 
 async def strip_outer_quotes(text):
-    # Removes only if the whole string is wrapped in a single pair of matching quotes
-    if text and ((text.startswith('"') and text.endswith('"')) or (text.startswith("'") and text.endswith("'"))):
-        return text[1:-1]
+    # List of supported quote pairs (add more if needed)
+    quote_pairs = [
+        ('"', '"'),
+        ("'", "'"),
+        ('“', '”'),
+        ('‘', '’')
+    ]
+    if text and len(text) >= 2:
+        for left, right in quote_pairs:
+            if text.startswith(left) and text.endswith(right):
+                return text[1:-1]
     return text
 
 async def static_tone_modifier(reply: str, tone: str) -> str:
@@ -110,7 +118,9 @@ async def format_reply(db,session, user_input, user_prompt):
         user_prompt = await user_prompt
     # Get last Thrum reply
     thrum_interactions = [i for i in session.interactions if i.sender == SenderEnum.Thrum]
-    last_thrum_reply = thrum_interactions[-1].content if thrum_interactions else ""
+    # Sort by timestamp descending
+    thrum_interactions = sorted(thrum_interactions, key=lambda x: x.timestamp, reverse=True)
+    last_thrum_reply = thrum_interactions[0].content if thrum_interactions else ""
 
     # Last recommended game (just using game name or fallback)
     last_game_obj = session.game_recommendations[-1].game if session.game_recommendations else None

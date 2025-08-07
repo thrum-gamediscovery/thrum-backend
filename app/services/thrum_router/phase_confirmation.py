@@ -37,8 +37,9 @@ async def handle_confirmed_game(db, user, session):
     tone = session.meta_data.get("tone", "friendly")
     
     # 1. Get user's last message (optional, but keep if you use user_input below)
-    user_interactions = [i for i in session.interactions if i.sender == SenderEnum.User]
-    user_input = user_interactions[-1].content if user_interactions else ""
+    sorted_interactions = sorted(session.interactions, key=lambda i: i.timestamp, reverse=True)
+    user_interactions = [i for i in sorted_interactions if i.sender == SenderEnum.User]
+    user_input = user_interactions[0].content if user_interactions else ""
 
     # 2. Get all platforms available for this game
     platform_rows = db.query(GamePlatform.platform).filter_by(game_id=game_id).all()

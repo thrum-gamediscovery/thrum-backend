@@ -86,7 +86,9 @@ async def ask_followup_que(session) -> str:
 
 async def handle_game_inquiry(db: Session, user, session, user_input: str) -> str:
     thrum_interactions = [i for i in session.interactions if i.sender == SenderEnum.Thrum]
-    last_thrum_reply = thrum_interactions[-1].content if thrum_interactions else ""
+    # Sort by timestamp descending
+    thrum_interactions = sorted(thrum_interactions, key=lambda x: x.timestamp, reverse=True)
+    last_thrum_reply = thrum_interactions[0].content if thrum_interactions else ""
     
     game_id = session.meta_data.get("find_game")
     request_link = session.meta_data.get("request_link", False)

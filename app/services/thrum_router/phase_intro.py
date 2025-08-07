@@ -35,10 +35,11 @@ async def handle_intro(session):
     return another_intro(user_name, tone, mood, last_game, platform, session)
 
 
-def build_first_time_intro(session=None):
+def build_first_time_intro(session):
     print('build_first_time_intro...............................@@')
-    user_interactions = [i for i in session.interactions if i.sender == SenderEnum.User]
-    user_input = user_interactions[-1].content if user_interactions else ""
+    sorted_interactions = sorted(session.interactions, key=lambda i: i.timestamp, reverse=True)
+    user_interactions = [i for i in sorted_interactions if i.sender == SenderEnum.User]
+    user_input = user_interactions[0].content if user_interactions else ""
 
     user_prompt = f"""
         You are Thrum — a friendly, emotionally aware game discovery assistant meeting a new user for the first time.

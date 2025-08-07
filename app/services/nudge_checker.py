@@ -22,8 +22,9 @@ model = os.getenv("GPT_MODEL", "gpt-4o")
 client = AsyncOpenAI()
 
 async def build_ambiguity_nudge(db, session,user):
-    user_interactions = [i for i in session.interactions if i.sender == SenderEnum.User]
-    user_input = user_interactions[-1].content if user_interactions else ""
+    sorted_interactions = sorted(session.interactions, key=lambda i: i.timestamp, reverse=True)
+    user_interactions = [i for i in sorted_interactions if i.sender == SenderEnum.User]
+    user_input = user_interactions[0].content if user_interactions else ""
     tone = session.meta_data.get("tone","friendly")
     mood = session.exit_mood
     user_prompt = f"""
@@ -45,8 +46,9 @@ async def build_ambiguity_nudge(db, session,user):
 
 async def fallback_rec_ambiguity(db, session,user):
     reply = None
-    user_interactions = [i for i in session.interactions if i.sender == SenderEnum.User]
-    user_input = user_interactions[-1].content if user_interactions else ""
+    sorted_interactions = sorted(session.interactions, key=lambda i: i.timestamp, reverse=True)
+    user_interactions = [i for i in sorted_interactions if i.sender == SenderEnum.User]
+    user_input = user_interactions[0].content if user_interactions else ""
     session.meta_data['clarification_status'] = 'fallback_sent'
     db.commit()
     if session.discovery_questions_asked >2 and session.game_rejection_count <=2:

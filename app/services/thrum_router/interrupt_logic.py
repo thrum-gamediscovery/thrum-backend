@@ -11,21 +11,28 @@ async def check_intent_override(db, user_input, user, session, classification, i
     from app.services.thrum_router.phase_discovery import handle_discovery
     from app.services.thrum_router.phase_followup import handle_game_inquiry
     thrum_interactions = [i for i in session.interactions if i.sender == SenderEnum.Thrum]
-    last_thrum_reply = thrum_interactions[-1].content if thrum_interactions else ""
+    # Sort by timestamp descending
+    thrum_interactions = sorted(thrum_interactions, key=lambda x: x.timestamp, reverse=True)
+    last_thrum_reply = thrum_interactions[0].content if thrum_interactions else ""
+
     # Classify the user's intent based on their input
     clarification_input = await classify_input_ambiguity(db=db ,session=session,user=user,user_input=user_input, last_thrum_reply=last_thrum_reply)
     print(f"clarification_input : {clarification_input} +++++++++++++++++++++=")
+    
     ambiguity_clarification = session.meta_data["ambiguity_clarification"] if "ambiguity_clarification" in session.meta_data else False
     if clarification_input == "YES" and not ambiguity_clarification:
-        intrection.classification = {"input" : classification, "clarification": clarification_input}
-        db.commit()
-        return await ask_ambiguity_clarification(db=db, session=session, user_input=user_input)
+        if classification.get("genre") or classification.get("preferred_keywords") or classification.get("favourite_games") or classification.get("gameplay_elements"):
+            intrection.classification = {"input" : classification, "clarification": clarification_input}
+            db.commit()
+            return await ask_ambiguity_clarification(db=db, session=session, user_input=user_input, classification=classification)
+    
     if session.meta_data is None:
         session.meta_data = {}
     classification_intent = await classify_user_intent(user_input=user_input, session=session, db=db, last_thrum_reply=last_thrum_reply)
     intrection.classification = {"input" : classification, "intent" : classification_intent, "clarification": clarification_input}
     session.meta_data["ambiguity_clarification"] = False
     db.commit()
+    
     if session.meta_data.get("ask_for_rec_friend")  and (classification_intent.get("Give_Info") or classification_intent.get("Other") or classification_intent.get("Phase_Discovery")):
         session.meta_data["ask_for_rec_friend"] = False
         session.phase = PhaseEnum.DISCOVERY

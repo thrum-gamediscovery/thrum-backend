@@ -105,8 +105,9 @@ async def update_game_feedback_from_json(db, user_id: UUID, session,feedback_dat
 # ✅ Update user profile with parsed classification fields
 async def update_user_from_classification(db: Session, user, classification: dict,session):
     today = date.today().isoformat()
-    user_interactions = [i for i in session.interactions if i.sender == SenderEnum.User]
-    user_input = user_interactions[-1].content if user_interactions else ""
+    sorted_interactions = sorted(session.interactions, key=lambda i: i.timestamp, reverse=True)
+    user_interactions = [i for i in sorted_interactions if i.sender == SenderEnum.User]
+    user_input = user_interactions[0].content if user_interactions else ""
     if not isinstance(classification, dict):
         print(f"[BUG] update_user_from_classification: classification is not dict: {classification}")
         return

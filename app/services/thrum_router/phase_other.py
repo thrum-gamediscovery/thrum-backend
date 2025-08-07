@@ -245,8 +245,9 @@ async def generate_low_effort_response(session):
     """
     Generate a low-effort response when the user indicates they want to keep it simple.
     """
-    user_interactions = [i for i in session.interactions if i.sender == SenderEnum.User]
-    user_input = user_interactions[-1].content if user_interactions else ""
+    sorted_interactions = sorted(session.interactions, key=lambda i: i.timestamp, reverse=True)
+    user_interactions = [i for i in sorted_interactions if i.sender == SenderEnum.User]
+    user_input = user_interactions[0].content if user_interactions else ""
     tone = session.meta_data.get("tone", "friendly")
     user_prompt = f"""
 
@@ -267,23 +268,38 @@ async def generate_low_effort_response(session):
         """.strip()
     return user_prompt
 
-async def ask_ambiguity_clarification(db, session, user_input):
+async def ask_ambiguity_clarification(db, session, user_input, classification):
     if session.meta_data is None:
         session.meta_data = {}
-    session.discovery_questions_asked +=1
+    session.discovery_questions_asked += 1
     session.meta_data["ambiguity_clarification"] = True
     session.meta_data["clarification_status"] = "waiting"
     db.commit()
+    tone = session.meta_data.get("tone", "")
+    favourite_games = classification.get("favourite_games") or []
+    inferred_genre = classification.get("genre") or []
+    tags = (classification.get("gameplay_elements") or []) + (classification.get("preferred_keywords") or [])
+    tags_display = ", ".join(tags) if tags else "none"
+
     return f"""
-You're Thrum — a game discovery buddy who sounds like a real friend.
+You are Thrum — a chill, emotionally-intelligent game discovery buddy.
 
-The user said: "{user_input}"
+The user just said: "{user_input}"
+The system guessed the genre: {inferred_genre or "none"}, but confidence is low.
+Tags mentioned: {tags_display}
+Your tone: {tone}
 
-Write a short, friendly clarification question. Ask what kind of vibe they’re into.
+Your task:
+- Generate exactly **one** natural, friendly clarification question that matches the user's style and energy.
+- Never repeat the examples or copy their structure.
+- No robotic or generic "are you more X or Y" lines.
+- Reply as a friend would, and keep it conversational and casual.
+- Output ONLY the question (no explanation).
 
-Examples (don’t copy):
-- “Shooters can mean anything — chaos, tactics, or story?”
-- “When you say casual — like puzzles, idle, or chill vibes?”
+Examples for style only (never copy):
+• “Shooter intense or thinker intense?”
+• “Call of Duty vibes, or Civ-mode planning?”
+• “Kinda reflex-heavy or more tactical puzzle-style?”
 
-No templates. Match tone. 1 sentence only.
+Now write your own fresh line.
 """
