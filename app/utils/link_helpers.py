@@ -30,4 +30,9 @@ async def maybe_add_link_hint(db, session, user_prompt: str, platform_link: str)
         if session.meta_data is None:
             session.meta_data = {}
         session.meta_data['ask_for_link'] = False
+        user_prompt += f"""
+        - If the Platform Link is None or N/A, do not mention anything about a link (do not say “do you want a link,” “I don’t have a link,” or refer to a link at all).
+        - If the Platform Link is a valid link, provide the link in your message.
+        - If Thrum asks the user if they want a link and the user replies positively, but the Platform Link is None or N/A, you must clearly mention in your message that you do not have a link for this.
+        """
     return user_prompt
