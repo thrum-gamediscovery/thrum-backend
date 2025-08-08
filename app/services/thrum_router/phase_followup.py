@@ -130,12 +130,7 @@ async def handle_game_inquiry(db: Session, user, session, user_input: str, class
         non_empty = [p for p in session.platform_preference if p]
         if non_empty:
             platform_preference = non_empty[-1]
-
-    # Fallback: pick first available platform if no preference
-    if not platform_preference:
-        gameplatform_row = db.query(GamePlatform).filter_by(game_id=game_id).first()
-        platform_preference = gameplatform_row.platform if gameplatform_row else None
-
+    
     # Fetch the platform link for that game and platform
     platform_link = None
     if platform_preference:
@@ -143,16 +138,11 @@ async def handle_game_inquiry(db: Session, user, session, user_input: str, class
         if gp_row and gp_row.link:
             platform_link = gp_row.link
 
-    # Fallback: If still no link, pick any available platform with a link
-    if not platform_link:
+    if platform_link is None: 
         print(f"No preferred platform found for user/game_id={game_id}")
-        gp_row = (
-            db.query(GamePlatform)
-            .filter(GamePlatform.game_id == game_id, GamePlatform.link.isnot(None))
-            .first()
-        )
+        gp_row = db.query(GamePlatform).filter(GamePlatform.game_id == game_id, GamePlatform.link != None).first()
+        print(f"gp_row : {gp_row.link if gp_row else 'nolink'}")
         if gp_row:
-            platform_preference = gp_row.platform
             platform_link = gp_row.link
 
     # ...your recommendation check follows as before
@@ -215,12 +205,13 @@ STRICT REPLY RULES:
 - You may use info from earlier in the session (memory/context) to make your answer feel more personal or relevant.
 - Do NOT summarize, repeat, or pitch the game if it’s unrelated to the question.
 - If the user asks about something that’s not available in the game data or is “none,” reply politely that you don’t have that info (in a friendly, casual way).
- - Do not generate link on your own when platform Link is None or N/A then clearly mention to user you do not have link for this platform or game, if it is not None then only provide link if user want.
+- Do not generate link on your own when platform Link is None or N/A then clearly mention to user you do not have link for this platform or game, if it is not None then only provide link if user want.
+- 
 - If the user is closed off, sarcastic, or says ‘not interested,’ just acknowledge and move on naturally, without trying to win them back.
 - Never talk like a bot, system, or use filler words. Always sound like a real friend.
 
 """
-        return await maybe_add_link_hint(db, session, user_prompt, game_info['platform_link'])
+        return await maybe_add_link_hint(db, session, user_prompt, platform_link)
     # If user inquires about a game they already liked
     liked_game = db.query(GameRecommendation).filter(
             GameRecommendation.user_id == user.user_id,
@@ -272,7 +263,7 @@ STRICT REPLY RULES:
     - Never sound like a bot, system, or template. Always reply as a real friend would — brief, natural, and matching their mood.
 
 """.strip()
-        return await maybe_add_link_hint(db, session, user_prompt, game_info['platform_link'])
+        return await maybe_add_link_hint(db, session, user_prompt, platform_link)
     
     # If already recommended → update phase and return query-resolution prompt
     if game_id in recommended_ids:
@@ -325,7 +316,7 @@ STRICT REPLY RULES:
                  - Do not generate link on your own when platform Link is None or N/A then clearly mention to user you do not have link for this platform or game, if it is not None then only provide link if user want.
                 - Never sound like a bot or template — always text like a real friend.
             """.strip()
-            return await maybe_add_link_hint(db, session, user_prompt, game_info['platform_link'])
+            return await maybe_add_link_hint(db, session, user_prompt, platform_link)
         else:
             print(f"If already recommended in that session #####################")
             user_prompt = f"""
@@ -368,7 +359,7 @@ STRICT REPLY RULES:
                  - Do not generate link on your own when platform Link is None or N/A then clearly mention to user you do not have link for this platform or game, if it is not None then only provide link if user want.
                 - Never sound like a bot or use canned lines. Always reply like a real friend, brief, in-flow, and mood-matched.
             """.strip()
-            return await maybe_add_link_hint(db, session, user_prompt, game_info['platform_link'])
+            return await maybe_add_link_hint(db, session, user_prompt, platform_link)
 
 
     # Else, it’s a new inquiry → recommend + save + followup
@@ -423,4 +414,4 @@ STRICT REPLY RULES:
         Thrum Last Message : {last_thrum_reply}
         User Message : {user_input}
     """.strip()
-    return await maybe_add_link_hint(db, session, user_prompt, game_info['platform_link'])
+    return await maybe_add_link_hint(db, session, user_prompt, platform_link)
