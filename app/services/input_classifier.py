@@ -448,6 +448,7 @@ Strict rules:
    → Return true if the user is asking where to find the game, asking for a store link, asking how to download, or mentioning “link” explicitly.
    → Return true if the user replies with any affirmative word or phrase, such as "yes", "yeah", "yep", "sure", "ok", "okay", or similar, indicating they want the link.
    → Return false if the user says "no", "nope", "nah", "not really", or any negative response, or is not asking for a link.
+   → If the user does not mention anything about a link, and ask about a game, return false.
    → If unclear, return false.
 
 ---
@@ -590,7 +591,7 @@ async def have_to_recommend(db: Session, user, classification: dict, session) ->
     last_rec = db.query(GameRecommendation).filter(
         GameRecommendation.user_id == user.user_id,
         GameRecommendation.session_id == session.session_id
-    ).order_by(GameRecommendation.timestamp.desc()).first()
+    ).order_by(GameRecommendation.timestamp.desc()).first() 
     # If no previous recommendation exists, return True (new recommendation needed)
     if not last_rec:
         return True
@@ -608,10 +609,19 @@ async def have_to_recommend(db: Session, user, classification: dict, session) ->
     last_rec_platforms = [gp.platform for gp in last_rec.game.platforms] if last_rec.game else []
     # NOTE: user.reject_tags may have categories. We'll use genre as example.
     last_rec_reject_tags = session.reject_tags.get("genre", []) if getattr(session, "reject_tags", None) else []
+    
+    last_rec_gameplay_elements = last_rec.keywords.get("gameplay_elements",[]) if last_rec.keywords else []
+    last_rec_preferred_keywords = last_rec.keywords.get("preferred_keywords",[]) if last_rec.keywords else []
+    last_rec_disliked_keywords = last_rec.keywords.get("disliked_keywords",[]) if last_rec.keywords else []
+
+    last_res_keywords_len = len(last_rec_gameplay_elements) + len(last_rec_preferred_keywords) + len(last_rec_disliked_keywords)
 
     # Fetch profile preferences (UserProfile table)
     session_genre = session.genre[-1] if getattr(session, "genre", None) else []
     session_platform = session.platform_preference[-1] if getattr(session, "platform_preference", None) else []
+    session_gameplay_elements = session.gameplay_elements if getattr(session, "gameplay_elements", None) else []
+    session_preferred_keywords = session.preferred_keywords if getattr(session, "preferred_keywords", None) else []
+    session_disliked_keywords = session.disliked_keywords if getattr(session, "disliked_keywords", None) else []
 
     # Normalize all to lists of strings
     user_genre_list = await safe_to_list(user_genre)
@@ -621,7 +631,16 @@ async def have_to_recommend(db: Session, user, classification: dict, session) ->
     last_rec_platforms_list = await safe_to_list(last_rec_platforms)
     session_platform_list = await safe_to_list(session_platform)
     user_reject_genres = await safe_to_list(last_rec_reject_tags)
+    session_gameplay_elements_list = await safe_to_list(session_gameplay_elements)
+    session_preferred_keywords_list = await safe_to_list(session_preferred_keywords)
+    session_disliked_keywords_list = await safe_to_list(session_disliked_keywords)
 
+    session_keywors_len = len(session_gameplay_elements_list) + len(session_preferred_keywords_list) + len(session_disliked_keywords_list)
+
+    if (session_keywors_len - last_res_keywords_len) >= 2:
+        print("----------------------- keywords_list --------------------")
+        return True
+    
     # GENRE CHECK
     if user_genre_list:
         # Check if any genre in session_genre matches genres in last_rec_genre_list
@@ -673,6 +692,7 @@ async def classify_input_ambiguity(db,session,user,user_input, last_thrum_reply)
 You are Thrum — a chill, emotionally-aware game discovery buddy.
 
 last_thrum_reply : {last_thrum_reply}
+
 The user just said: "{user_input}"
 
 
@@ -684,11 +704,13 @@ Answer YES only if:
 - The user gives their favorite game (in response to a favorite-game question).
 - The input is genuinely vague, such as mentioning only a broad genre or mood, game_title, or asking for something without detail.
 - The input is too general to confidently recommend a specific game, with no clear style, feeling, or specific request.
-
+- If the user's input is vague or uses unclear modifiers (such as "something like...", "maybe tactical", "sort of strategic", "something in that vibe") and does not clearly specify a particular genre, game, or style, return YES.
 Answer NO if:
+- If the user's input clearly specifies a concrete genre, game, or playstyle (for example, just “shooting”, “puzzle”, “RPG”), always return NO, even if it is a single word.
 - The user gives any specific example, game, or clear description that makes their intent obvious (but NOT if it’s a favorite-game reply).
 - The input is only a greeting or only mentions a platform(to play game); these are not requests and should not trigger a clarifying question.
 - If user is providing name then must Return No
+- If the user's input clearly specifies a game, genre, or playstyle (even if brief), and removes ambiguity from their previous message, always return NO.
 - If user is providing just asnwer like yes or no then also it must return No
 - always return NO when user is asking for game immidiatly
 

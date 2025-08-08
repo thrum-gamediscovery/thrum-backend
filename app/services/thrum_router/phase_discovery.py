@@ -138,7 +138,7 @@ def is_vague_reply(message):
     This triggers the special fallback the client requires—never lets the bot repeat, freeze, or act like a form.
     """
     vague_words = [
-        "idk", "both", "not sure", "depends", "maybe", "whatever",
+        "idk", "not sure", "depends", "maybe", "whatever",
         "no idea", "🤷", "🤷‍♂️", "🤷‍♀️", "help", "any", "anything", "dunno", "dunno 🤷"
     ]
     return any(word in (message or "").lower() for word in vague_words)
@@ -268,6 +268,7 @@ async def ask_discovery_question(db, session) -> str:
                 Do not sound robotic or formal. Never list multiple genres. Make it flow like a natural, friendly check-in.
                 Do not recommend any specific games yet or mention the exact duration; just gently acknowledge that it’s been a while and nudge for any new preferences.
                 Output only the message to the user, nothing else.
+                → If there is mood, genre, games liked/rejected, platfotm in Memory then ask based on that so user feels personal and feels like you are listening him/her and remeber his/her choices.
 
                 Example:
                 "Still vibing with {genre} games, or are you in the mood for a change today?"
@@ -308,6 +309,7 @@ async def ask_discovery_question(db, session) -> str:
                 → Sound like a friend who’s just vibing and curious what they’re into.  
                 → Use one emoji only if it fits — no emoji repetition.  
                 → Never list options like a form or quiz.
+                → If there is mood, genre, games liked/rejected, platfotm in Memory then ask based on that so user feels personal and feels like you are listening him/her and remeber his/her choices.
 
                 NEVER DO:
                 – Never say “What genres do you like?” or any version of that  
@@ -340,10 +342,11 @@ async def ask_discovery_question(db, session) -> str:
                 The user's last platform was {platform}, but that was a while ago—over 48 hours back.
 
                 Your task:
-                Casually ask the user (in a warm, conversational tone, max 2 sentences) if they’re still playing on {platform}, or if they’re interested in switching it up.
-                Do not sound robotic or formal. Never list multiple platforms. Make it feel like a real check-in, not a survey.
-                Do not recommend any specific games yet or mention the exact duration; just gently acknowledge that it’s been a while and nudge for any new preferences.
-                Output only the message to the user, nothing else.
+                → Casually ask the user (in a warm, conversational tone, max 2 sentences) if they’re still playing on {platform}, or if they’re interested in switching it up.
+                → Do not sound robotic or formal. Never list multiple platforms. Make it feel like a real check-in, not a survey.
+                → Do not recommend any specific games yet or mention the exact duration; just gently acknowledge that it’s been a while and nudge for any new preferences.
+                → Output only the message to the user, nothing else.
+                → If there is mood, genre, games liked/rejected, platfotm in Memory then ask based on that so user feels personal and feels like you are listening him/her and remeber his/her choices.
 
                 Example:
                 "Still gaming on {platform}, or thinking about playing somewhere else these days?"
@@ -374,6 +377,7 @@ async def ask_discovery_question(db, session) -> str:
                 → Use slang or emoji *if they’ve used it before* — blend into their style, not your own.  
                 → If it feels right, add a playful nudge like “if you’re on console I might have a treat 🍿” — but generate fresh phrasing every time.  
                 → Never offer options, never ask in a list, and don’t say “Do you use…”
+                → If there is mood, genre, games liked/rejected, platfotm in Memory then ask based on that so user feels personal and feels like you are listening him/her and remeber his/her choices.
 
                 HOW TO WRITE:
                 → 1–2 lines, max 25–30 words.  
@@ -409,6 +413,7 @@ async def ask_discovery_question(db, session) -> str:
             → Use slang, punctuation, emoji only if it fits their tone so far.  
             → Style must rotate — never reuse phrasing, rhythm, or sentence shape.  
             → Don't suggest a game on your own if there is no game found
+            → If there is mood, genre, games liked/rejected, platfotm in Memory then ask based on that so user feels personal and feels like you are listening him/her and remeber his/her choices.
             """.strip()
 
     if session.meta_data["returning_user"]:
@@ -426,11 +431,12 @@ async def ask_discovery_question(db, session) -> str:
 
             Your task:
             Ask the user (in a warm, casual way, max 2 sentences) if they’re still in the mood for{f' {genre}' if genre else ' that genre'}{f' on {platform}' if platform else ''}, or if they want to try a different genre or platform today.
-            If either genre or platform is missing (None), simply focus the message on the value that exists.
-            Do not use robotic or formal language. Avoid asking for both genre and platform in a list—make it flow like a real check-in.
-            If both are None, skip this step entirely.
-            Never suggest a specific game yet. Do not mention how long it’s been; just nudge for confirmation or change.
-            Output only the message to the user, nothing else.
+            → If either genre or platform is missing (None), simply focus the message on the value that exists.
+            → Do not use robotic or formal language. Avoid asking for both genre and platform in a list—make it flow like a real check-in.
+            → If both are None, skip this step entirely.
+            → Never suggest a specific game yet. Do not mention how long it’s been; just nudge for confirmation or change.
+            → Output only the message to the user, nothing else.
+            → If there is mood, genre, games liked/rejected, platfotm in Memory then ask based on that so user feels personal and feels like you are listening him/her and remeber his/her choices.
 
             Example (for RPG and Nintendo Switch):
             "Are you still in the mood for some RPG vibes on Nintendo Switch, or feeling like a different style or platform today?"
@@ -455,6 +461,7 @@ async def ask_discovery_question(db, session) -> str:
             → If their name, emoji style, or slang is known, include it naturally.
             → Wrap with a soft tease like “spill that and I might just find your next obsession :eyes:” — but don’t repeat, remix each time.
             → Never repeat structure or phrasing. Always a new shape.
+             → If there is mood, genre, games liked/rejected, platfotm in Memory then ask based on that so user feels personal and feels like you are listening him/her and remeber his/her choices.
             → Never suggest a game on your own.
             → **Do not mention or reference platform or genre.**
             """.strip()
@@ -491,6 +498,7 @@ async def ask_discovery_question(db, session) -> str:
             → Never say the words “genre”, “gameplay”, “preference”, or “platform”.
             → Never explain what you're doing — just *be* that friend who gets it.
             → Never list. Never survey. Never repeat structure or phrasing.
+             → If there is mood, genre, games liked/rejected, platfotm in Memory then ask based on that so user feels personal and feels like you are listening him/her and remeber his/her choices.
             → One message. That’s it.
             → Do **not** suggest another game.
             → **Never mention or refer to platform or genre.**
@@ -506,6 +514,7 @@ async def ask_discovery_question(db, session) -> str:
         → Be natural, casual, and improvisational. Never repeat yourself.
         → **You must not mention, ask, or refer to platform or genre in your reply.**
         → Don't suggest a game on your own if there is no game found.
+        → If there is mood, genre, games liked/rejected, platfotm in Memory then ask based on that so user feels personal and feels like you are listening him/her and remeber his/her choices.
         """.strip()
 
 @safe_call("Hmm, I had trouble figuring out what to ask next. Let's try something fun instead! 🎮")
@@ -603,5 +612,8 @@ async def handle_discovery(db, session, user,user_input, classification):
             return explanation_response  # Return the explanation of the last game
     else:
         question = await ask_discovery_question(db, session)
+        if session.game_rejection_count >=2:
+            print(f"session.game_reject_count :::::::::::::::::::::::::::; {session.game_rejection_count}")
+            session.game_rejection_count = 0
         session.discovery_questions_asked += 1
         return question

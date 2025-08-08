@@ -65,24 +65,7 @@ async def check_for_nudge():
         reply = None
         if user.last_thrum_timestamp is None:
             continue
-        session = (
-            db.query(Session)
-            .filter(
-                Session.user_id == user.user_id,
-                Session.meta_data['ambiguity_clarification'].astext == 'true'
-            )
-            .order_by(Session.end_time.desc())
-            .first()
-        )
-        if not session or not session.meta_data.get('ambiguity_clarification', False):
-            continue
-        if 'clarification_status' in session.meta_data and now - user.last_thrum_timestamp > timedelta(seconds=25):
-            if session.meta_data.get('clarification_status',None) == 'waiting' and now - user.last_thrum_timestamp > timedelta(seconds=45):
-                reply = await build_ambiguity_nudge(db=db,session=session,user=user)
-            elif session.meta_data.get('clarification_status',None) == 'nudge_sent' and now - user.last_thrum_timestamp > timedelta(seconds=75):
-                reply = await fallback_rec_ambiguity(db=db,session=session,user=user)
-
-                # ⏱️ Adaptive delay based on silence count
+        
         if now - user.last_thrum_timestamp > timedelta(seconds=180):
 
             choice = random.choice(NUDGE_CHECKER)
@@ -101,6 +84,25 @@ async def check_for_nudge():
             user.silence_count = (user.silence_count or 0) + 1
                 
             db.commit()
+
+        session = (
+            db.query(Session)
+            .filter(
+                Session.user_id == user.user_id,
+                Session.meta_data['ambiguity_clarification'].astext == 'true'
+            )
+            .order_by(Session.end_time.desc())
+            .first()
+        )
+        if session :
+            if session.meta_data.get('ambiguity_clarification', False):
+                if 'clarification_status' in session.meta_data and now - user.last_thrum_timestamp > timedelta(seconds=25):
+                    if session.meta_data.get('clarification_status',None) == 'waiting' and now - user.last_thrum_timestamp > timedelta(seconds=45):
+                        reply = await build_ambiguity_nudge(db=db,session=session,user=user)
+                    elif session.meta_data.get('clarification_status',None) == 'nudge_sent' and now - user.last_thrum_timestamp > timedelta(seconds=75):
+                        reply = await fallback_rec_ambiguity(db=db,session=session,user=user)
+
+                # ⏱️ Adaptive delay based on silence count
         if reply is not None:
             await send_whatsapp_message(user.phone_number, reply)
             

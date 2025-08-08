@@ -25,21 +25,19 @@ async def check_intent_override(db, user_input, user, session, classification, i
     # Sort by timestamp descending
     thrum_interactions = sorted(thrum_interactions, key=lambda x: x.timestamp, reverse=True)
     last_thrum_reply = thrum_interactions[0].content if thrum_interactions else ""
-
-    # Classify the user's intent based on their input
-    clarification_input = await classify_input_ambiguity(db=db ,session=session,user=user,user_input=user_input, last_thrum_reply=last_thrum_reply)
-    print(f"clarification_input : {clarification_input} +++++++++++++++++++++=")
-    
-    ambiguity_clarification = session.meta_data["ambiguity_clarification"] if "ambiguity_clarification" in session.meta_data else False
-    if clarification_input == "YES" and not ambiguity_clarification and session.discovery_questions_asked <2:
-        if classification.get("genre") or classification.get("preferred_keywords") or classification.get("favourite_games") or classification.get("gameplay_elements"):
-            intrection.classification = {"input" : classification, "clarification": clarification_input}
-            db.commit()
-            return await ask_ambiguity_clarification(db=db, session=session, user_input=user_input, classification=classification)
     
     if session.meta_data is None:
         session.meta_data = {}
+    clarification_input = "NO"
     classification_intent = await classify_user_intent(user_input=user_input, session=session, db=db, last_thrum_reply=last_thrum_reply)
+     # Classify the user's intent based on their input
+    if classification_intent.get("Phase_Discovery") or classification_intent.get("Give_Info") :
+        clarification_input = await classify_input_ambiguity(db=db ,session=session,user=user,user_input=user_input, last_thrum_reply=last_thrum_reply)
+        print(f"clarification_input : {clarification_input} +++++++++++++++++++++=")
+        ambiguity_clarification = session.meta_data["ambiguity_clarification"] if "ambiguity_clarification" in session.meta_data else False
+        if clarification_input == "YES" and not ambiguity_clarification and session.discovery_questions_asked <2:
+            if classification.get("genre") or classification.get("preferred_keywords") or classification.get("favourite_games") or classification.get("gameplay_elements"):
+                return await ask_ambiguity_clarification(db=db, session=session, user_input=user_input, classification=classification)
     intrection.classification = {"input" : classification, "intent" : classification_intent, "clarification": clarification_input}
     session.meta_data["ambiguity_clarification"] = False
     db.commit()
