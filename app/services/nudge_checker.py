@@ -51,7 +51,7 @@ async def fallback_rec_ambiguity(db, session,user):
     user_input = user_interactions[0].content if user_interactions else ""
     session.meta_data['clarification_status'] = 'fallback_sent'
     db.commit()
-    if session.discovery_questions_asked >2 and session.game_rejection_count <=2:
+    if session.discovery_questions_asked >=2 and session.game_rejection_count <=2:
         user_prompt = await get_recommend(db=db, session=session,user=user)
         reply = await format_reply(db=db, session=session, user_input=user_input, user_prompt=user_prompt)
     return reply

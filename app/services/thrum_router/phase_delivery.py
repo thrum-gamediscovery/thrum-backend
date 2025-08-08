@@ -143,7 +143,7 @@ async def explain_last_game_match(session):
     
     # Generate the user prompt with information about the user's feedback
     user_prompt = f"""
-    Last suggested game: "{last_game.get('title') if last_game else 'None'}"
+    Last suggested/Recommended game: "{last_game.get('title') if last_game else 'None'}"
 
     Write Thrum’s reply:
     - Describe the last suggested game shortly based on user's last input.

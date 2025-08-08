@@ -8,7 +8,7 @@ from app.services.thrum_router.share_with_friends import share_thrum_ping, share
 from app.services.thrum_router.phase_other import dynamic_faq_gpt, handle_other_input, generate_low_effort_response, ask_ambiguity_clarification
 
 async def should_trigger_referral(session, classification_intent):
-    if session.meta_data.get("ask_for_rec_friend", False)  and (classification_intent.get("Other") or classification_intent.get("Confirm_Game")):
+    if session.meta_data.get("ask_for_rec_friend", False)  and (classification_intent.get("Confirm_Game")):
         if session.shared_with_friend:
             return False
         if not session.meta_data.get("dont_give_name", False):
@@ -31,7 +31,7 @@ async def check_intent_override(db, user_input, user, session, classification, i
     print(f"clarification_input : {clarification_input} +++++++++++++++++++++=")
     
     ambiguity_clarification = session.meta_data["ambiguity_clarification"] if "ambiguity_clarification" in session.meta_data else False
-    if clarification_input == "YES" and not ambiguity_clarification:
+    if clarification_input == "YES" and not ambiguity_clarification and session.discovery_questions_asked <2:
         if classification.get("genre") or classification.get("preferred_keywords") or classification.get("favourite_games") or classification.get("gameplay_elements"):
             intrection.classification = {"input" : classification, "clarification": clarification_input}
             db.commit()

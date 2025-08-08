@@ -87,6 +87,9 @@ async def static_tone_modifier(reply: str, tone: str) -> str:
     Static fallback logic to adjust tone and name if LLM fails.
     """
 
+    #  Remove any outer quotes or extra whitespace
+    reply = reply.strip().strip('”').strip('“').strip("‘").strip("’").strip()
+
     replacements = {
         "cool": {"hype": "🔥", "chill": "vibey", "sarcastic": "sure…"},
         "nice": {"hype": "dope!", "chill": "cozy", "sarcastic": "great 🙄"},
@@ -216,10 +219,9 @@ Tone-specific emoji guidance:
 
 Do not mention tone detection or context directly. Use `user_context` subtly to shape recommendations only if present.
 
-If user asks location and unknown, reply playfully without guessing.
+If user asks location and unknown, reply playfully without guessing. Do not give reply in "" or “” or ‘’ or ''.
 Your rewrite:
 """
-    
     MAX_RETRIES = 2
     for attempt in range(MAX_RETRIES + 1):
         try:

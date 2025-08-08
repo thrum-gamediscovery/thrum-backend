@@ -324,9 +324,9 @@ Strict rules:
 
 
 5. favourite_games (list of strings)
+→ If last_thrum_reply is asking about user's favourite game and user gives game(s) then claasify it as favourite game(s). 
 → Only return the exact title of the game they refer to as their favorite or most liked.
 → If the user does not mention a favorite, return [].
-→ If the user mentions more than one, choose the one they describe most positively.
 → Do not infer, guess, or include games that are not explicitly mentioned as a favorite.
 → Your response must only be the game title as a string (no explanation or extra text).
 → If unclear or not mentioned, return [].
@@ -594,59 +594,50 @@ async def have_to_recommend(db: Session, user, classification: dict, session) ->
     if not last_rec:
         return True
     
+    if last_rec.accepted == False:
+        return True
+    
      # Extract user's current preferences from classification
     user_genre = classification.get('genre', None)
-    user_mood = classification.get('mood', None)
     user_platform = classification.get('platform_pref', None)
-    user_reject_tags = classification.get('reject_tags', [])
     user_game_feedback = classification.get("game_feedback", [])
 
     # Extract preferences of last recommended game
-    today = datetime.utcnow().date().isoformat()
-    last_rec_mood = user.mood_tags.get(today)
     last_rec_genre = last_rec.game.genre if last_rec.game else []
     last_rec_platforms = [gp.platform for gp in last_rec.game.platforms] if last_rec.game else []
     # NOTE: user.reject_tags may have categories. We'll use genre as example.
-    last_rec_reject_tags = user.reject_tags.get("genre", []) if getattr(user, "reject_tags", None) else []
+    last_rec_reject_tags = session.reject_tags.get("genre", []) if getattr(session, "reject_tags", None) else []
 
     # Fetch profile preferences (UserProfile table)
-    user_profile_genre = user.genre_prefs.get(today, []) if getattr(user, "genre_prefs", None) else []
-    user_profile_platform = user.platform_prefs.get(today, []) if getattr(user, "platform_prefs", None) else []
+    session_genre = session.genre[-1] if getattr(session, "genre", None) else []
+    session_platform = session.platform_preference[-1] if getattr(session, "platform_preference", None) else []
 
     # Normalize all to lists of strings
     user_genre_list = await safe_to_list(user_genre)
     last_rec_genre_list = await safe_to_list(last_rec_genre)
-    user_profile_genre_list = await safe_to_list(user_profile_genre)
+    session_genre_list = await safe_to_list(session_genre)
     user_platform_list = await safe_to_list(user_platform)
     last_rec_platforms_list = await safe_to_list(last_rec_platforms)
-    user_profile_platform_list = await safe_to_list(user_profile_platform)
+    session_platform_list = await safe_to_list(session_platform)
     user_reject_genres = await safe_to_list(last_rec_reject_tags)
 
     # GENRE CHECK
     if user_genre_list:
-        # Check if any genre in user_profile_genre matches genres in last_rec_genre_list
-        if user_profile_genre_list and not any(
+        # Check if any genre in session_genre matches genres in last_rec_genre_list
+        if session_genre_list and not any(
             ug.lower() in (genre.lower() for genre in last_rec_genre_list)
-            for ug in user_profile_genre_list
+            for ug in session_genre_list
         ):
             last_rec.accepted = False
             last_rec.reason = f"likes specific {user_genre_list} games"
             db.commit()
             return True  # Genre mismatch, new recommendation needed
 
-    # MOOD CHECK (Uncomment if you want to use it)
-    # if user_mood:
-    #     if user.mood_tags.get(today) != last_rec_mood:
-    #         last_rec.accepted = False
-    #         last_rec.reason = f"want game of specific {user_mood}"
-    #         db.commit()
-    #         return True  # Mood mismatch, new recommendation needed
-
     # PLATFORM CHECK
     if user_platform_list:
-        if user_profile_platform_list and not any(
+        if session_platform_list and not any(
             p.lower() in (lp.lower() for lp in last_rec_platforms_list)
-            for p in user_profile_platform_list
+            for p in session_platform_list
         ):
             last_rec.accepted = False
             last_rec.reason = f"want {user_platform_list} games but this is not in that platform"

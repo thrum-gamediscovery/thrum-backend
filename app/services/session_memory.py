@@ -82,7 +82,7 @@ class SessionMemory:
         if self.last_game:
             out.append(f"Last game suggested by thrum: {self.last_game}")
         if self.recommended_game:
-            out.append(f"Thrum already recommended {self.recommended_game} games to user.")
+            out.append(f"Thrum already suggested/Recommended {self.recommended_game} games till now to user.")
         if self.history:
             last_few = self.history[-5:]
             hist_str = " | ".join([f"{s} says {c} .. in tone - {t}" for s, c, t in last_few])
