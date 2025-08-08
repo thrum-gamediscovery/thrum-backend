@@ -37,6 +37,8 @@ async def check_intent_override(db, user_input, user, session, classification, i
         ambiguity_clarification = session.meta_data["ambiguity_clarification"] if "ambiguity_clarification" in session.meta_data else False
         if clarification_input == "YES" and not ambiguity_clarification and session.discovery_questions_asked <2:
             if classification.get("genre") or classification.get("preferred_keywords") or classification.get("favourite_games") or classification.get("gameplay_elements"):
+                intrection.classification = {"input" : classification, "intent" : classification_intent, "clarification": clarification_input}
+                db.commit()
                 return await ask_ambiguity_clarification(db=db, session=session, user_input=user_input, classification=classification)
     intrection.classification = {"input" : classification, "intent" : classification_intent, "clarification": clarification_input}
     session.meta_data["ambiguity_clarification"] = False
