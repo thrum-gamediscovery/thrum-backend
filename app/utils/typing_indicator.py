@@ -46,8 +46,8 @@ async def send_typing_indicator(phone_number: str, session, delay: float = 5.0):
     
     # Prevent repetition - check if we sent filler for this message already
     current_hash = get_message_hash(user_input)
-    last_filler_hash = session.meta_data.get("last_filler_hash") if session.meta_data else None
-    if last_filler_hash == current_hash:
+    recent_filler_hashes = session.meta_data.get("recent_filler_hashes", []) if session.meta_data else []
+    if current_hash in recent_filler_hashes:
         return
 
     # Get context for filler generation
@@ -72,21 +72,38 @@ It should:
 
 Just write the message, no explanation."""
     
+    # Get recent filler messages to avoid repetition (limit to last 6 for AI prompt)
+    recent_fillers = session.meta_data.get("recent_fillers", []) if session.meta_data else []
+    avoid_phrases = ", ".join(recent_fillers[-8:]) if recent_fillers else "none"
+    enhanced_prompt = f"""{filler_prompt}
+
+DON'T use these recent phrases: {avoid_phrases}
+Be creative and fresh each time."""
+    
     try:
         response = await client.chat.completions.create(
             model=model,
-            messages=[{"role": "user", "content": filler_prompt}],
-            temperature=0.8,
+            messages=[{"role": "user", "content": enhanced_prompt}],
+            temperature=0.9,
             max_tokens=25
         )
         message = response.choices[0].message.content.strip().strip('"')
         
-        # Store hash to prevent repetition
+        # Track recent fillers to avoid repetition
         if not session.meta_data:
             session.meta_data = {}
-        session.meta_data["last_filler_hash"] = current_hash
-        
+        recent_fillers = session.meta_data.get("recent_fillers", [])
+        recent_fillers.append(message)
+        session.meta_data["recent_fillers"] = recent_fillers[-16:]  # Keep last 16
+
     except Exception:
-        message = "hold tight a sec…"
+        message = "hold up..."
+    
+    # Store hash to prevent repetition (keep last 10)
+    if not session.meta_data:
+        session.meta_data = {}
+    recent_hashes = session.meta_data.get("recent_filler_hashes", [])
+    recent_hashes.append(current_hash)
+    session.meta_data["recent_filler_hashes"] = recent_hashes[-10:]
     
     await send_whatsapp_message(phone_number, message, sent_from_thrum=False)
