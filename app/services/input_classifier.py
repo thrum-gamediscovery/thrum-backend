@@ -80,8 +80,8 @@ Carefully consider the context of the conversation and the specific tone or dire
   
 - **Request_Similar_Game**: Triggered when the user asks for a game similar to one they already like or have played. This intent is activated when the user explicitly asks for a game that is similar to their preferences or past games. this intent is specifically for when the user is looking for a game that matches their previous interests or experiences, not just any game recommendation.
 
-- **Request_Quick_Recommendation**: Triggered when the user explicitly asks for a game suggestion at that time, OR asks for a suggestion on a different platform than last recommended, or asking for a game directly like "suggest a game","want a game", etc.
-- only set Request_Quick_Recommendation True when user ask for direct game(eg. suggest me game, give me direct game, or something like that), or look like user want game immediately or argently, if user's message is just postive or do not specify for asking game directly(eg. something like action, would be fun or like that) then do not set this as True.
+- **Request_Quick_Recommendation**: If the user’s message contains a game title, never set Request_Quick_Recommendation to True.riggered when the user explicitly asking for a game directly like "suggest a game","want a game", etc.
+- only set Request_Quick_Recommendation True when user ask for direct game(eg. suggest me game, give me direct game, or something like that), or look like user want game immediately or argently(without providing game title), if user's message is just postive or do not specify for asking game directly(eg. something like action, would be fun or like that) then do not set this as True.
 - true ONLY when user clearly asks for a new game suggestion.
 - if user just looking for some specific game then do not trigger it(for eg, user say im'm looking for genre, or any specification then do not trigger it.). until they want game immediately, or directly ask for a game suggestion.
 - Do not Trigger it as True when user is not asking for a new game recommendation and user just giving information about game or user input is just an statement which is not include the intent for new or other game.
@@ -91,6 +91,7 @@ Carefully consider the context of the conversation and the specific tone or dire
     - "give me a game"
     - "suggest one for me"
 - untill user clearly ask for game immediately do not True Request_Quick_Recommendation.
+
 - **Reject_Recommendation**: Triggered when the user directly rejects the game suggested in the previous response.
   This can be a clear refusal such as "Not that one," "I don’t like this," or any other similar phrases with same intent that reject the previously suggested game.
   - Be especially strict and accurate in detecting when the user is rejecting a game. Do not miss it, even if the language is casual, short, or slang. Always classify these as Reject_Recommendation.
@@ -105,7 +106,7 @@ Carefully consider the context of the conversation and the specific tone or dire
     - If Thrum’s previous message presents a game and the user’s response expresses interest in obtaining more information, details, or clarification about the game (rather than directly confirming or accepting it), classify as Inquire_About_Game.
     4. If user message contain any game title and sounds like user want that game to recommend then it must be True, if the game title is the the answer of the user's favourite game at that time it must not be True.(classify based on thrum's last message if it is asking favourite game and user message contain game title that doesnt mean user want that game to be recommended yet so do not set this as True.)
     - when user forcefully said to get particular game(ask to recommend game with title) then must trigger Inquire_About_Game (do not trigger Request_Quick_Recommendation when user ask for recommend particular game). 
-    
+
 - **Give_Info**: Triggered when the user provides information about their preferences, such as genre, mood, or game style. This includes providing keywords or short phrases like "action", "chill", or "strategy". The response should classify when the user provides any kind of self-description related to their preferences. if last thrum message is to ask about what user likes or dislikes about the game and user is giving the information about that then Give_Info should not be triggered.
   - If the user’s reply relates to Thrum’s previous question about preferences or interests—whether the user provides specific details, indicates uncertainty, or chooses not to answer—map the response to the question and set Give_Info to true, unless a direct game request is made.
   - If the user input contains any information about preferred genre, vibe, mood, or platform, and does not specifically ask for a game, then Give_Info must be set to true.
