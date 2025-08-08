@@ -412,6 +412,7 @@ Strict rules:
    → If the user doesn't specify any game title, but the chat is about a game, return the last recommended game's title.
    → If the user does not specify any game title, always take the last recommended game title.
    → If the user does not mention any game or title at all, return "None".
+   → If there is no any talking about specific game just at that time return "None" if there is already recommended game then never return "None".
    
 14. gameplay_elements (list of strings)
   → Focus on GAMEPLAY ELEMENT and structural features that the user describes or wants.
