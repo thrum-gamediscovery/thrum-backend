@@ -9,6 +9,14 @@ client = AsyncOpenAI()
 model = os.getenv("GPT_MODEL")
 
 GOODBYE_KEYWORDS = ["bye", "goodbye", "see you", "exit", "later", "peace"]
+SENSITIVE_KEYWORDS = [
+    "died", "death", "passed away", "lost", "funeral", "grief", "mourning", "sad", "depressed", 
+    "hurt", "pain", "crying", "devastated", "heartbroken", "suicide", "kill myself", "end it all",
+    "cancer", "illness", "sick", "hospital", "divorce", "breakup", "broke up", "cheated", 
+    "fired", "unemployed", "homeless", "broke", "anxiety", "panic", "scared", "terrified",
+    "alone", "lonely", "worthless", "hate myself", "can't take it", "give up", "hopeless",
+    "trauma", "abuse", "bullied", "betrayed", "abandoned", "rejected", "failure", "disappointed"
+]
 
 def get_message_hash(user_input: str) -> str:
     """Generate hash for message to prevent filler repetition"""
@@ -25,6 +33,10 @@ def get_reply_context(session) -> str:
         PhaseEnum.ENDING: "farewell"
     }
     return phase_context.get(session.phase, "general_chat")
+
+def is_sensitive_topic(user_input: str) -> bool:
+    """Check if user input contains sensitive emotional content"""
+    return any(keyword in user_input.lower() for keyword in SENSITIVE_KEYWORDS)
 
 async def send_typing_indicator(phone_number: str, session, delay: float = 5.0):
     """Send Gen-AI filler after delay if processing takes too long"""
@@ -55,6 +67,22 @@ async def send_typing_indicator(phone_number: str, session, delay: float = 5.0):
     reply_context = get_reply_context(session)
     user_tone = session.meta_data.get("tone", "neutral") if session.meta_data else "neutral"
     
+    # Check for sensitive topics and adjust tone accordingly
+    is_sensitive = is_sensitive_topic(user_input)
+    if is_sensitive:
+        style = "gentle and supportive"
+        tone_instruction = "Be compassionate and acknowledge their feelings"
+    else:
+        tone_map = {
+            "sad": "gentle and empathetic",
+            "angry": "calm and understanding",
+            "serious": "measured and respectful",
+            "excited": "energetic and playful",
+            "happy": "fun and upbeat"
+        }
+        style = tone_map.get(user_tone, "natural and friendly")
+        tone_instruction = "Acknowledge you're thinking of a thoughtful response"
+
     filler_prompt = f"""You are Thrum, a game discovery buddy who chats like a real friend.
 
 The user just said: "{user_input}"
@@ -62,22 +90,29 @@ They are in a {mood} mood with {user_tone} energy.
 You're about to respond in this context: {reply_context}
 The main response is still generating.
 
-Write a SHORT, playful filler line to keep the vibe alive while you think.
+Write a SHORT, {style} filler line to match the moment.
 It should:
-- Match their {user_tone} tone
-- Hint something good is coming
+- Match their emotional state exactly
+- {tone_instruction}
 - Feel like a real friend texting
-- Be under 10 words
-- Never sound robotic
+- Be under 8 words
+- Never sound robotic or overly upbeat
 
 Just write the message, no explanation."""
     
     # Get recent filler messages to avoid repetition (limit to last 6 for AI prompt)
     recent_fillers = session.meta_data.get("recent_fillers", []) if session.meta_data else []
     avoid_phrases = ", ".join(recent_fillers[-8:]) if recent_fillers else "none"
+    
+    # Check conversation history for sensitive context
+    recent_interactions = sorted(session.interactions, key=lambda i: i.timestamp, reverse=True)[:5]
+    conversation_context = " ".join([i.content for i in recent_interactions if i.sender == SenderEnum.User])
+    has_sensitive_context = is_sensitive_topic(conversation_context)
+    
     enhanced_prompt = f"""{filler_prompt}
 
 DON'T use these recent phrases: {avoid_phrases}
+{'IMPORTANT: The conversation involves sensitive emotional content. Stay gentle and supportive.' if has_sensitive_context else ''}
 Be creative and fresh each time."""
     
     try:
@@ -97,7 +132,11 @@ Be creative and fresh each time."""
         session.meta_data["recent_fillers"] = recent_fillers[-16:]  # Keep last 16
 
     except Exception:
-        message = "hold up..."
+        # Check both current input and recent conversation for sensitive context
+        recent_interactions = sorted(session.interactions, key=lambda i: i.timestamp, reverse=True)[:5]
+        conversation_context = " ".join([i.content for i in recent_interactions if i.sender == SenderEnum.User])
+        has_sensitive_context = is_sensitive_topic(user_input) or is_sensitive_topic(conversation_context)
+        message = "I'm here..." if has_sensitive_context else "thinking..."
     
     # Store hash to prevent repetition (keep last 10)
     if not session.meta_data:
