@@ -55,3 +55,5 @@ class Game(Base):
     interactions = relationship("Interaction", back_populates="game")
     platforms = relationship("GamePlatform", back_populates="game")
     recommendations = relationship("GameRecommendation", back_populates="game")
+
+    ratings = Column(JSON, nullable=True, default={})

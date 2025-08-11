@@ -1,71 +1,49 @@
 import pandas as pd
-import re
 
 # Load the CSV
-df = pd.read_csv("./games_data/games_custom.csv")
+df = pd.read_csv("./game_data/games_full_schema_extract.csv")
 
- # Step 1: Extract all words/phrases BEFORE any parenthesisif 'age_rating' in df.columns:if 'age_rating' in df.columns:
+# Ensure age_rating is int, fill missing with 0
 if 'age_rating' in df.columns:
     df['age_rating'] = pd.to_numeric(df['age_rating'], errors='coerce').fillna(0).astype(int)
 
-# Function to clean and extract keywords from game_vibes (split by , or /)
-def clean_game_vibes(vibes_str):
-    if pd.isna(vibes_str):
-        return []
-    # This avoids splitting inside (Major, All or Most)
-    raw_items = re.findall(r'([^,/(]+)\s*(?:\([^)]*\))?', vibes_str)
-
-    # Step 2: Normalize and clean
-    cleaned = []
-    for item in raw_items:
-        item = item.strip().lower()
-        if item and item not in ['all or most', 'major']:  # explicitly filter unwanted tags
-            cleaned.append(item)
-    return list(set(cleaned))
-
-# Function to split and clean genre string
-def clean_genres(genre_str):
-    if pd.isna(genre_str):
-        return []
-    return [g.strip().lower() for g in genre_str.split(',') if g.strip()]
-
-# Merge logic for each group
-def merge_group(group):
+# Function to merge grouped data for unique games
+def merge_group(group, **kwargs):
     merged = group.iloc[0].copy()
-    merged['platform'] = group['platform'].dropna().unique().tolist()
+    group = group.reset_index(drop=True)
+    # Merge unique platforms as list
+    merged['platforms'] = group['platforms'].dropna().unique().tolist()
+    # Build a dict of platform to link
     platform_dict = {}
+    distribution_dict = {}
     for _, row in group.iterrows():
-        game_id = row['game_id']
-        platform_name = row['platform'] 
-        platform_link = row['link'] if pd.notna(row['link']) else None
-        print(f"platform_link ------------- {game_id} -> {platform_name} -> {platform_link}")
-        # Store the platform with its corresponding link or None
+        platform_name = row['platforms']
+        platform_link = row['links'] if pd.notna(row['links']) else None
         if pd.notna(platform_name):
-            if platform_name not in platform_dict or (platform_name is platform_dict and platform_link is not None):
+            # Only keep first non-null link per platform
+            if platform_name not in platform_dict and platform_link is not None:
                 platform_dict[platform_name] = platform_link
-                print(f"platform_link +++++++++++++ {game_id} -> {platform_name} -> {platform_link}")
-                # Store the platform-link dictionary in the merged row
+        distribution = row['distributions'] if pd.notna(row['distributions']) else None
+        if pd.notna(platform_name):
+            # Only keep first non-null link per platform
+            if platform_name not in distribution_dict and distribution is not None:
+                distribution_dict[platform_name] = distribution
+            
     merged['platform_link'] = platform_dict
-    print(merged['platform_link'])
-    for field in ['description', 'mechanics', 'visual_style','region']:
+    merged['distribution'] = distribution_dict
+    # Merge remaining fields, prefer longest unique string
+    fields = ["release_date","region","editions","genre","subgenres","game_vibe","main_perspective","keywords","gameplay_elements","advancement","linearity","replay_value","graphical_visual_style","themes","complexity","age_rating","key_features","links","has_story","developers","publishers","related_games","discord_id","igdb_id","sku","story_setting_realism", "alternative_titles","description","ratings"]
+    for field in fields:
         values = group[field].dropna().unique().tolist()
         if values:
-            merged[field] = max(values, key=len)
-    
-    genre_list = []
-    vibes_list = []
-    for _, row in group.iterrows():
-        genre_list.extend(clean_genres(row.get('genre', '')))
-        vibes_list.extend(clean_game_vibes(row.get('game_vibes', '')))
-    
-    merged['genre'] = list(set(genre_list))
-    merged['game_vibes'] = list(set(vibes_list))
-    print(merged['game_vibes'])
+            # Use max string or first non-string
+            if all(isinstance(v, str) for v in values):
+                merged[field] = max(values, key=len)
+            else:
+                merged[field] = values[0]
     return merged
 
-# Apply the merging logic
-final_df = df.groupby('game_id').apply(merge_group).reset_index(drop=True)
-
-# Save to a new CSV
-final_df.to_csv("./games_data/merged_games_custom.csv", index=False)
-
+# Apply group-by and merge logic
+final_df = df.groupby('external_game_id').apply(merge_group, include_group=False).reset_index(drop=True)
+# Save to new CSV
+final_df.to_csv("./game_data/unique_games.csv", index=False)

@@ -163,7 +163,8 @@ async def handle_game_inquiry(db: Session, user, session, user_input: str, class
         "emotion": game.emotional_fit or "N/A",
         "mood_tags": ", ".join(game.mood_tag) if game.mood_tag else "N/A",
         "platforms": ", ".join(platform_list) if platform_list else "Unknown",
-        "platform_link": platform_link if request_link else "N/A"
+        "platform_link": platform_link if request_link else "N/A",
+        "ratings": game.ratings
     }
 
     # If user inquires about a game they already rejected by the user in the same session
@@ -195,6 +196,7 @@ Reference Data for context (do not repeat unless asked):
     - Story Focus: {game_info['story_focus']}
     - Emotional Fit: {game_info['emotion']}
     - Mood Tags: {game_info['mood_tags']}
+    - Ratings : {game_info['ratings']}
     - Platforms: {game_info['platforms']}
     - Platform Link: {game_info['platform_link']}
 
@@ -248,6 +250,7 @@ STRICT REPLY RULES:
     - Story Focus: {game_info['story_focus']}
     - Emotional Fit: {game_info['emotion']}
     - Mood Tags: {game_info['mood_tags']}
+    - Ratings : {game_info['ratings']}
     - Platforms: {game_info['platforms']}
     - Platform Link: {game_info['platform_link']}
 
@@ -303,6 +306,7 @@ STRICT REPLY RULES:
                 - Story Focus: {game_info['story_focus']}
                 - Emotional Fit: {game_info['emotion']}
                 - Mood Tags: {game_info['mood_tags']}
+                - Ratings : {game_info['ratings']}
                 - Platforms: {game_info['platforms']}
                 - Platform Link: {game_info['platform_link']}
                 
@@ -346,6 +350,7 @@ STRICT REPLY RULES:
                 - Story Focus: {game_info['story_focus']}
                 - Emotional Fit: {game_info['emotion']}
                 - Mood Tags: {game_info['mood_tags']}
+                - Ratings : {game_info['ratings']}
                 - Platforms: {game_info['platforms']}
                 - Platform Link: {game_info['platform_link']}
 
@@ -408,6 +413,7 @@ STRICT REPLY RULES:
         - Story Focus: {game_info['story_focus']}
         - Emotional Fit: {game_info['emotion']}
         - Mood Tags: {game_info['mood_tags']}
+        - Ratings : {game_info['ratings']}
         - Platforms: {game_info['platforms']}
         - Platform Link: {game_info['platform_link']}
         
