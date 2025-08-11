@@ -57,7 +57,7 @@ async def check_intent_override(db, user_input, user, session, classification, i
     
     # Handle rejection of recommendation
     if classification_intent.get("Reject_Recommendation"):
-        return await handle_reject_Recommendation(db, session, user, classification_intent,user_input=user_input)
+        return await handle_reject_Recommendation(db, session, user, classification=classification,user_input=user_input)
 
     # Handle request for quick game recommendation
     elif classification_intent.get("Request_Quick_Recommendation"):

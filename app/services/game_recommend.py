@@ -163,11 +163,11 @@ async def game_recommendation(db: Session, user, session):
             )
             db.add(game_rec)
             session.last_recommended_game = random_game.title
-            db.commit()
             session.phase = PhaseEnum.FOLLOWUP
+            session.meta_data["ask_confirmation"] = True
+            db.commit()
             # session.followup_triggered = True
             print(f"[Step 4] Early fallback: Random game recommended: {random_game.title}")
-            session.meta_data["ask_confirmation"] = True
             await set_pending_action(db, session,'send_link',link)
             return {
                 "title": random_game.title,
@@ -374,6 +374,8 @@ async def game_recommendation(db: Session, user, session):
     session.game_rejection_count += 1
     flag_modified(session, "game_rejection_count")
     db.add(game_rec)
+    session.meta_data["ask_confirmation"] = True
+    session.last_recommended_game = top_game.title
     db.commit()
     session.phase = PhaseEnum.FOLLOWUP
     # session.followup_triggered = True
@@ -382,8 +384,6 @@ async def game_recommendation(db: Session, user, session):
     # Step 15: Return recommendation info and age prompt flag
     print("availables game not random ................")
     print(f"[Step 15] Last session game is used: {last_session_liked_game.game.title if last_session_liked_game else None}")
-    session.meta_data["ask_confirmation"] = True
-    session.last_recommended_game = top_game.title
     await set_pending_action(db, session,'send_link',link)
     return {
             "title": top_game.title,
