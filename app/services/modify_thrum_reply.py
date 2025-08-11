@@ -196,6 +196,7 @@ User pacing: {pace} (reply in a {style} style — keep it {length_hint})
 - Adjust length based on pacing: {length_hint} responses
 - Do NOT reuse any slang, idioms, catchphrases, or signature expressions that you’ve already used in the last replies.
 - If a similar idea must be expressed, invent a fresh variation so it feels new and spontaneous.
+- The new reply must be at least 20-30% different in wording and structure from the last Thrum reply.
 
 USER MEMORY & RECENT CHAT:  
 {memory_context_str if memory_context_str else 'No prior user memory or recent chat.'}
