@@ -73,12 +73,17 @@ Carefully consider the context of the conversation and the specific tone or dire
 - **Phase_Discovery**: Triggered only if Thrum's last reply is a greeting message, and the user gives a positive response (e.g., affirmatives like "yeah", "cool", "okay", "let's go", "yup"). This intent indicates that the user is ready to proceed to the discovery phase (in which we are going to ask questions) without needing any further prompting.
   - Phase_Discovery must be True when Thrum's last reply is a greeting message, and according to Thrum's question, the user does not directly ask for a game recommendation or game suggestion, but rather gives information about their preferences, interests, or responds with a positive/neutral/curious reply.
   - Do not trigger Phase_Discovery if the user input is just random stuff not looking like an answer in any way to Thrum's question.
-  -Phase_Discovery must be set to True when Thrum's last reply is a greeting and the user's response is not a direct request for a game suggestion. If the user’s reply does not clearly ask for a game, or simply shares a preference, mood, or gives a neutral/curious reply, always set Phase_Discovery to True.
-  -If Thrum's last message is asking about user's favourite game or preferences, and the user is giving that information (including if they mention a game title in answer to favourite game), then Phase_Discovery must be True. (Carefully check that if the user provides a game name, it must be in response to Thrum’s favourite game question.)
+  - Phase_Discovery must be set to True when Thrum's last reply is a greeting and the user's response is not a direct request for a game suggestion. If the user’s reply does not clearly ask for a game, or simply shares a preference, mood, or gives a neutral/curious reply, always set Phase_Discovery to True.
+  - If Thrum's last message is asking about user's favourite game or preferences, and the user is giving that information (including if they mention a game title in answer to favourite game), then Phase_Discovery must be True. (Carefully check that if the user provides a game name, it must be in response to Thrum’s favourite game question.)
+  - unless the message includes explicit request intent with a catalog game title. In that case, Phase_Discovery = False and Inquire_About_Game = True.
   - Do not trigger if the user's last message looks like an inquiry about a game and looking like user likes that game or confirm game.
   - If Thrum's last message was asking anything and the user replies positively (e.g., "good", "nice"), Phase_Discovery must be True.
   
 - **Request_Similar_Game**: Triggered when the user asks for a game similar to one they already like or have played. This intent is activated when the user explicitly asks for a game that is similar to their preferences or past games. this intent is specifically for when the user is looking for a game that matches their previous interests or experiences, not just any game recommendation.
+  - Triggered **only** when the user explicitly asks for a game similar to one they already like or have played.
+  - Must include clear similarity language such as "similar to", "like this", "like [game title]", "another like", "in the style of".
+  - Do NOT trigger if the user simply states a game title they want (e.g., "I need Minecraft" or "I want GTA") without similarity phrasing.
+  - Do NOT trigger if the user says they like or play a game but does not ask for something like it.
 
 - **Request_Quick_Recommendation**: If the user’s message contains a game title, never set Request_Quick_Recommendation to True.riggered when the user explicitly asking for a game directly like "suggest a game","want a game", etc.
 - only set Request_Quick_Recommendation True when user ask for direct game(eg. suggest me game, give me direct game, or something like that), or look like user want game immediately or argently(without providing game title), if user's message is just postive or do not specify for asking game directly(eg. something like action, would be fun or like that) then do not set this as True.
@@ -106,6 +111,9 @@ Carefully consider the context of the conversation and the specific tone or dire
     - If Thrum’s previous message presents a game and the user’s response expresses interest in obtaining more information, details, or clarification about the game (rather than directly confirming or accepting it), classify as Inquire_About_Game.
     4. If user message contain any game title and sounds like user want that game to recommend then it must be True, if the game title is the the answer of the user's favourite game at that time it must not be True.(classify based on thrum's last message if it is asking favourite game and user message contain game title that doesnt mean user want that game to be recommended yet so do not set this as True.)
     - when user forcefully said to get particular game(ask to recommend game with title) then must trigger Inquire_About_Game (do not trigger Request_Quick_Recommendation when user ask for recommend particular game). 
+    - When the user clearly requests a specific game by title (e.g., "I want Minecraft", "Give me GTA V"), set Inquire_About_Game to True.
+    - This applies even if they mention it in context like "I need game that I like most on Sundays; Minecraft",If the message contains a game title but does not include similarity phrasing, treat it as a direct request for that game, not a similar game.
+    - Do not confuse this with Request_Similar_Game unless they explicitly request "similar to" that game.
 
 - **Give_Info**: Triggered when the user provides information about their preferences, such as genre, mood, or game style. This includes providing keywords or short phrases like "action", "chill", or "strategy". The response should classify when the user provides any kind of self-description related to their preferences. if last thrum message is to ask about what user likes or dislikes about the game and user is giving the information about that then Give_Info should not be triggered.
   - If the user’s reply relates to Thrum’s previous question about preferences or interests—whether the user provides specific details, indicates uncertainty, or chooses not to answer—map the response to the question and set Give_Info to true, unless a direct game request is made.
@@ -147,7 +155,8 @@ Carefully consider the context of the conversation and the specific tone or dire
   Must Triggered when chat is not related to any game or game recommendation, or when user is giving information about game or user input is just an statement which is not include the intent for new or other game. so must check the user input and thrum's last message.
   Triggered for any input that doesn’t match the above categories, or when user is input is just an statement which shares some information about the game.
   This could include irrelevant or non-conversational responses, random input, or statements that do not fall within the intent framework.
----
+  Must Triggered when Thrum last message is not game-related and user replay is doesn't request a game.
+  ---
 **Guidelines:**
 - Focus on the **current context and user emotion**—is the user happy, confused, annoyed, or giving feedback? Reflect that in the intent.
 - Classify negative feedback about the bot as `Bot_Error_Mentioned` to enable better handling and recovery.
@@ -406,17 +415,13 @@ Strict rules:
    ]
    → Can be empty list if no feedback.
 
-13. find_game(title of the game)(string)
-   → If the user ask about any specific game by giving the game title then that title only must be add in find game.
-   → If the user is asking for a specific game title or name in their last message, then put that game title in the find_game variable.
-   → If the user specifies that they want a game by giving the title of the game in the last message, then put that game in the find_game variable.
-   → If the user is looking for a specific game and mentions the name or title for recommendation (e.g., "I don't like XYZ game"), don't add that to the variable. Only add it when the user is explicitly asking for that game or wanting to know more about it.
-   → If the user does not specify a game title but the conversation seems like an inquiry about a game or checking the availability of a game, return the last recommended game's title.
-   → If the user doesn't specify any game title, but the chat is about a game, return the last recommended game's title.
-   → If the user does not specify any game title, always take the last recommended game title.
-   → If the user does not mention any game or title at all, return "None".
-   → If there is no any talking about specific game just at that time return "None" if there is already recommended game then never return "None".
-   
+13. find_game (string)
+  → If the user's CURRENT reply contains a specific game title, set find_game to the exact surface text they typed (keep original case and spelling).
+  → Treat similarity phrasing as an explicit title mention; when the message asks for something like/similar to/—like/—ish/with vibes of/in the style of/inspired by/akin to a game, extract that game's title and set it in find_game.
+  → If multiple titles appear, prefer the one attached to a similarity cue; if none, use the first clear title in the CURRENT reply.
+  → If the CURRENT reply contains no title but clearly refers to a specific game already in context, return the last recommended game's title from recent chat.
+  → If no title is present and the message is not about a specific game, return "None" (if thrum already recommended game and there is not title into user's current message then do not retun "None", return last_recommended_game).
+
 14. gameplay_elements (list of strings)
   → Focus on GAMEPLAY ELEMENT and structural features that the user describes or wants.
   → Include any mention of core actions, progression systems, advancement, linearity, perspective, player control, interaction loops, or feedback style.
@@ -709,6 +714,7 @@ Answer YES only if:
 - The input is too general to confidently recommend a specific game, with no clear style, feeling, or specific request.
 - If the user's input is vague or uses unclear modifiers (such as "something like...", "maybe tactical", "sort of strategic", "something in that vibe") and does not clearly specify a particular genre, game, or style, return YES.
 Answer NO if:
+- If user input is containing game title but it is not the answer of their favourite game question of thrum, then it must be return NO.
 - If the user's input clearly specifies a concrete genre, game, or playstyle (for example, just “shooting”, “puzzle”, “RPG”), always return NO, even if it is a single word.
 - The user gives any specific example, game, or clear description that makes their intent obvious (but NOT if it’s a favorite-game reply).
 - The input is only a greeting or only mentions a platform(to play game); these are not requests and should not trigger a clarifying question.
