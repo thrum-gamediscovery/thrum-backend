@@ -1,5 +1,6 @@
 import os
 import openai
+from app.services.user_profile_update import update_user_specifications
 from app.services.session_memory import SessionMemory
 from app.db.models.enums import SenderEnum
 from app.services.general_prompts import GLOBAL_USER_PROMPT
@@ -48,7 +49,7 @@ async def classify_intent(user_input, memory_context_str):
         return "OTHER"
     
 
-async def build_smalltalk_prompt(user_input, tone):
+async def build_smalltalk_prompt(user_input, tone, other_text):
     return f"""
     {GLOBAL_USER_PROMPT}
     ---------
@@ -56,6 +57,7 @@ THRUM — SMALLTALK MOMENT
 
 User said: "{user_input}"  
 Tone: {tone}
+Extracted recent sentences: {" | ".join(other_text)}
 
 → The user just sent a casual or emotionally open message — this counts as SMALLTALK.  
 → No request for a game. No strong intent. Just light conversation, vibe, or emotional check-in.  
@@ -85,7 +87,7 @@ If not, just stay present and emotionally real.
 Goal: Keep the emotional rhythm alive — like texting with someone who gets you.
 """
 
-async def build_meta_prompt(user_input, tone):
+async def build_meta_prompt(user_input, tone, other_text):
     return f"""
     {GLOBAL_USER_PROMPT}
     ---------
@@ -93,6 +95,7 @@ THRUM — META MOMENT
 
 User asked: "{user_input}"  
 Tone: {tone}  
+Extracted recent sentences: {" | ".join(other_text)}
 
 CONTEXT FIRST (non-negotiable):
 → **MUST** read USER MEMORY & RECENT CHAT (at least the last 10 messages) *before* writing a reply.  
@@ -113,7 +116,7 @@ STRICT LENGTH GUARD (chat-short like friends):
 Goal: Make the user curious — not sold. Make them want to keep talking.
 """
 
-async def build_genre_prompt(user_input, memory):
+async def build_genre_prompt(user_input, memory, other_text):
     seen = getattr(memory, "genre", [])
     return f"""
     {GLOBAL_USER_PROMPT}
@@ -122,6 +125,7 @@ THRUM — GENRE REQUEST
 
 User asked: "{user_input}"  
 Genres they've already seen: {seen}  
+Extracted recent sentences: {" | ".join(other_text)}
 
 CONTEXT FIRST (non-negotiable):
 → **MUST** read USER MEMORY & RECENT CHAT (at least the last 10 messages) *before* writing a reply.  
@@ -144,13 +148,14 @@ STRICT LENGTH GUARD (chat-short like friends):
 
 Goal: Re-open discovery through curiosity. Make them lean in — not scroll past.
 """
-async def build_platform_prompt(user_input):
+async def build_platform_prompt(user_input, other_text):
     return f"""
     {GLOBAL_USER_PROMPT}
     ---------
 THRUM — PLATFORM REPLY
 
 User asked: "{user_input}"  
+Extracted recent sentences: {" | ".join(other_text)}
 
 CONTEXT FIRST (non-negotiable):
 → **MUST** read USER MEMORY & RECENT CHAT (at least the last 10 messages) *before* writing a reply.  
@@ -173,7 +178,7 @@ STRICT LENGTH GUARD (chat-short like friends):
 Goal: Make the platform chat feel personal — not like a settings menu.
 """
 
-async def build_vague_prompt(user_input, tone):
+async def build_vague_prompt(user_input, tone, other_text):
     return f"""
     {GLOBAL_USER_PROMPT}
     ---------
@@ -181,6 +186,7 @@ THRUM — VAGUE OR UNCLEAR INPUT
 
 User said: "{user_input}"  
 Tone: {tone}
+Extracted recent sentences: {" | ".join(other_text)}
 
 CONTEXT FIRST (non-negotiable):
 → **MUST** read USER MEMORY & RECENT CHAT (at least the last 10 messages) *before* writing a reply.  
@@ -205,13 +211,14 @@ STRICT LENGTH GUARD (chat-short like friends):
 Goal: Defuse the fog. Keep the door open. Let them lean in when they’re ready.
 """
 
-async def build_default_prompt(user_input):
+async def build_default_prompt(user_input, other_text):
     return f"""
     {GLOBAL_USER_PROMPT}
     ---------
     THRUM — DEFAULT CATCH
 
-    User said: "{user_input}"  
+    User said: "{user_input}" 
+    Extracted recent sentences: {" | ".join(other_text)} 
 
     CONTEXT FIRST (non-negotiable):
     → **MUST** read USER MEMORY & RECENT CHAT (at least the last 10 messages) *before* writing a reply.  
@@ -238,7 +245,7 @@ async def build_default_prompt(user_input):
     Goal: Protect the vibe until the next move becomes clear. Make them feel seen, even when they don’t say much."""
 
 
-async def generate_feedback_side_topic_prompt(user_input, tone):
+async def generate_feedback_side_topic_prompt(user_input, tone, other_text):
     print(f"Building side generate_feedback_side_topic_prompt for: {user_input} ----------#-------------")
     return f"""
     {GLOBAL_USER_PROMPT}
@@ -246,6 +253,7 @@ async def generate_feedback_side_topic_prompt(user_input, tone):
     THRUM — SIDE TOPIC OR RANDOM SHIFT
     User said: "{user_input}"
     Tone: {tone}
+    Extracted recent sentences: {" | ".join(other_text)} 
 
     CONTEXT FIRST (non-negotiable):
     → **MUST** read USER MEMORY & RECENT CHAT (at least the last 10 messages) *before* writing a reply.  
@@ -270,26 +278,75 @@ async def generate_feedback_side_topic_prompt(user_input, tone):
 
     🌟  Goal: Make them feel seen. Keep the conversation human — then gently pivot back to discovery if the moment feels right."""
 
+
+async def extract_other_info(db,session,user_input: str) -> list:
+    """
+    Uses GPT to extract only key facts/statements from user input for 'Other' intent.
+    """
+    session_memory = SessionMemory(session,db)
+    memory_context_str = session_memory.to_prompt()
+    if memory_context_str:  # Only add memory if it exists (not on first message)
+        memory_context_str = f"{memory_context_str} "
+    else:
+        memory_context_str = ""
+    prompt = f"""
+    USER MEMORY & RECENT CHAT:  
+    {memory_context_str if memory_context_str else 'No prior user memory or recent chat.'}
+
+    Extract only the key facts or statements from the user's latest message.
+Requirements:
+- The user's message is not related to any game or game recommendation.
+- Thrum's last message was also not game-related.
+- Return output strictly as a valid Python list of strings in the format: ["fact1", "fact2", "fact3"].
+- Output must NOT be wrapped in code fences, triple backticks, or contain any additional text before or after the list.
+- Each list element must be one distinct fact or statement from the user's message.
+- Keep each fact short and precise.
+- You may fix small grammar issues and adjust pronouns to be neutral (e.g., "his/her").
+- Do not include greetings, filler, or unrelated conversational fluff.
+- Do not add extra meaning beyond the user's message.
+User input: "{user_input}"
+Output (Python list only):
+""".strip()
+
+    response = await client.chat.completions.create(
+        model=model,
+        messages=[{"role": "user", "content": prompt.strip()}],
+        temperature=0
+    )
+
+    # Extract text and try to safely eval into Python list
+    output_text = response.choices[0].message.content.strip()
+    print(f"output_text output_text output_text :{output_text}")
+    try:
+        extracted_list = eval(output_text)
+        if isinstance(extracted_list, list):
+            return extracted_list
+    except Exception:
+        pass
+    return []
+
 async def handle_other_input(db, user, session, user_input: str) -> str:
     session_memory = SessionMemory(session,db)
     memory = session_memory.to_prompt()
     intent = await classify_intent(user_input, memory)
     tone = session.meta_data.get("tone", "neutral")
-
+    topic_classify = await extract_other_info(db=db, session=session, user_input=user_input)
+    await update_user_specifications(db,session,topic_classify)
+    other_text = session.other_memory if session.other_memory is not None else []
     if intent == "SMALLTALK":
-        return await build_smalltalk_prompt(user_input, tone)
+        return await build_smalltalk_prompt(user_input, tone, other_text)
     elif intent == "META_FAQ":
-        return await build_meta_prompt(user_input, tone)
+        return await build_meta_prompt(user_input, tone, other_text)
     elif intent == "GENRE_REQUEST":
-        return await build_genre_prompt(user_input, session_memory)
+        return await build_genre_prompt(user_input, session_memory, other_text)
     elif intent == "PLATFORM_REQUEST":
-        return await build_platform_prompt(user_input)
+        return await build_platform_prompt(user_input, other_text)
     elif intent == "VAGUE":
-        return await build_vague_prompt(user_input, tone)
+        return await build_vague_prompt(user_input, tone, other_text)
     elif intent == "SIDE_TOPIC_OR_RANDOM_SHIFT":
-        return await generate_feedback_side_topic_prompt(user_input, tone)
+        return await generate_feedback_side_topic_prompt(user_input, tone, other_text)
     else:
-        return await build_default_prompt(user_input)
+        return await build_default_prompt(user_input, other_text)
 
 async def dynamic_faq_gpt(session, user_input=None):
     """
