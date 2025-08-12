@@ -1,4 +1,4 @@
-from app.services.game_recommend import game_recommendation
+from app.services.game_recommend import game_recommendation, get_game_platform_link
 from app.services.input_classifier import have_to_recommend
 from app.db.models.enums import PhaseEnum
 from app.db.models.session import Session
