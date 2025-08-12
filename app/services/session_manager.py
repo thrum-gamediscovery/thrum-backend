@@ -31,9 +31,9 @@ def get_session_state(last_active: datetime) -> SessionTypeEnum:
     if not last_active:
         return SessionTypeEnum.ONBOARDING
     elapsed = now - last_active
-    if elapsed > timedelta(hours=48):
+    if elapsed > timedelta(hours=72):
         return SessionTypeEnum.COLD
-    elif elapsed > timedelta(hours=11):
+    elif elapsed > timedelta(hours=24):
         return SessionTypeEnum.PASSIVE
     else:
         return SessionTypeEnum.ACTIVE
@@ -74,9 +74,9 @@ async def update_or_create_session(db: DBSession, user):
     elapsed = now - last_active_time
 
     # 📝 Update session state
-    if elapsed > timedelta(hours=48):
+    if elapsed > timedelta(hours=72):
         last_session.state = SessionTypeEnum.COLD
-    elif elapsed > timedelta(hours=11):
+    elif elapsed > timedelta(hours=24):
         last_session.state = SessionTypeEnum.PASSIVE
     else:
         last_session.state = SessionTypeEnum.ACTIVE

@@ -332,6 +332,9 @@ async def handle_reject_Recommendation(db,session, user,  classification,user_in
             • If they already played it → ask if they want a new suggestion.
             • If it just didn’t match → ask gently if you should try something with a different feel.
             → Never suggest a game on your own if there is no game found
+
+            STRICT RULE:
+            - Message Should Be: Max 1-2 Short Sentences, 14-16 words.
             🌟  Goal: Understand what didn’t land. Show you care about the “why” — not just the outcome.
             """
         print(":handle_reject_Recommendation prompt :",user_prompt)
