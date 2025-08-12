@@ -589,6 +589,15 @@ async def handle_discovery(db, session, user,user_input, classification):
                     Use this game description for inspiration: {description}
                     The user previously liked the game: "{liked_game}"
 
+                    OPENER VARIATION:
+                    - Collect the first clause of the last 5 Thrum messages → recent_openers (lowercased).
+                    - Write ONE opener ≤10 words, mid-thought, mirroring {mood}/{tone}.
+                    - Opener must NOT be semantically similar to any in recent_openers (avoid same first two words, same verb/imagery, same cadence). If close, rewrite once.
+                    BODY GUARDRAILS:
+                    - Do NOT use visualization scaffolds anywhere: “imagine / picture / ever thought about / ready to dive / what if / Imagine diving into”.
+                    - Do NOT repeat the opener’s main verb or imagery in the next sentence.
+                    - Start body with a concrete, game-specific hook (mechanic/role/goal) in one line.
+                    
                     INCLUDE:  
                     - If user has {liked_game} in their memory, You can draw a connection to the liked game, but don’t be obvious or repetitive. No hardcoded lines. Avoid templates like “If you liked X, you’ll love Y.”
                     - Reflect the user's last message so they feel heard. 
