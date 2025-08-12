@@ -95,7 +95,7 @@ async def check_intent_override(db, user_input, user, session, classification, i
     
     elif classification_intent.get("Greet"):
         session.phase = PhaseEnum.INTRO
-        return await handle_intro(session)
+        return await handle_intro(db,session)
 
     # Handle cases where user input doesn't match any predefined intent
     elif classification_intent.get("Other") or classification_intent.get("Other_Question"):
