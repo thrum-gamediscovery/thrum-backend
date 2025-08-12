@@ -1,4 +1,4 @@
-from rapidfuzz import process
+from rapidfuzz import process, fuzz
 from datetime import datetime
 from sqlalchemy.orm import Session
 from app.db.models.session import Session
@@ -14,6 +14,23 @@ from app.services.mood_engine import detect_mood_from_text
 from app.utils.genre import get_best_genre_match 
 from app.utils.platform_utils import get_best_platform_match, get_default_platform
 from app.services.session_memory import SessionMemory
+import re
+
+
+# replace your current tokens() with this version
+STOPWORDS = {
+    "the","of","and","a","an","for","to","in","on","with",
+    "edition","remastered","definitive","complete","collection","ultimate","rebirth"
+}
+
+def tokens(s: str):
+    return {t for t in re.findall(r"\w+", s.lower()) if len(t) > 2 and t not in STOPWORDS}
+
+def split_chunks(s: str):
+    # handles cases like: "The Binding of Isaac: Rebirth     call of duty"
+    parts = re.split(r"[|/,-]| and |\s{2,}", s, flags=re.IGNORECASE)
+    parts = [p.strip() for p in parts if len(p.strip()) >= 3]
+    return parts or [s]
 
 async def set_pending_action(db, session, action_type, payload=None):
     if 'pending_action' not in session.meta_data:
@@ -395,20 +412,57 @@ async def update_user_from_classification(db: Session, user, classification: dic
     else:
         print(f"❌ Invalid disliked_keywords format: {disliked_keywords}. Expected a list.")
 
-    # -- find game
+    # -- find game  
+    # -- find game  
     if find_game_title and find_game_title.lower() != "none":
-            # Load all game titles and IDs
-            all_games = db.query(Game.game_id, Game.title).all()
-            title_lookup = {g.title: g.game_id for g in all_games}
-            match = process.extractOne(find_game_title.strip(), title_lookup.keys(), score_cutoff=85)
-            if match:
-                matched_title = match[0]
-                matched_game_id = str(title_lookup[matched_title])  # Store as string
-                session.meta_data["find_game"] = matched_game_id
-                flag_modified(session, "meta_data")
-                print(f"🎯 Stored matched find_game → '{matched_title}' (ID: {matched_game_id}) in session.meta_data")
+        session.meta_data = session.meta_data or {}  # ensure dict
+
+        # Load all game titles and IDs
+        all_games = db.query(Game.game_id, Game.title).all()
+        title_lookup = {g.title: g.game_id for g in all_games}
+        all_titles = list(title_lookup.keys())
+
+        best = None  # (matched_title, score)
+
+        for chunk in split_chunks(find_game_title.strip()):
+            # Step 1: get multiple candidates above cutoff
+            matches = process.extract(
+                chunk,
+                all_titles,
+                scorer=fuzz.token_set_ratio,
+                score_cutoff=35,
+                limit=10
+            )
+            print("matches for chunk:", chunk, "->", matches)
+
+            # Step 2: token-overlap filter
+            input_tokens = tokens(chunk)
+            filtered = []
+            for title, score, _ in matches:
+                title_tokens = tokens(title)
+                if input_tokens & title_tokens:
+                    filtered.append((title, score))
+
+            # Step 3: pick best from filtered, else best from raw matches (fallback)
+            if filtered:
+                mt, sc = max(filtered, key=lambda x: x[1])
+            elif matches:
+                mt, sc, _ = max(matches, key=lambda x: x[1])
             else:
-                print(f"❌ No match found for 'find_game' title: {find_game_title}")
+                continue
+
+            if best is None or sc > best[1]:
+                best = (mt, sc)
+
+        if best:
+            matched_title, _ = best
+            matched_game_id = str(title_lookup[matched_title])
+            session.meta_data["find_game"] = matched_game_id
+            flag_modified(session, "meta_data")
+            print(f"🎯 Stored matched find_game → '{matched_title}' (ID: {matched_game_id}) in session.meta_data")
+        else:
+            print(f"❌ No confident match for 'find_game' title: {find_game_title}")
+
 
     # -- Reject Tags (Genre vs Platform)
     if isinstance(reject_tags, list):

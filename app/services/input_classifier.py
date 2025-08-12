@@ -416,12 +416,12 @@ Strict rules:
    → Can be empty list if no feedback.
 
 13. find_game (string)
-  → If the user's CURRENT reply contains a specific game title, set find_game to the exact surface text they typed (keep original case and spelling).
+  → If the user's CURRENT reply contains a specific game title, set find_game to the exact surface text they typed (keep original case and spelling).(eg. user input contains game title like "call of duty" then it must return this game title in find_game)
   → Treat similarity phrasing as an explicit title mention; when the message asks for something like/similar to/—like/—ish/with vibes of/in the style of/inspired by/akin to a game, extract that game's title and set it in find_game.
   → If multiple titles appear, prefer the one attached to a similarity cue; if none, use the first clear title in the CURRENT reply.
   → If the CURRENT reply contains no title but clearly refers to a specific game already in context, return the last recommended game's title from recent chat.
   → If no title is present and the message is not about a specific game, return "None" (if thrum already recommended game and there is not title into user's current message then do not retun "None", return last_recommended_game).
-
+  
 14. gameplay_elements (list of strings)
   → Focus on GAMEPLAY ELEMENT and structural features that the user describes or wants.
   → Include any mention of core actions, progression systems, advancement, linearity, perspective, player control, interaction loops, or feedback style.

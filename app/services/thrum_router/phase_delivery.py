@@ -10,6 +10,130 @@ import openai
 import os
 client = openai.AsyncOpenAI()
 
+from app.db.models.game_platforms import GamePlatform
+from sqlalchemy import text
+from scipy.spatial.distance import cosine
+import numpy as np
+def to_vector(v):
+    if v is None:
+        return None
+    v = np.array(v)
+    if v.ndim == 2:
+        return v.flatten()
+    if v.ndim == 1:
+        return v
+    return None
+def recommend_top1_like_seed(
+    db,
+    user,
+    session,
+    seed_game_id,
+    gameplay_weight: float = 0.6,
+    preference_weight: float = 0.4,
+):
+    # 0) Seed game
+    seed = db.query(Game).filter(Game.game_id == seed_game_id).first()
+    if not seed:
+        return None
+    seed_gameplay_embedding = to_vector(seed.gameplay_embedding)
+    seed_preference_embedding = to_vector(seed.preference_embedding)
+    seed_genres = seed.genre or []
+    if not seed_genres or (seed_gameplay_embedding is None and seed_preference_embedding is None):
+        return None
+    # pick ONE genre from the seed (last)
+    seed_genre = seed_genres[-1].strip()
+    seed_genre_lower = seed_genre.lower()
+    # 1) Exclude already recommended in THIS session + the seed itself
+    already_recommended_ids = set(
+        r[0]
+        for r in db.query(GameRecommendation.game_id).filter(
+            GameRecommendation.session_id == session.session_id
+        )
+    )
+    already_recommended_ids.add(seed_game_id)
+    base_q = db.query(Game).filter(~Game.game_id.in_(already_recommended_ids))
+    # 2) NOW filter by that single seed genre (case-insensitive)
+    candidates = base_q.filter(
+        text("""
+            EXISTS (
+                SELECT 1
+                FROM unnest(games.genre) AS g
+                WHERE LOWER(g) = :g
+            )
+        """)
+    ).params(g=seed_genre_lower).all()
+    print("------------------len",len(candidates))
+    if not candidates:
+        return None
+    # 3) score using your embedding pattern
+    def score_game(game: Game) -> float:
+        game_gameplay_embedding = to_vector(game.gameplay_embedding)
+        game_preference_embedding = to_vector(game.preference_embedding)
+        gameplay_sim = 0.0
+        preference_sim = 0.0
+        if seed_gameplay_embedding is not None and game_gameplay_embedding is not None:
+            gameplay_sim = 1.0 - cosine(seed_gameplay_embedding, game_gameplay_embedding)
+        if seed_preference_embedding is not None and game_preference_embedding is not None:
+            preference_sim = 1.0 - cosine(seed_preference_embedding, game_preference_embedding)
+        # if both missing on candidate, tiny floor
+        if (seed_gameplay_embedding is None or game_gameplay_embedding is None) and \
+           (seed_preference_embedding is None or game_preference_embedding is None):
+            return 0.0001
+        return max(gameplay_weight * gameplay_sim + preference_weight * preference_sim, 0.0001)
+    scored = [(g, score_game(g)) for g in candidates]
+    scored.sort(key=lambda x: x[1], reverse=True)
+    top_game = scored[0][0]
+    # 4) platforms + link (prefer current session platform)
+    platform = session.platform_preference[-1] if session.platform_preference else None
+    platforms = db.query(GamePlatform.platform).filter(
+        GamePlatform.game_id == top_game.game_id
+    ).all()
+    link = get_game_platform_link(top_game.game_id, platform, db)
+    # 5) last liked game (previous sessions) for payload
+    last_session_liked_game = db.query(GameRecommendation).filter(
+        GameRecommendation.user_id == user.user_id,
+        GameRecommendation.accepted == True,
+        GameRecommendation.session_id != session.session_id
+    ).order_by(GameRecommendation.timestamp.desc()).first()
+    last_session_game = bool(last_session_liked_game)
+    session.genre = seed_genres
+    game_rec = GameRecommendation(
+        session_id=session.session_id,
+        user_id=user.user_id,
+        game_id=top_game.game_id,
+        platform=platform,
+        genre=session.genre if session.genre else None,
+        tone=session.meta_data.get("tone", {}) if session.meta_data.get("tone") else None,
+        mood_tag=session.exit_mood if session.exit_mood else None,
+        keywords={
+            "gameplay_elements": session.gameplay_elements or [],
+            "preferred_keywords": session.preferred_keywords or [],
+            "disliked_keywords": session.disliked_keywords or []
+        },
+        accepted=None
+    )
+    db.add(game_rec)
+    session.meta_data["ask_confirmation"] = True
+    session.last_recommended_game = top_game.title
+    db.commit()
+    # 6) return in your exact shape
+    return {
+        "title": top_game.title,
+        "description": top_game.description if top_game.description else None,
+        "genre": top_game.genre,
+        "game_vibes": top_game.game_vibes,
+        "complexity": top_game.complexity,
+        "visual_style": top_game.graphical_visual_style,
+        "has_story": top_game.has_story,
+        "platforms": [p[0] for p in platforms],
+        "link": link,
+        "last_session_game": {
+            "is_last_session_game": last_session_game,
+            "title": last_session_liked_game.game.title if last_session_liked_game else None,
+            "game_id": last_session_liked_game.game.game_id if last_session_liked_game else None
+        }
+    }
+
 async def get_most_similar_liked_title(db, session_id, current_title):
     """
     Returns the liked game title (from the session) most similar to current_title, using GPT for matching.
@@ -394,74 +518,51 @@ async def diliver_similar_game(db: Session, user, session, user_input, classific
     Returns:
         str: GPT-formatted game message
     """
-    session_memory = SessionMemory(session,db)
-    if session.game_rejection_count >= 2:
-        session.phase = PhaseEnum.DISCOVERY
-        return await handle_discovery(db=db, session=session, user=user,user_input=user_input,classification=classification)
-    game, _ = await game_recommendation(db=db, user=user, session=session)
-    print(f"Similar game recommendation: {game}")
-    if not game:
-        user_prompt = NO_GAMES_PROMPT
-        return user_prompt
-    else:
-        session_memory.last_game = game["title"]
-        # Get user's preferred platform
-        preferred_platforms = session.platform_preference or []
-        user_platform = preferred_platforms[-1] if preferred_platforms else None
-        game_platforms = game.get("platforms", [])
-        platform_link = game.get("link", None)
-        request_link = session.meta_data.get("request_link", False)
-        description = game.get("description",None)
-        mood = session.exit_mood  or "neutral"
-        # Build natural platform note
-        if user_platform and user_platform in game_platforms:
-            platform_note = f"It’s available on your preferred platform: {user_platform}."
-        elif user_platform:
-            available = ", ".join(game_platforms)
-            platform_note = (
-                f"It’s not on your usual platform ({user_platform}), "
-                f"but is available on: {available}."
-            )
-        else:
-            platform_note = f"Available on: {', '.join(game_platforms) or 'many platforms'}."
-        # :brain: Final Prompt\
-        tone = session.meta_data.get("tone", "neutral")
-        liked_game = await get_most_similar_liked_title(db=db, session_id=session.session_id, current_title = game.get("title", None))
+    seed_game_id = session.meta_data.get("find_game",None)
+     # your UUID / ID for the seed game
+    if not seed_game_id:
+        seed_game = db.query(Game).filter(Game.game_id == seed_game_id).first()
+        seed_title = seed_game.title if seed_game else "this game"
         user_prompt = f"""
             {GLOBAL_USER_PROMPT}\n
             ---
                 THRUM — FRIEND MODE: GAME RECOMMENDATION
-
+                You are THRUM — the friend who keeps it real.
+                Let the user know that we couldn’t find anything similar to **{seed_title}** right now,
+                but keep the conversation fun and alive — like texting a friend.
+                Don’t make it sound like a system error, and don’t drop the energy.
+                Suggest shifting to a different genre or vibe, casually, without sounding robotic or templated.
+        """
+        return user_prompt
+    recommendation = recommend_top1_like_seed(db, user, session, seed_game_id)
+    print("#############-----#########",recommendation)
+    if recommendation:
+        # Build user_prompt with actual game details
+        game = recommendation
+        description = game["description"] or ""
+        liked_game = game["last_session_game"]["title"] if game["last_session_game"]["title"] else ""
+        mood = session.meta_data.get("mood", "neutral")
+        tone = session.meta_data.get("tone", "casual")
+        platform_note = ", ".join(game["platforms"]) if game["platforms"] else "no specific platform"
+        user_prompt = f"""
+            {GLOBAL_USER_PROMPT}\n
+            ---
+                THRUM — FRIEND MODE: GAME RECOMMENDATION
                 You are THRUM — the friend who remembers what’s been tried and never repeats. You drop game suggestions naturally, like texting your best mate.
-
                 Recommend **{game['title']}** using a {mood} mood and {tone} tone.
-
                 Use this game description for inspiration: {description}
-
-                OPENER VARIATION:
-                - Collect the first clause of the last 5 Thrum messages → recent_openers (lowercased).
-                - Write ONE opener ≤10 words, mid-thought, mirroring {mood}/{tone}.
-                - Opener must NOT be semantically similar to any in recent_openers (avoid same first two words, same verb/imagery, same cadence). If close, rewrite once.
-
-                BODY GUARDRAILS:
-                - Do NOT use visualization scaffolds anywhere: “imagine / picture / ever thought about / ready to dive / what if / Imagine diving into”.
-                - Do NOT repeat the opener’s main verb or imagery in the next sentence.
-                - Start body with a concrete, game-specific hook (mechanic/role/goal) in one line.
-                
-                INCLUDE:  
+                INCLUDE:
                 - If user has {liked_game} in their memory, You can draw a connection to the liked game, but don’t be obvious or repetitive. No hardcoded lines. Avoid templates like “If you liked X, you’ll love Y.”
-                - Reflect the user's last message so they feel heard. 
-                - A Draper-style mini-story (3–4 lines max) explaining why this game fits based on USER MEMORY & RECENT CHAT, making it feel personalized.  
-                - Platform info ({platform_note}) mentioned casually, like a friend dropping a hint.  
-                - Bold the title: **{game['title']}**.  
+                - Reflect the user's last message so they feel heard.
+                - A Draper-style mini-story (3–4 lines max) explaining why this game fits based on USER MEMORY & RECENT CHAT, making it feel personalized.
+                - Platform info ({platform_note}) mentioned casually, like a friend dropping a hint.
+                - Bold the title: **{game['title']}**.
                 - End with a fun, playful, or emotionally tone-matched line that invites a reply — a soft nudge or spark fitting the rhythm. Never robotic or templated prompts like “want more?”.
-
-                NEVER:  
-                - NEVER Use robotic phrasing or generic openers.  
-                - NEVER Mention genres, filters, or system logic.  
-                - NEVER Say “I recommend” or “available on…”.  
+                NEVER:
+                - NEVER Use robotic phrasing or generic openers.
+                - NEVER Mention genres, filters, or system logic.
+                - NEVER Say “I recommend” or “available on…”.
                 - NEVER Mention or suggest any other game than **{game['title']}**. No invented or recalled games outside the data.
-
                 Start mid-thought, as if texting a close friend.
             ---
                 → The user wants another game like the one they liked.
@@ -469,7 +570,20 @@ async def diliver_similar_game(db: Session, user, session, user_input, classific
                 → Use a new rhythm and vibe — sometimes hyped, sometimes teasing, sometimes chill — based on recent mood.
                 → You can casually mention what hit in the last one (genre, pacing, tone, mechanics), but never like a system log. Talk like a close friend would on WhatsApp.
                 → NEVER repeat phrasing, emoji, or sentence structure from earlier replies.
-                🌟  Goal: Make the moment feel human — like you're really listening and about to serve something *even better*. Rebuild energy and keep the conversation alive.
-            """
-        return user_prompt
-    
+                :star2:  Goal: Make the moment feel human — like you're really listening and about to serve something *even better*. Rebuild energy and keep the conversation alive.
+        """
+    else:
+        # Fallback prompt when no similar game found
+        seed_game = db.query(Game).filter(Game.game_id == seed_game_id).first()
+        seed_title = seed_game.title if seed_game else "this game"
+        user_prompt = f"""
+            {GLOBAL_USER_PROMPT}\n
+            ---
+                THRUM — FRIEND MODE: GAME RECOMMENDATION
+                You are THRUM — the friend who keeps it real.
+                Let the user know that we couldn’t find anything similar to **{seed_title}** right now,
+                but keep the conversation fun and alive — like texting a friend.
+                Don’t make it sound like a system error, and don’t drop the energy.
+                Suggest shifting to a different genre or vibe, casually, without sounding robotic or templated.
+        """
+    return user_prompt
