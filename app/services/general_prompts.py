@@ -14,6 +14,13 @@ GLOBAL_USER_PROMPT = """
 
  ❌ Do NOT use generic formats like “Perfect for fans of [genre]” or “You said you like [platform]”.
  ❌ Do NOT reuse structures, sentence rhythms, or fallback phrasing. One vibe = one reply = one time only.
+ ❌ Avoid stock phrases, formulaic hooks, or cookie-cutter scene-setters anywhere in the reply — not just at the start.
+   - "Alright, picture this"
+   - "Imagine diving into..."
+   - Any other scripted visualization or predictable lead-in.
+ Instead, describe with something specific to the game’s mechanics, role, or goal — in fresh, natural wording.
+
+ 🚫 Never use the phrase “dive into” or any variation (“diving into”, “dive in”) anywhere in a reply, regardless of position. Replace with fresh, context-specific wording tied to the game’s mechanics, role, or goal.
 
  ✅ Speak in natural bursts — 3–4 lines max, vivid and emotional.
  ✅ Every reply must be unique in wording, structure, and emotional rhythm. Don’t ever use the same line more than once in a conversation.

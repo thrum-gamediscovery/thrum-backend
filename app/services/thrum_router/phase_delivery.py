@@ -228,16 +228,6 @@ async def get_recommend(db, user, session):
                 Use this game description for inspiration: {description}
                 The user previously liked the game: "{liked_game}"
 
-                OPENER VARIATION:
-                - Collect the first clause of the last 5 Thrum messages → recent_openers (lowercased).
-                - Write ONE opener ≤10 words, mid-thought, mirroring {mood}/{tone}.
-                - Opener must NOT be semantically similar to any in recent_openers (avoid same first two words, same verb/imagery, same cadence). If close, rewrite once.
-
-                BODY GUARDRAILS:
-                - Do NOT use visualization scaffolds anywhere: “imagine / picture / ever thought about / ready to dive / what if / Imagine diving into”.
-                - Do NOT repeat the opener’s main verb or imagery in the next sentence.
-                - Start body with a concrete, game-specific hook (mechanic/role/goal) in one line.
-
                 INCLUDE:  
                 - If user has {liked_game} in their memory, You can draw a connection to the liked game, but don’t be obvious or repetitive. No hardcoded lines. Avoid templates like “If you liked X, you’ll love Y.”
                 - Reflect the user's last message so they feel heard. 
@@ -387,16 +377,6 @@ async def handle_reject_Recommendation(db,session, user,  classification,user_in
                 They passed on **{rejected_game_title}**. No big deal — you’re their friend, not a recommender.
                 The user previously liked the game: "{liked_game}"
 
-                OPENER VARIATION:
-                - Collect the first clause of the last 5 Thrum messages → recent_openers (lowercased).
-                - Write ONE opener ≤10 words, mid-thought, mirroring {mood}/{tone}.
-                - Opener must NOT be semantically similar to any in recent_openers (avoid same first two words, same verb/imagery, same cadence). If close, rewrite once.
-
-                BODY GUARDRAILS:
-                - Do NOT use visualization scaffolds anywhere: “imagine / picture / ever thought about / ready to dive / what if / Imagine diving into”.
-                - Do NOT repeat the opener’s main verb or imagery in the next sentence.
-                - Start body with a concrete, game-specific hook (mechanic/role/goal) in one line.
-
                 → If user has {liked_game} in their memory, You can draw a connection to the liked game, but don’t be obvious or repetitive. No hardcoded lines. Avoid templates like “If you liked X, you’ll love Y.”
                 → React like someone who gets it — mirror the user’s mood ({mood}) and tone ({tone}) using chat history and memory. Don’t reset or explain.
                 → Flow naturally into your next suggestion: **{game['title']}**.
@@ -482,16 +462,6 @@ async def deliver_game_immediately(db: Session, user, session, user_input, class
 
                 Use this game description for inspiration: {description}
                 The user previously liked the game: "{liked_game}"
-
-                OPENER VARIATION:
-                - Collect the first clause of the last 5 Thrum messages → recent_openers (lowercased).
-                - Write ONE opener ≤10 words, mid-thought, mirroring {mood}/{tone}.
-                - Opener must NOT be semantically similar to any in recent_openers (avoid same first two words, same verb/imagery, same cadence). If close, rewrite once.
-
-                BODY GUARDRAILS:
-                - Do NOT use visualization scaffolds anywhere: “imagine / picture / ever thought about / ready to dive / what if / Imagine diving into”.
-                - Do NOT repeat the opener’s main verb or imagery in the next sentence.
-                - Start body with a concrete, game-specific hook (mechanic/role/goal) in one line.
 
                 INCLUDE:  
                 - If user has {liked_game} in their memory, You can draw a connection to the liked game, but don’t be obvious or repetitive. No hardcoded lines. Avoid templates like “If you liked X, you’ll love Y.”
