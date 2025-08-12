@@ -7,7 +7,7 @@ from app.services.general_prompts import (
 )
 from app.services.session_manager import get_pacing_style
 
-def classify_first_message(text: str) -> str:
+async def classify_first_message(text: str) -> str:
     """Classify user's first message into semantic buckets"""
     t = (text or "").strip().lower()
     if t in {"hi", "hey", "yo", "hello"} or len(t) <= 3:
@@ -18,11 +18,11 @@ def classify_first_message(text: str) -> str:
         return "DISCOVERY_INTENT"
     return "OTHER"
 
-def is_thin_reply(text: str) -> bool:
+async def is_thin_reply(text: str) -> bool:
     """Check if user reply is very short (≤3 words)"""
     return len((text or "").strip().split()) <= 3
 
-def build_onboarding_prompt(session, user_text: str, first_class: str) -> str:
+async def build_onboarding_prompt(session, user_text: str, first_class: str) -> str:
     """Build generative onboarding prompt with persona + FOMO rails"""
     persona_rails = (
         "You are Thrum, a friendly game discovery assistant meeting a new user for the first time."
@@ -85,7 +85,7 @@ def build_onboarding_prompt(session, user_text: str, first_class: str) -> str:
         → ≤12-15 words per sentence. No lists/bullets/paragraphs; trim filler.
     """
 
-def build_depth_nudge_prompt(last_user_text: str) -> str:
+async def build_depth_nudge_prompt(last_user_text: str) -> str:
     """Build second-turn nudge prompt for thin replies"""
     persona_rails = (
         "You are Thrum, a friendly game buddy. Keep it playful, natural."
@@ -102,7 +102,7 @@ def build_depth_nudge_prompt(last_user_text: str) -> str:
         Goal: {goal}. Ask for exactly one helpful detail, no lists, no lecture. Reply now."""
 
 
-def build_reengagement_intro(user_name, tone, mood, session):
+async def build_reengagement_intro(user_name, tone, mood, session):
 
     pace, style, length_hint = get_pacing_style(session)
     print("-------------------------reengagement intro")
@@ -128,7 +128,7 @@ def build_reengagement_intro(user_name, tone, mood, session):
     return user_prompt
 
 
-def build_return_after_24h_intro(session, last_session):
+async def build_return_after_24h_intro(session, last_session):
     print("-------------------------build_return_after_24h_intro")
     genres_str = ", ".join((last_session.genre or [])[:2]) if last_session and last_session.genre else ""
     last_mood = last_session.exit_mood or last_session.entry_mood if last_session else ""
@@ -187,7 +187,7 @@ def build_return_after_24h_intro(session, last_session):
 
     return random.choice(RETURN_AFTER_24H_PROMPTS)
 
-def another_intro(user_name, tone, mood, last_game, platform, session=None):
+async def another_intro(user_name, tone, mood, last_game, platform, session=None):
     user_prompt = random.choice(ANOTHER_INTRO_PROMPTS)
 
     # Add pacing context if session available
@@ -216,7 +216,7 @@ async def handle_intro(db,session):
     print(session.meta_data.get("already_greet"))
     # Check if the user is a returning user
     if session.meta_data.get("returning_user",False):
-        return build_reengagement_intro(user_name, tone, mood, session)
+        return await build_reengagement_intro(user_name, tone, mood, session)
 
     last_session = (
     db.query(SessionModel)
@@ -230,7 +230,7 @@ async def handle_intro(db,session):
     if last_session:
         if not session.meta_data.get("already_greet",False) :
             session.meta_data["already_greet"] = True  # Mark as greeted
-            return build_return_after_24h_intro(session=session,last_session=last_session)
+            return await build_return_after_24h_intro(session=session,last_session=last_session)
 
     # Get user's last message
     sorted_interactions = sorted(session.interactions, key=lambda i: i.timestamp, reverse=True)
@@ -249,19 +249,19 @@ async def handle_intro(db,session):
     
     # First-touch generative onboarding
     if turn_index == 1 and not intro_done:
-        first_class = classify_first_message(user_input)
+        first_class = await classify_first_message(user_input)
         print(f"First message classification: {first_class}???????????????????????")
-        prompt = build_onboarding_prompt(session,user_input, first_class)
+        prompt = await build_onboarding_prompt(session,user_input, first_class)
         print(f"Onboarding prompt for {user_name}:>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> {prompt}")
         session.meta_data["intro_done"] = True
         session.meta_data["already_greet"] = True
         return prompt
     
     # Second-turn depth nudge for thin replies
-    if turn_index == 2 and is_thin_reply(user_input) and not session.meta_data.get("nudge_sent", False):
-        nudge_prompt = build_depth_nudge_prompt(user_input)
+    if turn_index == 2 and await is_thin_reply(user_input) and not session.meta_data.get("nudge_sent", False):
+        nudge_prompt = await build_depth_nudge_prompt(user_input)
         session.meta_data["nudge_sent"] = True
         return nudge_prompt
     
     # Fallback to another intro for subsequent interactions
-    return another_intro(user_name, tone, mood, last_game, platform, session)
+    return await another_intro(user_name, tone, mood, last_game, platform, session)
