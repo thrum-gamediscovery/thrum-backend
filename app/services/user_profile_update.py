@@ -548,18 +548,18 @@ async def update_user_from_classification(db: Session, user, classification: dic
     session_memory = SessionMemory(session,db)
     session_memory.update(**classification)
 
-    async def update_user_specifications(db,session,classification):
-        if isinstance(classification, list):
-            print(f"[:white_check_mark: Raw other_memory]: {classification}")
-            # Ensure all elements are strings and clean them
-            for classfy in classification:
-                if classfy.strip().lower() != "none":
-                    if classfy:
-                        # Ensure session.other_memory is initialized as a list if it's None
-                        if session.other_memory is None:
-                            session.other_memory = []
-                            print(":white_check_mark: Initialized session.other_memory as an empty list.")
-                        if classfy not in session.other_memory:
-                            session.other_memory.append(classfy)
-                        print(f":white_check_mark: Added other_memory '{session}' to {session.other_memory}")
-        db.commit()
+async def update_user_specifications(db,session,classification):
+    if isinstance(classification, list):
+        print(f"[:white_check_mark: Raw other_memory]: {classification}")
+        # Ensure all elements are strings and clean them
+        for classfy in classification:
+            if classfy.strip().lower() != "none":
+                if classfy:
+                    # Ensure session.other_memory is initialized as a list if it's None
+                    if session.other_memory is None:
+                        session.other_memory = []
+                        print(":white_check_mark: Initialized session.other_memory as an empty list.")
+                    if classfy not in session.other_memory:
+                        session.other_memory.append(classfy)
+                    print(f":white_check_mark: Added other_memory '{session}' to {session.other_memory}")
+    db.commit()
