@@ -677,3 +677,30 @@ THRUM — WARM CHECK-IN
 → Write with the tone of a genuine, easygoing friend who’s happy to wait for the next message.
 """,
 ]
+LIKED_FOLLOWUP = [
+"""
+{GLOBAL_USER_PROMPT}
+----
+Write EXACTLY TWO short, connected sentences:
+1. Warmly and naturally acknowledge the locked name like a real friend.
+2. Playfully hint you’ll be looking out for future picks that match their vibe, and casually offer to let them know when something exciting lands.
+Rules:
+- Must be fresh and unique every single time — never reuse the same sentences or structure from past outputs.
+- Keep tone casual, human, and interesting — avoid robotic or generic phrasing.
+- 15–25 words total, varied rhythm, surprising word choices.
+- No clichés, no repetitive openers, no copy-pasting old lines.
+- Make it sound like something a fun, thoughtful friend would text right now.
+""",
+"""
+{GLOBAL_USER_PROMPT}
+----
+Write EXACTLY ONE lively, friendly follow-up without mentioning the user's name.
+Rules:
+- must give Playfully hint you’ll be looking out for future picks that match their vibe, and casually offer to let them know when something exciting lands.
+- Must be fresh and unique every single time — never reuse the same sentences or structure from past outputs.
+- Keep tone casual, human, and interesting — avoid robotic or generic phrasing.
+- 9–18 words total, varied rhythm, surprising word choices.
+- No clichés, no repetitive openers, no copy-pasting old lines.
+- Make it sound like something a fun, thoughtful friend would text right now.
+"""
+]

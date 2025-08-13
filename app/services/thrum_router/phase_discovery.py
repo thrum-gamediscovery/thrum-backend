@@ -7,7 +7,7 @@ import random
 from app.utils.error_handler import safe_call
 from app.services.game_recommend import game_recommendation
 from app.services.input_classifier import have_to_recommend
-from app.services.thrum_router.phase_delivery import get_most_similar_liked_title, explain_last_game_match
+from app.services.thrum_router.phase_delivery import get_most_similar_liked_title, explain_last_game_match, get_recommend
 from app.services.general_prompts import GLOBAL_USER_PROMPT, NO_GAMES_PROMPT
 from app.db.models.session import Session as SessionModel  # adjust import as needed
 from app.db.models.game_recommendations import GameRecommendation
@@ -131,19 +131,7 @@ def get_next_genres(session, k=None):
     session.used_genres = used_genres
     return genres
 
-def is_vague_reply(message):
-    print('..............is_vague_reply..................', message)
-    """
-    Detects if user reply is vague/empty/non-committal.
-    This triggers the special fallback the client requires—never lets the bot repeat, freeze, or act like a form.
-    """
-    vague_words = [
-        "idk", "not sure", "depends", "maybe", "whatever",
-        "no idea", "🤷", "🤷‍♂️", "🤷‍♀️", "help", "any", "anything", "dunno", "dunno 🤷"
-    ]
-    return any(word in (message or "").lower() for word in vague_words)
-
-async def ask_discovery_question(db, session) -> str:
+async def ask_discovery_question(db, session,user,user_input,classification):
     sorted_interactions = sorted(session.interactions, key=lambda i: i.timestamp, reverse=True)
     user_interactions = [i for i in sorted_interactions if i.sender == SenderEnum.User]
     last_user_message = user_interactions[0].content if user_interactions else ""
@@ -154,34 +142,6 @@ async def ask_discovery_question(db, session) -> str:
     if "dont_ask_que" not in session.meta_data:
         session.meta_data["dont_ask_que"] = []
     dont_ask = session.meta_data.get("dont_ask_que") or []
-
-    # 1. Handle vague/no-input at the top
-    print('last_user_message................', last_user_message)
-    print('...................Test...........', is_vague_reply(last_user_message))
-    if is_vague_reply(last_user_message):
-        return f"""
-    {GLOBAL_USER_PROMPT}
-
-    ---
-
-    🛑 TRIGGER: USER GAVE NO USEFUL INPUT
-    → This reply was vague, non-committal, blank, or dismissive.
-    → Examples: "idk", "whatever", "you pick", 🤷, or just silence.
-    → You are Thrum — a tone-mirroring, emotionally-aware, game-discovery friend.
-    → Pull the chat back to life, like a real friend would.
-    → Acknowledge the silence or vagueness — but don't complain.
-    → React in a playful, teasing, sarcastic, or warm way.
-    → Say one single line — it should make the user smile or re-engage.
-    → Optionally: offer one wildcard or funny guess — only if needed.
-    → Your tone must sound like WhatsApp — human, casual, emotionally aware, like how friends talk to each other out of interest.
-    ❌ Do NOT use phrases like "vibe," "drop a word," "throw a dart," or anything robotic.
-    ✅ You may be weird, sharp, random — as long as it feels like how friends joke.
-    don't suggest a game on your own if there is no game found
-    Only return one message, like one bubble in a chat.
-
-    STRICT RULE:
-    - Message Should Be: Max 1-2 Short Sentences, 14-16 words.
-    """.strip()
 
     is_match, game_titles, recent_tags = await two_recent_accepted_same_genre(db, session.session_id)
     if is_match:
@@ -472,30 +432,6 @@ async def ask_discovery_question(db, session) -> str:
             Fill in {genre} and {platform} dynamically.
             """.strip()
 
-    # 6. Gameplay/story preference — never survey, never ask "Do you like story-driven games?"
-    if getattr(session, "story_preference", None) is None and "story_preference" not in dont_ask:
-        session.meta_data["dont_ask_que"].append("story_preference")
-        return f"""
-            {GLOBAL_USER_PROMPT}
-            ---
-            → You’re Thrum — the emotionally-aware, tone-mirroring game discovery friend.
-            → You don’t yet know how they like to play or where they usually dive in for games.
-            → Ask *one single line* that casually blends both, like something you'd ask a friend mid-convo.
-            → **Do not mention, ask, or refer to the user’s platform or genre in any way — not even as an example.**
-            → Never use words like “gameplay”, “platform”, “store”, “genre”, or “preference”.
-            → Use the user's last tone: {last_user_tone}
-            → Mention one or two examples if it helps (like “cozy” or “fast-paced”), but do NOT mention any store, device, or category.
-            → Also find out if they lean toward chill & cozy or chaotic & fast — but never as a list or survey.
-            → If their name, emoji style, or slang is known, include it naturally.
-            → Wrap with a soft tease like “spill that and I might just find your next obsession :eyes:” — but don’t repeat, remix each time.
-            → Never repeat structure or phrasing. Always a new shape.
-            → If there is mood, genre, games liked/rejected, platform in Memory then ask based on that so user feels personal and feels like you are listening him/her and remember his/her choices.
-            → Never suggest a game on your own.
-            → **Do not mention or reference platform or genre.**
-
-            STRICT RULE:
-            - Message Should Be: Max 1-2 Short Sentences, 14-16 words.
-            """.strip()
     
     # 7. Fallback: after several rejections
     if (
@@ -503,7 +439,6 @@ async def ask_discovery_question(db, session) -> str:
         and getattr(session, "genre", None)
         and getattr(session, "platform_preference", None)
         and getattr(session, "exit_mood", None)
-        and getattr(session, "story_preference", None) is not None
         and getattr(session, "rejection_count", 0) >= 2
     ):
         return f"""
@@ -532,27 +467,16 @@ async def ask_discovery_question(db, session) -> str:
             → If there is mood, genre, games liked/rejected, platform in Memory then ask based on that so user feels personal and feels like you are listening him/her and remember his/her choices.
             → One message. That’s it.
             → Do **not** suggest another game.
-            → **Never mention or refer to platform or genre.**
 
             STRICT RULE:
             - Message Should Be: Max 1-2 Short Sentences, 14-16 words.
+            - Never ask about anything you already know from memory — always ask for new details.
+            - Always sound like a real best friend — casual, personal, and human.
+            - **Never mention or refer to platform or genre.**
             """.strip()
     
     # 8. If all fields are filled: let LLM drive next step as a friend
-    return f"""
-        {GLOBAL_USER_PROMPT}
-        ---
-        → You are Thrum — an emotionally-aware, memory-driven game-discovery companion.
-        → The user’s recent tone: {last_user_tone}
-        → Take the next step in the conversation like a real friend, not a survey.
-        → Be natural, casual, and improvisational. Never repeat yourself.
-        → **You must not mention, ask, or refer to platform or genre in your reply.**
-        → Don't suggest a game on your own if there is no game found.
-        → If there is mood, genre, games liked/rejected, platform in Memory then ask based on that so user feels personal and feels like you are listening him/her and remember his/her choices.
-
-        STRICT RULE:
-        - Message Should Be: Max 1-2 Short Sentences, 14-16 words.
-        """.strip()
+    return None
 
 @safe_call("Hmm, I had trouble figuring out what to ask next. Let's try something fun instead! 🎮")
 async def handle_discovery(db, session, user,user_input, classification):
@@ -657,9 +581,12 @@ async def handle_discovery(db, session, user,user_input, classification):
             explanation_response = await explain_last_game_match(session=session)
             return explanation_response  # Return the explanation of the last game
     else:
-        question = await ask_discovery_question(db, session)
+        question = await ask_discovery_question(db, session,user,user_input,classification)
         if session.game_rejection_count >=2:
             print(f"session.game_reject_count :::::::::::::::::::::::::::; {session.game_rejection_count}")
             session.game_rejection_count = 0
+        if question is None:
+            print("---------###########----------direct game")
+            return await get_recommend(db=db, session=session,user=user)
         session.discovery_questions_asked += 1
         return question

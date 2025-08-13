@@ -5,6 +5,7 @@ from app.services.thrum_router.phase_intro import handle_intro
 from app.services.thrum_router.phase_ending import handle_ending
 from app.services.thrum_router.phase_confirmation import handle_confirmed_game
 from app.services.thrum_router.share_with_friends import share_thrum_ping, share_thrum_message
+from app.services.general_prompts import LIKED_FOLLOWUP,GLOBAL_USER_PROMPT
 from app.services.thrum_router.phase_other import dynamic_faq_gpt, handle_other_input, generate_low_effort_response, ask_ambiguity_clarification
 
 async def should_trigger_referral(session, classification_intent):
@@ -30,9 +31,24 @@ async def check_intent_override(db, user_input, user, session, classification, i
         session.meta_data = {}
     clarification_input = "NO"
     classification_intent = await classify_user_intent(user_input=user_input, session=session, db=db, last_thrum_reply=last_thrum_reply)
+    #check for whether to ask question or not
+    if session.meta_data.get('liked_followup',False) and (classification_intent.get("Other") or classification_intent.get("Other_Question") or classification_intent.get("Phase_Discovery") or classification_intent.get("Give_Info")):
+        session.meta_data['liked_followup'] = False
+        if session.meta_data.get('give_name',False) and user.name is not None:
+            session.meta_data['give_name'] = False
+            prompt = LIKED_FOLLOWUP[0]
+            user_prompt=  prompt.format(GLOBAL_USER_PROMPT=GLOBAL_USER_PROMPT)
+            return user_prompt
+        else:
+            session.meta_data['give_name'] = False
+            prompt = LIKED_FOLLOWUP[1]
+            user_prompt=  prompt.format(GLOBAL_USER_PROMPT=GLOBAL_USER_PROMPT)
+            return user_prompt
+
      # Classify the user's intent based on their input
     if classification_intent.get("Phase_Discovery") or classification_intent.get("Give_Info") :
         clarification_input = await classify_input_ambiguity(db=db ,session=session,user=user,user_input=user_input, last_thrum_reply=last_thrum_reply)
+
         print(f"clarification_input : {clarification_input} +++++++++++++++++++++=")
         ambiguity_clarification = session.meta_data["ambiguity_clarification"] if "ambiguity_clarification" in session.meta_data else False
         if clarification_input == "YES" and not ambiguity_clarification and session.discovery_questions_asked <2:
@@ -40,6 +56,7 @@ async def check_intent_override(db, user_input, user, session, classification, i
                 intrection.classification = {"input" : classification, "intent" : classification_intent, "clarification": clarification_input}
                 db.commit()
                 return await ask_ambiguity_clarification(db=db, session=session, user_input=user_input, classification=classification)
+            
     intrection.classification = {"input" : classification, "intent" : classification_intent, "clarification": clarification_input}
     session.meta_data["ambiguity_clarification"] = False
     db.commit()

@@ -40,6 +40,7 @@ async def handle_confirmed_game(db, user, session, classification):
         """.strip()
         return prompt
     game_title = session.last_recommended_game
+    session.meta_data['liked_followup'] = True
     game_id = db.query(Game).filter_by(title=game_title).first().game_id if game_title else None
     tone = session.meta_data.get("tone", "friendly")
     
@@ -136,6 +137,7 @@ async def handle_confirmed_game(db, user, session, classification):
                 await send_whatsapp_message(user.phone_number, reply)
                 print("Setting default metadata for session")
                 session.meta_data["dont_give_name"] = True
+                session.meta_data["give_name"] = True
                 db.commit()
                 prompt = random.choice(ASK_NAME)
                 return prompt
