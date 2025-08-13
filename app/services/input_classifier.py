@@ -609,8 +609,6 @@ async def have_to_recommend(db: Session, user, classification: dict, session) ->
         return True
     
      # Extract user's current preferences from classification
-    user_genre = classification.get('genre', None)
-    user_platform = classification.get('platform_pref', None)
     user_game_feedback = classification.get("game_feedback", [])
 
     # Extract preferences of last recommended game
@@ -626,19 +624,15 @@ async def have_to_recommend(db: Session, user, classification: dict, session) ->
     last_res_keywords_len = len(last_rec_gameplay_elements) + len(last_rec_preferred_keywords) + len(last_rec_disliked_keywords)
 
     # Fetch profile preferences (UserProfile table)
-    session_genre = session.genre[-1] if getattr(session, "genre", None) else []
-    session_platform = session.platform_preference[-1] if getattr(session, "platform_preference", None) else []
+    session_genre = session.genre[-1] if getattr(session, "genre", None) else None
+    session_platform = session.platform_preference[-1] if getattr(session, "platform_preference", None) else None
     session_gameplay_elements = session.gameplay_elements if getattr(session, "gameplay_elements", None) else []
     session_preferred_keywords = session.preferred_keywords if getattr(session, "preferred_keywords", None) else []
     session_disliked_keywords = session.disliked_keywords if getattr(session, "disliked_keywords", None) else []
 
     # Normalize all to lists of strings
-    user_genre_list = await safe_to_list(user_genre)
     last_rec_genre_list = await safe_to_list(last_rec_genre)
-    session_genre_list = await safe_to_list(session_genre)
-    user_platform_list = await safe_to_list(user_platform)
     last_rec_platforms_list = await safe_to_list(last_rec_platforms)
-    session_platform_list = await safe_to_list(session_platform)
     user_reject_genres = await safe_to_list(last_rec_reject_tags)
     session_gameplay_elements_list = await safe_to_list(session_gameplay_elements)
     session_preferred_keywords_list = await safe_to_list(session_preferred_keywords)
@@ -646,30 +640,24 @@ async def have_to_recommend(db: Session, user, classification: dict, session) ->
 
     session_keywors_len = len(session_gameplay_elements_list) + len(session_preferred_keywords_list) + len(session_disliked_keywords_list)
 
-    if (session_keywors_len - last_res_keywords_len) >= 2:
+    if (session_keywors_len - last_res_keywords_len) >= 1:
         print("----------------------- keywords_list --------------------")
         return True
     
     # GENRE CHECK
-    if user_genre_list:
+    if session_genre is not None:
         # Check if any genre in session_genre matches genres in last_rec_genre_list
-        if session_genre_list and not any(
-            ug.lower() in (genre.lower() for genre in last_rec_genre_list)
-            for ug in session_genre_list
-        ):
+        if session_genre not in last_rec_genre_list:
             last_rec.accepted = False
-            last_rec.reason = f"likes specific {user_genre_list} games"
+            last_rec.reason = f"likes specific {session_genre} games"
             db.commit()
             return True  # Genre mismatch, new recommendation needed
 
     # PLATFORM CHECK
-    if user_platform_list:
-        if session_platform_list and not any(
-            p.lower() in (lp.lower() for lp in last_rec_platforms_list)
-            for p in session_platform_list
-        ):
+    if session_platform is not None:
+        if session_platform not in last_rec_platforms_list:
             last_rec.accepted = False
-            last_rec.reason = f"want {user_platform_list} games but this is not in that platform"
+            last_rec.reason = f"want {session_platform} games but this is not in that platform"
             db.commit()
             return True  # Platform mismatch
 
