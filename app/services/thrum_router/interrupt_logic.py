@@ -54,6 +54,7 @@ async def check_intent_override(db, user_input, user, session, classification, i
         if clarification_input == "YES" and not ambiguity_clarification and session.discovery_questions_asked <2:
             if classification.get("genre") or classification.get("preferred_keywords") or classification.get("favourite_games") or classification.get("gameplay_elements"):
                 intrection.classification = {"input" : classification, "intent" : classification_intent, "clarification": clarification_input}
+                session.phase = PhaseEnum.DISCOVERY
                 db.commit()
                 return await ask_ambiguity_clarification(db=db, session=session, user_input=user_input, classification=classification)
             
@@ -67,13 +68,16 @@ async def check_intent_override(db, user_input, user, session, classification, i
         return await share_thrum_ping(session)
 
     if classification_intent.get("Low_Effort_Response"):
+        session.phase = PhaseEnum.DISCOVERY
         return await generate_low_effort_response(session)
     # Check if the user is in the discovery phase
     if classification_intent.get("Phase_Discovery"):
+        session.phase = PhaseEnum.DISCOVERY
         return await handle_discovery(db=db, session=session, user=user,user_input=user_input,classification=classification)
     
     # Handle rejection of recommendation
     if classification_intent.get("Reject_Recommendation"):
+        session.phase = PhaseEnum.DISCOVERY
         return await handle_reject_Recommendation(db, session, user, classification=classification,user_input=user_input)
 
     # Handle request for quick game recommendation
@@ -102,6 +106,7 @@ async def check_intent_override(db, user_input, user, session, classification, i
         return await handle_confirmed_game(db, user, session, classification)
     
     elif classification_intent.get("want_to_share_friend"):
+        session.phase = PhaseEnum.DISCOVERY
         if session.shared_with_friend:
             return await handle_other_input(db, user, session, user_input)
         else:
@@ -116,15 +121,18 @@ async def check_intent_override(db, user_input, user, session, classification, i
 
     # Handle cases where user input doesn't match any predefined intent
     elif classification_intent.get("Other") or classification_intent.get("Other_Question"):
+        session.phase = PhaseEnum.DISCOVERY
         return await handle_other_input(db, user, session, user_input)
     
     elif classification_intent.get("Bot_Error_Mentioned"):
+        session.phase = PhaseEnum.DISCOVERY
         response = (
             "the Thrum encounters an error or loses track of the conversation, it should first apologize to the user in a friendly and empathetic manner. After the apology, the bot should invite the user to re-engage by asking for clarification on what they are looking for. The tone should remain light, open, and non-repetitive, ensuring the user feels comfortable guiding the conversation forward.Most Most Most importent is reply is must look like humanly - Not robotic"
         )
         return response
     
     elif classification_intent.get("About_FAQ"):
+        session.phase = PhaseEnum.DISCOVERY
         return await dynamic_faq_gpt(session, user_input)
 
     if classification_intent.get("Request_Similar_Game"):
