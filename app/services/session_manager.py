@@ -95,7 +95,7 @@ async def update_or_create_session(db: DBSession, user):
                 "is_user_cold": is_cold,
                 "last_interaction": datetime.utcnow().isoformat(),
                 "last_session_state": last_session.state.name,
-                "re_engagement_user":True
+                "re_engagement_user": True,
                 "returning_user": False
             }
         )
