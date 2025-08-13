@@ -28,7 +28,8 @@ intents = [
     "Opt_Out", 
     "Other_Question", 
     "Confirm_Game",
-    "want_to_share_friend"
+    "want_to_share_friend",
+    "Request_Specific_Game",
     "Other",
     "Bot_Error_Mentioned",
     "About_FAQ"
@@ -132,7 +133,14 @@ Carefully consider the context of the conversation and the specific tone or dire
 
 - **want_to_share_friend**: Triggered when the user expresses a desire to share Thrum with friends or family. This intent is activated when Explicit requests for share link or mention of sharing Thrum with friends, such as "I want to share this with my friend".
   - If thrum's last message is about asking about soft sentence that suggests they might want to share Thrum with some of their friends, and the user responds positively or expressing a desire or willingness or just confuse to answer that to share Thrum with friends or other, then this intent(want_to_share_friend) must be set to true.
-  
+
+- **Request_Specific_Game**: Trigger when the user explicitly asks for a single specific game by name.
+    The phrasing may be:
+      - Direct request → “I want Minecraft”, “Give me Elden Ring”, “Recommend GTA V”.
+      - Information request → “Tell me about Minecraft”, “Give me more about Stardew Valley”.
+      - Misspelled title → “Minecrafft” (resolves via fuzzy matching to “Minecraft”).
+    The user wants that exact game in the result — not “similar to”, “like”, or “related games”.
+
 - **Bot_Error_Mentioned:** The user indicates the bot is lost, confused, or not understanding them ("you are lost", "you do not hear me", "you don’t know me", "why do you suggest if you don’t know who I am", etc.).
 
 - **About_FAQ**: Triggered when the user asks about what Thrum does, how it works, who you are, or any general FAQ about the service. Examples:
@@ -191,6 +199,7 @@ OUTPUT FORMAT (Strict JSON) strictly deny to add another text:
     "Other_Question": true/false,
     "Confirm_Game": true/false,
     "want_to_share_friend": true/false,
+    "Request_Specific_Game": true/false,
     "Other": true/false,
     "Bot_Error_Mentioned": true/false,
     "About_FAQ": true/false
@@ -229,6 +238,7 @@ OUTPUT FORMAT (Strict JSON) strictly deny to add another text:
                 "Other_Question": False,
                 "Confirm_Game": False,
                 "want_to_share_friend": False,
+                "Request_Specific_Game": False,
                 "Other": True,
                 "Bot_Error_Mentioned": False,
                 "About_FAQ": False
@@ -248,6 +258,7 @@ OUTPUT FORMAT (Strict JSON) strictly deny to add another text:
                 "Other_Question": False,
                 "Confirm_Game": False,
                 "want_to_share_friend": False,
+                "Request_Specific_Game": False,
                 "Other": True,
                 "Bot_Error_Mentioned": False,
                 "About_FAQ": False

@@ -114,5 +114,9 @@ async def check_intent_override(db, user_input, user, session, classification, i
         session.phase = PhaseEnum.DELIVERY
         return await diliver_similar_game(db, user, session,user_input=user_input,classification=classification)
     
+    elif classification_intent.get("Request_Specific_Game"):
+        session.phase = PhaseEnum.FOLLOWUP
+        return await handle_game_inquiry(db, user, session, user_input, classification)
+    
     # Default handling if no specific intent is detected
     return None

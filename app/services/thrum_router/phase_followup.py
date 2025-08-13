@@ -12,6 +12,7 @@ from app.db.models.game_platforms import GamePlatform
 from app.services.session_memory import SessionMemory
 from app.services.general_prompts import GLOBAL_USER_PROMPT, RECENT_FOLLOWUP_PROMPT, DELAYED_FOLLOWUP_PROMPT, STANDARD_FOLLOWUP_PROMPT
 from app.services.session_manager import get_pacing_style
+from rapidfuzz import process, fuzz
 
 
 openai.api_key = os.getenv("OPENAI_API_KEY")
@@ -84,6 +85,34 @@ async def ask_followup_que(session) -> str:
     return response.choices[0].message.content.strip()
 
 
+async def get_game_alternatives(db: Session, user_input: str, session) -> list:
+    """Get alternative game suggestions when no exact match found"""
+    all_games = db.query(Game).all()
+    
+    # Exclude recent recommendations
+    recent_rec_ids = set(
+        str(r[0]) for r in db.query(GameRecommendation.game_id).filter(
+            GameRecommendation.session_id == session.session_id
+        )
+    )
+    
+    # Get alternatives
+    alternatives = process.extract(
+        user_input,
+        [(g.title, g.game_id) for g in all_games if str(g.game_id) not in recent_rec_ids],
+        scorer=fuzz.token_set_ratio,
+        limit=3
+    )
+    
+    alt_games = []
+    for alt_match in alternatives:
+        if alt_match[1] > 30:
+            game_title = alt_match[0][0]
+            game = next(g for g in all_games if g.title == game_title)
+            alt_games.append(game)
+    
+    return alt_games[:2]
+
 async def handle_game_inquiry(db: Session, user, session, user_input: str, classification) -> str:
     thrum_interactions = [i for i in session.interactions if i.sender == SenderEnum.Thrum]
     # Sort by timestamp descending
@@ -94,6 +123,7 @@ async def handle_game_inquiry(db: Session, user, session, user_input: str, class
     request_link = session.meta_data.get("request_link", False)
     session_memory = SessionMemory(session,db)
     
+    # Handle case where no game was found in classification
     if classification.get("find_game", None) is None or classification.get("find_game") == "None":
         prompt = f"""
             {GLOBAL_USER_PROMPT}
@@ -108,18 +138,41 @@ async def handle_game_inquiry(db: Session, user, session, user_input: str, class
     session.meta_data["game_interest_confirmed"] = True
     db.commit()
     if not game_id:
-        prompt = f"""
+        # Get alternatives when no game found
+        alternatives = await get_game_alternatives(db, user_input, session)
+        
+        if alternatives:
+            alt_titles = [g.title for g in alternatives]
+            return f"""
+                {GLOBAL_USER_PROMPT}
+                ---
+                THRUM — GAME NOT FOUND + ALTERNATIVES
+                
+                → You don't have that exact game, but found some similar ones: {', '.join(alt_titles)}
+                → Ask if they meant one of these in a friendly way
+                → Keep it casual and helpful
+            """.strip()
+        else:
+            return f"""
+                {GLOBAL_USER_PROMPT}
+                ---
+                You are Thrum, the game discovery assistant. The user has asked about a specific game, but there is no information about that game in your catalog or data.
+                Strict rule: Never make up, invent, or generate any information about a game you do not have real data for. If you don't have info on the requested game, do not suggest another game or pivot to a new recommendation.
+                Politely and clearly let the user know you don’t have any info on that game. Do not mention 'database' or 'catalog'. Do not offer any other suggestions or ask any questions. Keep your response to one short, friendly, and supportive sentence, in a human tone.
+                Reply format:
+                - One short sentence: Clearly say you don’t have information on that game right now.
+                - Never suggest a game on your own if there is no game found
+                """.strip()
+    
+    game = db.query(Game).filter_by(game_id=game_id).first()
+    if not game:
+        return f"""
             {GLOBAL_USER_PROMPT}
             ---
-            You are Thrum, the game discovery assistant. The user has asked about a specific game, but there is no information about that game in your catalog or data.
-            Strict rule: Never make up, invent, or generate any information about a game you do not have real data for. If you don't have info on the requested game, do not suggest another game or pivot to a new recommendation.
-            Politely and clearly let the user know you don’t have any info on that game. Do not mention 'database' or 'catalog'. Do not offer any other suggestions or ask any questions. Keep your response to one short, friendly, and supportive sentence, in a human tone.
-            Reply format:
-            - One short sentence: Clearly say you don’t have information on that game right now.
-            - Never suggest a game on your own if there is no game found
-            """
-        return prompt
-    game = db.query(Game).filter_by(game_id=game_id).first()
+            You are Thrum. The user asked about a specific game but you don't have information about it.
+            Keep your response short, friendly, and natural - like a friend who doesn't know that particular game.
+        """.strip()
+    
     # Get all available platforms for this game
     platform_rows = db.query(GamePlatform.platform).filter_by(game_id=game_id).all()
     platform_list = [p[0] for p in platform_rows] if platform_rows else []
