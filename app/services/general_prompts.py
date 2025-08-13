@@ -51,6 +51,19 @@ If the user’s reply could be interpreted either way, assume they want to stick
 Always clarify if there’s even a little doubt—never flip or reverse the user's stated preference unless it’s absolutely clear!
 """
 
+RE_ENTRY_MODE = """
+RE-ENTRY MODE
+
+User is back so Must Must **add EXACTLY ONE short reentry sentence** in reply at start.
+- friendly, and varied “welcome back” style responses.
+- Each should feel casual and conversational, not formal.
+- Vary the tone: some playful, some warm, some energetic.
+- Keep them between 2–7 words.
+- Avoid repeating exact phrases or structures.
+- Use everyday language a human would naturally say in chat.
+
+"""
+
 NO_GAMES_PROMPT = f"""
 :no_entry_sign: HARD RULE:
 - Do NOT recommend, invent, or recall any game unless a valid `game` object is explicitly provided.

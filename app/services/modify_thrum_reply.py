@@ -3,6 +3,7 @@ import os
 from app.db.models.enums import SenderEnum
 import types
 from app.services.central_system_prompt import THRUM_PROMPT
+from app.services.general_prompts import RE_ENTRY_MODE
 
 openai.api_key = os.getenv("OPENAI_API_KEY")
 model= os.getenv("GPT_MODEL")
@@ -227,6 +228,8 @@ Your rewrite:
     for attempt in range(MAX_RETRIES + 1):
         try:
             prompt = final_system_prompt
+            if session.meta_data.get("re_engagement_user"):
+                user_prompt += RE_ENTRY_MODE
             temp = 0.5 + 0.2 * attempt  # Slightly increase temperature each try
             if attempt > 0:
                 prompt = nudge_prompt_variation(prompt)

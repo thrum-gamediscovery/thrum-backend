@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta
 from sqlalchemy.orm import Session as DBSession
 from app.db.models.session import Session
-from app.db.models.enums import SessionTypeEnum
+from app.db.models.enums import SessionTypeEnum, PhaseEnum
 from app.services.tone_shift_detection import detect_user_is_cold  # ✅ import smart tone checker
 from app.db.models.enums import SenderEnum
 from sqlalchemy.orm.attributes import flag_modified
@@ -95,6 +95,7 @@ async def update_or_create_session(db: DBSession, user):
                 "is_user_cold": is_cold,
                 "last_interaction": datetime.utcnow().isoformat(),
                 "last_session_state": last_session.state.name,
+                "re_engagement_user":True
                 "returning_user": False
             }
         )
@@ -102,6 +103,11 @@ async def update_or_create_session(db: DBSession, user):
         db.commit()
         db.refresh(new_session)
         return new_session
+    
+    if getattr(last_session, "phase", None) == PhaseEnum.ENDING:
+        last_session.meta_data["re_engagement_user"] = True
+    else:
+        last_session.meta_data["re_engagement_user"] = False
 
     # 💡 NEW: Time-based returning_user check (30+ min idle = reengagement)
     last_interaction_time_str = last_session.meta_data.get("last_interaction")
@@ -111,9 +117,11 @@ async def update_or_create_session(db: DBSession, user):
             idle_seconds = (now - last_interaction_time).total_seconds()
             if idle_seconds > 1800:  # 30 minutes
                 last_session.meta_data["returning_user"] = True
+                last_session.meta_data["re_engagement_user"] = True
         except Exception:
             pass  # Fallback in case of invalid format
 
+    
     last_session.meta_data["last_interaction"] = datetime.utcnow().isoformat()
     # update_returning_user_flag(last_session)
 
@@ -307,4 +315,3 @@ def get_pacing_style(session):
     
     length_hint = length_hints.get(pace, "normal")
     return pace, style, length_hint
-
