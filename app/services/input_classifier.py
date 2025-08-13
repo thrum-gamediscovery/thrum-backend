@@ -119,12 +119,13 @@ Carefully consider the context of the conversation and the specific tone or dire
   - If the user’s reply relates to Thrum’s previous question about preferences or interests—whether the user provides specific details, indicates uncertainty, or chooses not to answer—map the response to the question and set Give_Info to true, unless a direct game request is made.
   - If the user input contains any information about preferred genre, vibe, mood, or platform, and does not specifically ask for a game, then Give_Info must be set to true.
 
-- **Opt_Out**: Triggered when the user opts out or indicates they no longer wish to continue the conversation. This intent is activated when phrases like "I'm done," "Stop," "Not interested," or "Leave me alone" are used to end or discontinue the conversation.
+- **Opt_Out**: Triggered when the user opts out or indicates they no longer wish to continue the conversation. This intent is activated when phrases like "I'm done," "Stop," or "Leave me alone" are used to end or discontinue the conversation.
   This includes both:
-    - Hard exits (e.g., "I'm done", "Stop", "Not interested", "Leave me alone")
-    - Soft polite exits where the user wraps up on a positive note (e.g., "Thanks!", "Cool rec", "That helped", "That was great").  
-  Rules:  
-    - Must NOT trigger if the user is asking for more info, another game, or continuing the flow.  
+    - Hard exits (e.g., "I'm done", "Stop", "Leave me alone")
+    - Soft polite exits where the user wraps up on a positive note (e.g., "Thanks!", "Cool rec", "That helped", "That was great").
+  Rules:
+    - Must NOT trigger if the user last message is related to thrum's last reply not to opt out or end the conversation.
+    - Must NOT trigger if the user is asking for more info, another game, or continuing the flow.
     - If detected as a soft polite exit, Thrum should respond with a tone-matched warm closer.
 
 - **Confirm_Game**: Triggered when the user confirms their interest in a game that was previously recommended(if input is just "yes" then it might be for know more information depends on previous thrum message in that case Inquire_About_Game should be true.). The confirmation could be something like "like that game" or "I like that game." or "like that one" or similar to that, This is explicitly confirming the previous game suggestion, meaning that the user is showing interest in the exact game Thrum recommended they liked that. also triggered when user is giving the reason why they liked the game or what they liked about the game(so check thrum's last message and user's reply).
