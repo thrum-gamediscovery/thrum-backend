@@ -1,5 +1,7 @@
 from app.services.game_recommend import game_recommendation, get_game_platform_link
 from app.services.input_classifier import have_to_recommend
+from app.services.user_profile_update import set_pending_action
+from sqlalchemy.orm.attributes import flag_modified
 from app.services.thrum_router.phase_followup import get_game_alternatives
 from app.db.models.enums import PhaseEnum
 from app.db.models.session import Session
@@ -664,6 +666,12 @@ async def diliver_particular_game(db, user, session, user_input, classification)
         mood_tag=mood,
         accepted=None
     )
+    session.game_rejection_count += 1
+    flag_modified(session, "game_rejection_count")
+    db.add(game_rec)
+    session.meta_data["ask_confirmation"] = True
+    session.last_recommended_game = top_game.title
+    await set_pending_action(db, session,'send_link',link)
     db.add(game_rec)
     db.commit()
     game = {

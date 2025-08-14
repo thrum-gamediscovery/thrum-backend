@@ -1,4 +1,7 @@
 from app.services.tone_engine import get_last_user_tone_from_session
+from app.services.game_recommend import get_game_platform_link
+from app.services.user_profile_update import set_pending_action
+from sqlalchemy.orm.attributes import flag_modified
 from app.utils.link_helpers import maybe_add_link_hint
 from app.db.models.enums import PhaseEnum, SenderEnum
 from app.db.models.session import Session
@@ -428,6 +431,9 @@ STRICT REPLY RULES:
         accepted=None
     )
     db.add(game_rec)
+    session.game_rejection_count += 1
+    flag_modified(session, "game_rejection_count")
+    session.last_recommended_game = game_rec.title
     db.commit()
     print(f"new game inquiry #####################")    
     user_prompt = f"""
