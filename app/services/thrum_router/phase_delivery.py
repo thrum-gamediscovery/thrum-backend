@@ -10,6 +10,7 @@ from app.services.general_prompts import GLOBAL_USER_PROMPT, NO_GAMES_PROMPT
 from app.db.models.game_recommendations import GameRecommendation
 from app.db.models.game import Game
 import openai
+from sqlalchemy import func
 import os
 client = openai.AsyncOpenAI()
 
@@ -55,6 +56,11 @@ def recommend_top1_like_seed(
     )
     already_recommended_ids.add(seed_game_id)
     base_q = db.query(Game).filter(~Game.game_id.in_(already_recommended_ids))
+    preferred_platform = (session.platform_preference[-1] 
+                      if session.platform_preference else None)
+    if preferred_platform:
+        base_q = (base_q.join(GamePlatform, GamePlatform.game_id == Game.game_id)
+                        .filter(func.lower(GamePlatform.platform) == preferred_platform.lower()))
     # 2) NOW filter by that single seed genre (case-insensitive)
     candidates = base_q.filter(
         text("""
@@ -546,7 +552,19 @@ async def diliver_similar_game(db: Session, user, session, user_input, classific
         liked_game = game["last_session_game"]["title"] if game["last_session_game"]["title"] else ""
         mood = session.meta_data.get("mood", "neutral")
         tone = session.meta_data.get("tone", "casual")
-        platform_note = ", ".join(game["platforms"]) if game["platforms"] else "no specific platform"
+        preferred_platforms = session.platform_preference or []
+        user_platform = preferred_platforms[-1] if preferred_platforms else None
+        game_platforms = game.get("platforms", [])
+        if user_platform and user_platform in game_platforms:
+            platform_note = f"It’s available on your preferred platform: {user_platform}."
+        elif user_platform:
+            available = ", ".join(game_platforms)
+            platform_note = (
+                f"It’s not on your usual platform ({user_platform}), "
+                f"but is available on: {available}."
+            )
+        else:
+            platform_note = f"Available on: {', '.join(game_platforms) or 'many platforms'}."
         user_prompt = f"""
             {GLOBAL_USER_PROMPT}\n
             ---
@@ -685,7 +703,19 @@ async def diliver_particular_game(db, user, session, user_input, classification)
             "platforms": [gp.platform for gp in top_game.platforms],
             "link": link,
     }
-    platform_note = ", ".join(game["platforms"]) if game["platforms"] else "no specific platform"
+    preferred_platforms = session.platform_preference or []
+    user_platform = preferred_platforms[-1] if preferred_platforms else None
+    game_platforms = game.get("platforms", [])
+    if user_platform and user_platform in game_platforms:
+        platform_note = f"It’s available on your preferred platform: {user_platform}."
+    elif user_platform:
+        available = ", ".join(game_platforms)
+        platform_note = (
+                f"It’s not on your usual platform ({user_platform}), "
+                f"but is available on: {available}."
+        )
+    else:
+        platform_note = f"Available on: {', '.join(game_platforms) or 'many platforms'}."
     return f"""
             {GLOBAL_USER_PROMPT}\n
             ---
