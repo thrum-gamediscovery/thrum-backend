@@ -1,5 +1,6 @@
 from app.services.game_recommend import game_recommendation, get_game_platform_link
 from app.services.input_classifier import have_to_recommend
+from app.services.thrum_router.phase_followup import get_game_alternatives
 from app.db.models.enums import PhaseEnum
 from app.db.models.session import Session
 from app.services.session_memory import SessionMemory
@@ -597,3 +598,118 @@ async def diliver_similar_game(db: Session, user, session, user_input, classific
                 - Maintain friendly energy and guide the chat forward.
         """
     return user_prompt
+
+async def diliver_particular_game(db, user, session, user_input, classification):
+    game_id = session.meta_data.get("find_game")
+    if not game_id:
+        prompt = f"""
+            {GLOBAL_USER_PROMPT}
+            ---
+            You are Thrum, the game discovery assistant. The user has asked about a specific game, but there is no information about that game in your catalog or data.
+            Strict rule: Never make up, invent, or generate any information about a game you do not have real data for. If you don't have info on the requested game, do not suggest another game or pivot to a new recommendation.
+            Politely and clearly let the user know you don’t have any info on that game. Do not mention 'database' or 'catalog'. Do not offer any other suggestions or ask any questions. Keep your response to one short, friendly, and supportive sentence, in a human tone.
+            Reply format:
+            - One short sentence: Clearly say you don’t have information on that game right now.
+            - Never suggest a game on your own if there is no game found
+            """
+        return prompt
+    if classification.get("find_game", None) is None or classification.get("find_game") == "None":
+        prompt = f"""
+            {GLOBAL_USER_PROMPT}
+            ---
+            You don't know which game the user is asking or talking about. Ask them which game they're talking about in a friendly way. Keep it brief and natural.
+        """.strip()
+        return prompt
+    
+    if not game_id:
+        # Get alternatives when no game found
+        alternatives = await get_game_alternatives(db, user_input, session)
+        
+        if alternatives:
+            alt_titles = [g.title for g in alternatives]
+            return f"""
+                {GLOBAL_USER_PROMPT}
+                ---
+                THRUM — GAME NOT FOUND + ALTERNATIVES
+                
+                → You don't have that exact game, but found some similar ones: {', '.join(alt_titles)}
+                → Ask if they meant one of these in a friendly way
+                → Keep it casual and helpful
+            """.strip()
+        else:
+            return f"""
+                {GLOBAL_USER_PROMPT}
+                ---
+                You are Thrum, the game discovery assistant. The user has asked about a specific game, but there is no information about that game in your data.
+                - Strict rule: Never make up, invent, or generate any information about a game you do not have real data for. If you don't have info on the requested game, do not suggest another game outright.
+                - Politely and clearly let the user know you don’t have any info on that game. Do not mention "database" or "catalog".
+                - After that, ask exactly one short, natural-sounding clarification question to understand the game’s genre or mood — make it feel conversational, not survey-like.
+                
+                Reply format:
+                    - First sentence: Clearly say you don’t have information on that game right now.
+                    - Second sentence: Ask the clarification question about the game’s genre or mood.
+
+                Keep it human, friendly, and casual.
+                """.strip()
+    mood = session.exit_mood
+    tone = session.meta_data.get('tone',"neutral")
+    platform = session.platform_preference[-1] if session.platform_preference else None
+    top_game = db.query(Game).filter_by(game_id=game_id).first()
+    link = get_game_platform_link(top_game.game_id, platform, db)
+    game_rec = GameRecommendation(
+        session_id=session.session_id,
+        user_id=user.user_id,
+        game_id=top_game.game_id,
+        platform=session.platform_preference,
+        mood_tag=mood,
+        accepted=None
+    )
+    db.add(game_rec)
+    db.commit()
+    game = {
+            "title": top_game.title,
+            "description": top_game.description if top_game.description else None,
+            "genre": top_game.genre,
+            "game_vibes": top_game.game_vibes,
+            "complexity": top_game.complexity,
+            "visual_style": top_game.graphical_visual_style,
+            "has_story": top_game.has_story,
+            "platforms": [gp.platform for gp in top_game.platforms],
+            "link": link,
+    }
+    platform_note = ", ".join(game["platforms"]) if game["platforms"] else "no specific platform"
+    return f"""
+            {GLOBAL_USER_PROMPT}\n
+            ---
+                THRUM — FRIEND MODE: GAME RECOMMENDATION
+                You are THRUM — the friend who remembers what’s been tried and never repeats. You drop game suggestions naturally, like texting your best mate.
+                Recommend **{game['title']}** using a {mood} mood and {tone} tone.
+                Use this game description for inspiration:{game['description']}
+                OPENER VARIATION:
+                    - Collect the first clause of the last 5 Thrum messages → recent_openers (lowercased).
+                    - Write ONE opener ≤10 words, mid-thought, mirroring {mood}/{tone}.
+                    - Opener must NOT be semantically similar to any in recent_openers (avoid same first two words, same verb/imagery, same cadence). If close, rewrite once.
+                    BODY GUARDRAILS:
+                    - Do NOT use visualization scaffolds anywhere: “imagine / picture / ever thought about / ready to dive / what if / Imagine diving into”.
+                    - Do NOT repeat the opener’s main verb or imagery in the next sentence.
+                    - Start body with a concrete, game-specific hook (mechanic/role/goal) in one line.
+                INCLUDE:
+                - Reflect the user's last message so they feel heard.
+                - A Draper-style mini-story (3–4 lines max) explaining why this game fits based on USER MEMORY & RECENT CHAT, making it feel personalized.
+                - Platform info ({platform_note}) mentioned casually, like a friend dropping a hint.
+                - Bold the title: **{game['title']}**.
+                - End with a fun, playful, or emotionally tone-matched line that invites a reply — a soft nudge or spark fitting the rhythm. Never robotic or templated prompts like “want more?”.
+                NEVER:
+                - NEVER Use robotic phrasing or generic openers.
+                - NEVER Mention genres, filters, or system logic.
+                - NEVER Say “I recommend” or “available on…”.
+                - NEVER Mention or suggest any other game than **{game['title']}**. No invented or recalled games outside the data.
+                Start mid-thought, as if texting a close friend.
+            ---
+                → The user wants another game like the one they liked.
+                → Confirm that you're on it — but make it Draper-style: confident, curious, emotionally alive.
+                → Use a new rhythm and vibe — sometimes hyped, sometimes teasing, sometimes chill — based on recent mood.
+                → You can casually mention what hit in the last one (genre, pacing, tone, mechanics), but never like a system log. Talk like a close friend would on WhatsApp.
+                → NEVER repeat phrasing, emoji, or sentence structure from earlier replies.
+                :star2:  Goal: Make the moment feel human — like you're really listening and about to serve something *even better*. Rebuild energy and keep the conversation alive.
+        """

@@ -28,7 +28,8 @@ intents = [
     "Opt_Out", 
     "Other_Question", 
     "Confirm_Game",
-    "want_to_share_friend"
+    "want_to_share_friend",
+    "Request_Specific_Game",
     "Other",
     "Bot_Error_Mentioned",
     "About_FAQ"
@@ -78,6 +79,7 @@ Carefully consider the context of the conversation and the specific tone or dire
   - Unless the message includes explicit request intent with a catalog game title — in that case, Phase_Discovery = False and Inquire_About_Game = True.
   - Do not trigger if the user's last message looks like an inquiry about a game, or indicates the user likes or confirms a game.
   - If Thrum's last message was asking anything and the user replies positively (e.g., "good", "nice"), Phase_Discovery must be True.
+  - Set to Phase_Discovery True if the user provides a game title in response to Thrum asking for their favourite game. This is independent of Request_Specific_Game unless the above rules prevent triggering.
   
 - **Request_Similar_Game**: Triggered when the user asks for a game similar to one they already like or have played. This intent is activated when the user explicitly asks for a game that is similar to their preferences or past games. this intent is specifically for when the user is looking for a game that matches their previous interests or experiences, not just any game recommendation.
   - Triggered **only** when the user explicitly asks for a game similar to one they already like or have played.
@@ -104,16 +106,24 @@ Carefully consider the context of the conversation and the specific tone or dire
   - If the user’s rejection is not strongly negative, but instead is neutral or based on context. For example, the user might say “not right now” (meaning they’re interested but just not at the moment) or “too expensive” (meaning the price, not the game itself, is the issue). In these situations, the system should recognize that it’s not a true dislike of the game, but rather a situational or soft rejection, so this should not trigger Reject_Recommendation.
   - If thrum's last message was to ask what they did not like about the game and user is giving the reason why they did not like the game then Request_Quick_Recommendation should be True or triggered.
 
+- **Request_Specific_Game**: 
+  - Trigger when:
+    - The user explicitly asks for a single specific game by title.
+    - Examples: "I want Minecraft", "Suggest me GTA V", "Can you recommend Dead Soul II?".
+    - The wording makes it clear they want that game to be recommended or provided, not just information.
+    - Even if the request is indirect (e.g., "The game I like most is Minecraft"), treat as a request unless Thrum’s last message was asking for their favourite game. In that case, do not set this True.
+  - Do NOT trigger when:
+    - The user only asks for more details/info about a game without requesting it to be recommended.
+    - The game title is mentioned only in context, without the user wanting that game suggested.
+  - Special Rule:
+    - If this intent is set to True, Inquire_About_Game must be False.
+
 - **Inquire_About_Game**: must be set to true if:
     1. The user message contains the title of a specific game (matching the game catalog) then Inquire_About_Game should True, must check if user providing the game title when thrum's last message is about asking for their favorite game then "Phase_Discovery" should True. OR
     2. The user asks for a link, platform, or store for any game, even if the main question is about the link.
     3. if the user has been asked that they want more information about game(in different phrase or words with this intention) and if they positively respond about they want the more information(not they like the game but want to know more) or they want to know more(then Inquire_About_Game must be true , Confirm_Game must be false in that case.), indicating they want to know more about it. The user expresses a desire to know more about a game, such as its features, gameplay mechanics, or storyline. must triggered when the user lazily says positive response but not confirming the game (last thrum message to recommend a game).
     - If Thrum’s previous message presents a game and the user’s response expresses interest in obtaining more information, details, or clarification about the game (rather than directly confirming or accepting it), classify as Inquire_About_Game.
-    4. If user message contain any game title and sounds like user want that game to recommend then it must be True, if the game title is the the answer of the user's favourite game at that time it must not be True.(classify based on thrum's last message if it is asking favourite game and user message contain game title that doesnt mean user want that game to be recommended yet so do not set this as True.)
-    - when user forcefully said to get particular game(ask to recommend game with title) then must trigger Inquire_About_Game (do not trigger Request_Quick_Recommendation when user ask for recommend particular game). 
-    - When the user clearly requests a specific game by title (e.g., "I want Minecraft", "Give me GTA V"), set Inquire_About_Game to True.
-    - This applies even if they mention it in context like "I need game that I like most on Sundays; Minecraft",If the message contains a game title but does not include similarity phrasing, treat it as a direct request for that game, not a similar game.
-    - Do not confuse this with Request_Similar_Game unless they explicitly request "similar to" that game.
+    - Do NOT trigger when: The user is asking Thrum to recommend a specific game by name (even in different words) — trigger Request_Specific_Game instead.
 
 - **Give_Info**: Triggered when the user provides information about their preferences, such as genre, mood, or game style. This includes providing keywords or short phrases like "action", "chill", or "strategy". The response should classify when the user provides any kind of self-description related to their preferences. if last thrum message is to ask about what user likes or dislikes about the game and user is giving the information about that then Give_Info should not be triggered.
   - If the user’s reply relates to Thrum’s previous question about preferences or interests—whether the user provides specific details, indicates uncertainty, or chooses not to answer—map the response to the question and set Give_Info to true, unless a direct game request is made.
@@ -192,6 +202,7 @@ OUTPUT FORMAT (Strict JSON) strictly deny to add another text:
     "Other_Question": true/false,
     "Confirm_Game": true/false,
     "want_to_share_friend": true/false,
+    "Request_Specific_Game": true/false,
     "Other": true/false,
     "Bot_Error_Mentioned": true/false,
     "About_FAQ": true/false
@@ -230,6 +241,7 @@ OUTPUT FORMAT (Strict JSON) strictly deny to add another text:
                 "Other_Question": False,
                 "Confirm_Game": False,
                 "want_to_share_friend": False,
+                "Request_Specific_Game": False,
                 "Other": True,
                 "Bot_Error_Mentioned": False,
                 "About_FAQ": False
@@ -249,6 +261,7 @@ OUTPUT FORMAT (Strict JSON) strictly deny to add another text:
                 "Other_Question": False,
                 "Confirm_Game": False,
                 "want_to_share_friend": False,
+                "Request_Specific_Game": False,
                 "Other": True,
                 "Bot_Error_Mentioned": False,
                 "About_FAQ": False
@@ -417,7 +430,7 @@ Strict rules:
    → Can be empty list if no feedback.
 
 13. find_game (string)
-  → If the User’s current reply contains a specific game title, set find_game to the exact surface text they typed (keep original case and spelling). Example: if the user says "call of duty", then find_game must be "call of duty".
+  → If the User’s current reply contains a specific game title, Must Must Must set find_game to the exact surface text they typed (keep original case and spelling). Example: if the user says "call of duty", then find_game must be "call of duty".
   → Treat similarity phrasing as an explicit title mention; when the User’s current reply asks for something like / similar to / —like / —ish / with vibes of / in the style of / inspired by / akin to a game, extract that game’s title and set it in find_game.
   → If multiple titles appear, prefer the one attached to a similarity cue; if none, use the first clear title in the current reply.
   → If the User’s current reply contains no title but clearly refers to a specific game already in context, return the last recommended game’s title from recent chat.
@@ -429,7 +442,7 @@ Strict rules:
      4. Else, if no title and last_recommended_game is None, return None.
   → Punctuation & variation rule: Treat any game title match as valid even if the user’s text includes punctuation differences (apostrophes, hyphens, quotes, accents) or spacing/case variations. Examples: "assassin's creed", "Assassins Creed", "Assassin’s Creed" should all be recognized as explicit mentions of the same title and returned exactly as typed.
   → If you find that the User’s current reply contains a game title (game title according to your knowledge), then it must be passed into find_game.
-  
+      
 14. gameplay_elements (list of strings)
   → Focus on GAMEPLAY ELEMENT and structural features that the user describes or wants.
   → Include any mention of core actions, progression systems, advancement, linearity, perspective, player control, interaction loops, or feedback style.
@@ -689,7 +702,7 @@ async def have_to_recommend(db: Session, user, classification: dict, session) ->
 
 async def classify_input_ambiguity(db,session,user,user_input, last_thrum_reply):
   tone = session.meta_data.get("tone",'Nutrual')
-  mood = session.exit_mood if session.exit_mood else "nutral"
+  mood = session.exit_mood if session.exit_mood else "neutral"
   games = db.query(GameRecommendation).filter(GameRecommendation.session_id == session.session_id, GameRecommendation.accepted==True).all()
   liked_games = [g.game.title for g in games if games]
   user_prompt=  f"""

@@ -413,7 +413,6 @@ async def update_user_from_classification(db: Session, user, classification: dic
         print(f"❌ Invalid disliked_keywords format: {disliked_keywords}. Expected a list.")
 
     # -- find game  
-    # -- find game  
     if find_game_title and find_game_title.lower() != "none":
         session.meta_data = session.meta_data or {}  # ensure dict
 
@@ -430,7 +429,7 @@ async def update_user_from_classification(db: Session, user, classification: dic
                 chunk,
                 all_titles,
                 scorer=fuzz.token_set_ratio,
-                score_cutoff=35,
+                score_cutoff=50,
                 limit=10
             )
             print("matches for chunk:", chunk, "->", matches)
@@ -461,7 +460,13 @@ async def update_user_from_classification(db: Session, user, classification: dic
             flag_modified(session, "meta_data")
             print(f"🎯 Stored matched find_game → '{matched_title}' (ID: {matched_game_id}) in session.meta_data")
         else:
-            print(f"❌ No confident match for 'find_game' title: {find_game_title}")
+            session.meta_data["find_game"] = None
+            flag_modified(session, "meta_data")
+            print(f"❌ No confident match for 'find_game' title: {find_game_title} → Stored None in meta_data")
+    else:
+        session.meta_data["find_game"] = None
+        flag_modified(session, "meta_data")
+        print(f"❌ No 'find_game' Stored None in meta_data")
 
 
     # -- Reject Tags (Genre vs Platform)

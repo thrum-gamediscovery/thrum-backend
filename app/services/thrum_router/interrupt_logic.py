@@ -1,5 +1,5 @@
 from app.services.input_classifier import classify_user_intent, classify_input_ambiguity
-from app.services.thrum_router.phase_delivery import handle_reject_Recommendation, deliver_game_immediately, diliver_similar_game
+from app.services.thrum_router.phase_delivery import handle_reject_Recommendation, deliver_game_immediately, diliver_similar_game, diliver_particular_game
 from app.db.models.enums import PhaseEnum, SenderEnum
 from app.services.thrum_router.phase_intro import handle_intro
 from app.services.thrum_router.phase_ending import handle_ending
@@ -62,6 +62,7 @@ async def check_intent_override(db, user_input, user, session, classification, i
     session.meta_data["ambiguity_clarification"] = False
     db.commit()
     trigger_referral = await should_trigger_referral(session=session,classification_intent=classification_intent)
+
     if trigger_referral:
         session.meta_data["ask_for_rec_friend"] = False
         session.phase = PhaseEnum.DISCOVERY
@@ -71,12 +72,12 @@ async def check_intent_override(db, user_input, user, session, classification, i
         session.phase = PhaseEnum.DISCOVERY
         return await generate_low_effort_response(session)
     # Check if the user is in the discovery phase
-    if classification_intent.get("Phase_Discovery"):
+    elif classification_intent.get("Phase_Discovery"):
         session.phase = PhaseEnum.DISCOVERY
         return await handle_discovery(db=db, session=session, user=user,user_input=user_input,classification=classification)
     
     # Handle rejection of recommendation
-    if classification_intent.get("Reject_Recommendation"):
+    elif classification_intent.get("Reject_Recommendation"):
         session.phase = PhaseEnum.DISCOVERY
         return await handle_reject_Recommendation(db, session, user, classification=classification,user_input=user_input)
 
@@ -135,9 +136,13 @@ async def check_intent_override(db, user_input, user, session, classification, i
         session.phase = PhaseEnum.DISCOVERY
         return await dynamic_faq_gpt(session, user_input)
 
-    if classification_intent.get("Request_Similar_Game"):
+    elif classification_intent.get("Request_Similar_Game"):
         session.phase = PhaseEnum.DELIVERY
         return await diliver_similar_game(db, user, session,user_input=user_input,classification=classification)
+    
+    elif classification_intent.get("Request_Specific_Game"):
+        session.phase = PhaseEnum.DELIVERY
+        return await diliver_particular_game(db, user, session, user_input, classification)
     
     # Default handling if no specific intent is detected
     return None
