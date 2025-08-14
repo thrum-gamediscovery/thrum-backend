@@ -39,9 +39,10 @@ async def handle_confirmed_game(db, user, session, classification):
             You don't know which game the user is asking or talking about. Ask them which game they're talking about in a friendly way. Keep it brief and natural.
         """.strip()
         return prompt
-    game_title = session.last_recommended_game
+    game_id = session.meta_data.get("find_game")
+    game = db.query(Game).filter_by(game_id=game_id).first()
+    game_title = game.title
     session.meta_data['liked_followup'] = True
-    game_id = db.query(Game).filter_by(title=game_title).first().game_id if game_title else None
     tone = session.meta_data.get("tone", "friendly")
     
     # 1. Get user's last message (optional, but keep if you use user_input below)

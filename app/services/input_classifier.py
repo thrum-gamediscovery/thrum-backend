@@ -417,12 +417,18 @@ Strict rules:
    → Can be empty list if no feedback.
 
 13. find_game (string)
-  → If the User current reply contains a specific game title, set find_game to the exact surface text they typed (keep original case and spelling).(eg. user input contains game title like "call of duty" then it must return this game title in find_game)
-  → Treat similarity phrasing as an explicit title mention; when the User current reply asks for something like/similar to/—like/—ish/with vibes of/in the style of/inspired by/akin to a game, extract that game's title and set it in find_game.
-  → If multiple titles appear, prefer the one attached to a similarity cue; if none, use the first clear title in the CURRENT reply.
-  → If the User current reply contains no title but clearly refers to a specific game already in context, return the last recommended game's title from recent chat.
-  → If no game title is present in User current reply,then it must return last recommended game in find_game, If last recommended game is None then pass None.(if thrum already recommended game and there is not title into user's current message then do not retun "None", return last_recommended_game title).
-  → If you find that user current reply contains game title(game title according to your knowledge) then it must pass in find_game.
+  → If the User’s current reply contains a specific game title, set find_game to the exact surface text they typed (keep original case and spelling). Example: if the user says "call of duty", then find_game must be "call of duty".
+  → Treat similarity phrasing as an explicit title mention; when the User’s current reply asks for something like / similar to / —like / —ish / with vibes of / in the style of / inspired by / akin to a game, extract that game’s title and set it in find_game.
+  → If multiple titles appear, prefer the one attached to a similarity cue; if none, use the first clear title in the current reply.
+  → If the User’s current reply contains no title but clearly refers to a specific game already in context, return the last recommended game’s title from recent chat.
+  → If no game title is present in the User’s current reply, then return the last recommended game in find_game. If last_recommended_game is None, then pass None. (If Thrum already recommended a game and there is no title in the user’s current message, then do not return "None", return the last_recommended_game title.)
+  → Strict evaluation order — must always be followed:
+     1. Check explicit title in current message first → if found, return it exactly and stop (do not check fallback).
+     2. Else, check for similarity cue title → if found, return it and stop.
+     3. Else, if no title in current reply but context refers to a specific game, return last_recommended_game.
+     4. Else, if no title and last_recommended_game is None, return None.
+  → Punctuation & variation rule: Treat any game title match as valid even if the user’s text includes punctuation differences (apostrophes, hyphens, quotes, accents) or spacing/case variations. Examples: "assassin's creed", "Assassins Creed", "Assassin’s Creed" should all be recognized as explicit mentions of the same title and returned exactly as typed.
+  → If you find that the User’s current reply contains a game title (game title according to your knowledge), then it must be passed into find_game.
   
 14. gameplay_elements (list of strings)
   → Focus on GAMEPLAY ELEMENT and structural features that the user describes or wants.
