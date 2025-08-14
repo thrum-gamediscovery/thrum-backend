@@ -1,7 +1,7 @@
 from app.services.input_classifier import classify_user_intent, classify_input_ambiguity
 from app.services.thrum_router.phase_delivery import handle_reject_Recommendation, deliver_game_immediately, diliver_similar_game, diliver_particular_game
 from app.db.models.enums import PhaseEnum, SenderEnum
-from app.services.thrum_router.phase_intro import handle_intro
+from app.services.thrum_router.phase_intro import handle_intro, classify_first_message, build_onboarding_prompt, is_thin_reply, build_depth_nudge_prompt
 from app.services.thrum_router.phase_ending import handle_ending
 from app.services.thrum_router.phase_confirmation import handle_confirmed_game
 from app.services.thrum_router.share_with_friends import share_thrum_ping, share_thrum_message
@@ -31,6 +31,30 @@ async def check_intent_override(db, user_input, user, session, classification, i
         session.meta_data = {}
     clarification_input = "NO"
     classification_intent = await classify_user_intent(user_input=user_input, session=session, db=db, last_thrum_reply=last_thrum_reply)
+
+    user_interactions = [i for i in session.interactions if i.sender == SenderEnum.User]
+    turn_index = len(user_interactions)
+         # Initialize metadata if needed
+    if session.meta_data is None:
+        session.meta_data = {}
+    # Check if this is first contact and no intro done
+    intro_done = session.meta_data.get("intro_done", False)
+    print('******************turn_index***********************',turn_index)
+    # First-touch generative onboarding
+    if turn_index == 1 and not intro_done:
+        first_class = await classify_first_message(user_input)
+        print(f"First message classification: {first_class}???????????????????????")
+        prompt = await build_onboarding_prompt(session,user_input, first_class)
+        print(f"Onboarding prompt for :>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> {prompt}")
+        session.meta_data["intro_done"] = True
+        session.meta_data["already_greet"] = True
+        return prompt
+    # Second-turn depth nudge for thin replies
+    if turn_index == 2 and await is_thin_reply(user_input) and not session.meta_data.get("nudge_sent", False):
+        nudge_prompt = await build_depth_nudge_prompt(user_input)
+        session.meta_data["nudge_sent"] = True
+        return nudge_prompt
+    
     #check for whether to ask question or not
     if session.meta_data.get('liked_followup',False) and (classification_intent.get("Other") or classification_intent.get("Other_Question") or classification_intent.get("Phase_Discovery") or classification_intent.get("Give_Info")):
         session.meta_data['liked_followup'] = False

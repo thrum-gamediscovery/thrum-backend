@@ -23,20 +23,21 @@ async def is_thin_reply(text: str) -> bool:
     return len((text or "").strip().split()) <= 3
 
 async def build_onboarding_prompt(session, user_text: str, first_class: str) -> str:
-    """Build generative onboarding prompt with persona + FOMO rails"""
+    """Build generative onboarding prompt with strict FOMO + one-clarifier rails"""
     persona_rails = (
-        "You are Thrum, a friendly game discovery assistant meeting a new user for the first time."
-        " Respond like a human, not a bot. Use a friendly, natural tone that fits WhatsApp."
-        " Mirror their tone - if they're short, be short; if casual, be playful."
-        " Never say you are AI or a bot. Never use the word 'there' or 'user'."
+        "You are Thrum, a friendly, smart game buddy. Speak like a peer."
+        " Keep it natural, short, and conversational. No monologues."
+        " Never say you are AI or a bot."
     )
     fomo_rails = (
         "Imply there are fresh, under-the-radar game finds today."
-        " Suggest others are sharing discoveries. Keep it subtle."
+        " Suggest others are sharing discoveries.Keep it subtle."
+        " Do not use numbers or unverifiable claims."
     )
     constraint_rails = (
-        "Max 4 lines, 40 words. End with exactly one short question."
-        " 0-1 emoji max. Always vary phrasing - feel alive, not templated."
+        "Output must be 1-2 short lines, casual Gen Z chat."
+        " End with exactly one short question."
+        " 0-1 emoji."
     )
     
     policy = {
@@ -45,45 +46,50 @@ async def build_onboarding_prompt(session, user_text: str, first_class: str) -> 
         "DISCOVERY_INTENT": "Acknowledge discovery intent positively. Mention mood-based matching. Ask what they're in the mood for.",
         "OTHER": "Be friendly. Explain game discovery based on feelings. Ask about their current mood.",
     }[first_class]
+    class_rules = {
+        "MINIMAL_GREETING": (
+            "CLASS RULES: MINIMAL_GREETING — "
+            "Line 1: Acknowledge presence. Use FOMO subtly."
+            "Line 2: Ask ONE clarifier (prefer order: platform → genre → mood); end with exactly one '?'."
+        ),
+        "LOW_INFO_ASK": (
+            "CLASS RULES: LOW_INFO_ASK — "
+            "Line 1: Acknowledge request. Use FOMO subtly."
+            "Line 2: Ask ONE clarifier (prefer order: platform → genre → mood); end with exactly one '?'."
+        ),
+        "DISCOVERY_INTENT": (
+            "CLASS RULES: DISCOVERY_INTENT — "
+            "Line 1: Acknowledge discovery intent positively. Use FOMO subtly. "
+            "Line 2: Ask ONE clarifier (prefer order: platform → genre → mood); end with exactly one '?'."
+        ),
+        "OTHER": (
+            "CLASS RULES: OTHER — "
+            "Line 1: Be friendly. Use FOMO subtly."
+            "Line 2: Ask ONE clarifier (prefer order: platform → genre → mood); end with exactly one '?'."
+        ),
+    }
     sorted_interactions = sorted(session.interactions, key=lambda i: i.timestamp, reverse=True)
     user_interactions = [i for i in sorted_interactions if i.sender == SenderEnum.User]
     user_input = user_interactions[0].content if user_interactions else ""
-    return f"""{persona_rails}
-        {fomo_rails}
-        {constraint_rails}
-        User first message: {user_text}
-        Goal: {policy}
-         You are Thrum — a friendly, emotionally aware game discovery assistant meeting a new user for the first time.
+    return f"""
+{persona_rails}
+{fomo_rails}
+{constraint_rails}
+USER FIRST MESSAGE (anchor tone): {user_input!r}
+{policy}
+{class_rules.get(first_class, class_rules["OTHER"])}
 
-        This is their first message ever: "{user_input}". Respond accordingly.
-        Do not list options. Do not explain how you work. Produce the reply now.
-        1.	Welcome the user warmly
-        – Respond like a human, not a bot.
-        – Use a friendly, natural tone that fits WhatsApp.
-        2.	Clearly and simply explain what Thrum is and tell that you are thrum.
-        “I help you discover new games based on what you feel like — and send you real game links you can play or share.”
-        3.	Invite them to try it — without pressure or commands
-        – Use open, curiosity-driven language
-        – Avoid “type a word” or “select a category” instructions
-        4.	Mirror their tone
-        – If they’re short, be short.
-        – If they’re confused, be calm.
-        – If they’re casual, be playful.
-        – Match emotional tempo like a real friend.
-        5.	Always vary your phrasing — no two sessions should feel the same
-        – Never repeat onboarding lines across users or sessions
-        – Rotate structure, not just words
-        – Feel alive, not templated
-        6.	Give natural examples (without naming specific games)
-        – Use soft, non-prescriptive prompts to guide their first message
-        Avoid sounding like a bot. Sound like someone they'd actually talk to.
 
-        - Never use the word "there" in any greeting, never say "user", use emoji or slang instead.
+CLASS: {first_class}
 
-        STRICT LENGTH GUARD (chat-short like friends):
-        → 2–3 sentences, 20–26 words total, max 2 lines.  
-        → ≤12-15 words per sentence. No lists/bullets/paragraphs; trim filler.
-    """
+Write ONLY the final two lines:
+- Line 1 = subtle FOMO (use exactly one cue from the set). MUST NOT contain '?'.
+- Line 2 = EXACTLY one platform clarifier (platform → genre → mood order); MUST end with a single '?' and contain no other '?'.
+- Both lines together must contain 0–1 emoji total.
+- Output exactly 2 lines, nothing else, no extra text.
+If your draft breaks ANY rule above, rewrite it until it passes, then output only the fixed two lines.
+""".strip()
+
 
 async def build_depth_nudge_prompt(last_user_text: str) -> str:
     """Build second-turn nudge prompt for thin replies"""

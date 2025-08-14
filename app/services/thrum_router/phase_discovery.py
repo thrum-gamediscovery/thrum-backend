@@ -141,6 +141,8 @@ async def ask_discovery_question(db, session,user,user_input,classification):
     session.meta_data = session.meta_data or {}
     if "dont_ask_que" not in session.meta_data:
         session.meta_data["dont_ask_que"] = []
+    elif session.meta_data["dont_ask_que"] == ["favourite_games", "genre", "platform", "mood"]:
+        session.meta_data["dont_ask_que"] = ["favourite_games"]
     dont_ask = session.meta_data.get("dont_ask_que") or []
 
     is_match, game_titles, recent_tags = await two_recent_accepted_same_genre(db, session.session_id)
@@ -490,14 +492,6 @@ async def handle_discovery(db, session, user,user_input, classification):
         return await confirm_input_summary(db=db,session=session,user=user,user_input=user_input)
     elif (session.meta_data.get("session_phase") == "Activate" and session.discovery_questions_asked >= 2) or (session.meta_data.get("session_phase") == "Onboarding" and session.discovery_questions_asked >= 3):
         session.meta_data = session.meta_data or {}
-        if "dont_ask_que" not in session.meta_data:
-            session.meta_data["dont_ask_que"] = []
-        else:
-            if "favourite_games" in session.meta_data["dont_ask_que"]:
-                session.meta_data["dont_ask_que"] = ["favourite_games"]
-            else:
-                session.meta_data["dont_ask_que"] = []
-        
         session.phase = PhaseEnum.DELIVERY
         session.discovery_questions_asked = 0
         should_recommend = await have_to_recommend(db=db, user=user, classification=classification, session=session)

@@ -106,24 +106,24 @@ Carefully consider the context of the conversation and the specific tone or dire
   - If the user’s rejection is not strongly negative, but instead is neutral or based on context. For example, the user might say “not right now” (meaning they’re interested but just not at the moment) or “too expensive” (meaning the price, not the game itself, is the issue). In these situations, the system should recognize that it’s not a true dislike of the game, but rather a situational or soft rejection, so this should not trigger Reject_Recommendation.
   - If thrum's last message was to ask what they did not like about the game and user is giving the reason why they did not like the game then Request_Quick_Recommendation should be True or triggered.
 
-- **Request_Specific_Game**: 
+- **Request_Specific_Game**:
   - Trigger when:
     - The user explicitly asks for a single specific game by title.
-    - Examples: "I want Minecraft", "Suggest me GTA V", "Can you recommend Dead Soul II?".
+    - TThe user is asking Thrum to recommend a specific game by name (even in different words).
     - The wording makes it clear they want that game to be recommended or provided, not just information.
     - Even if the request is indirect (e.g., "The game I like most is Minecraft"), treat as a request unless Thrum’s last message was asking for their favourite game. In that case, do not set this True.
   - Do NOT trigger when:
     - The user only asks for more details/info about a game without requesting it to be recommended.
     - The game title is mentioned only in context, without the user wanting that game suggested.
   - Special Rule:
-    - If this intent is set to True, Inquire_About_Game must be False.
-
+    - If Request_Specific_Game intent is set to True, Inquire_About_Game must be False.
+    
 - **Inquire_About_Game**: must be set to true if:
     1. The user message contains the title of a specific game (matching the game catalog) then Inquire_About_Game should True, must check if user providing the game title when thrum's last message is about asking for their favorite game then "Phase_Discovery" should True. OR
     2. The user asks for a link, platform, or store for any game, even if the main question is about the link.
     3. if the user has been asked that they want more information about game(in different phrase or words with this intention) and if they positively respond about they want the more information(not they like the game but want to know more) or they want to know more(then Inquire_About_Game must be true , Confirm_Game must be false in that case.), indicating they want to know more about it. The user expresses a desire to know more about a game, such as its features, gameplay mechanics, or storyline. must triggered when the user lazily says positive response but not confirming the game (last thrum message to recommend a game).
     - If Thrum’s previous message presents a game and the user’s response expresses interest in obtaining more information, details, or clarification about the game (rather than directly confirming or accepting it), classify as Inquire_About_Game.
-    - Do NOT trigger when: The user is asking Thrum to recommend a specific game by name (even in different words) — trigger Request_Specific_Game instead.
+    - Do NOT trigger Inquire_About_Game when: The user is asking Thrum to recommend a specific game by name (even in different words) — trigger Request_Specific_Game instead.
 
 - **Give_Info**: Triggered when the user provides information about their preferences, such as genre, mood, or game style. This includes providing keywords or short phrases like "action", "chill", or "strategy". The response should classify when the user provides any kind of self-description related to their preferences. if last thrum message is to ask about what user likes or dislikes about the game and user is giving the information about that then Give_Info should not be triggered.
   - If the user’s reply relates to Thrum’s previous question about preferences or interests—whether the user provides specific details, indicates uncertainty, or chooses not to answer—map the response to the question and set Give_Info to true, unless a direct game request is made.
