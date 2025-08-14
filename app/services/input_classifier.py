@@ -31,7 +31,7 @@ intents = [
     "want_to_share_friend",
     "Request_Specific_Game",
     "Other",
-    "Bot_Error_Mentioned",
+    # "Bot_Error_Mentioned",
     "About_FAQ"
 ]
 
@@ -117,7 +117,7 @@ Carefully consider the context of the conversation and the specific tone or dire
     - The game title is mentioned only in context, without the user wanting that game suggested.
   - Special Rule:
     - If Request_Specific_Game intent is set to True, Inquire_About_Game must be False.
-    
+
 - **Inquire_About_Game**: must be set to true if:
     1. The user message contains the title of a specific game (matching the game catalog) then Inquire_About_Game should True, must check if user providing the game title when thrum's last message is about asking for their favorite game then "Phase_Discovery" should True. OR
     2. The user asks for a link, platform, or store for any game, even if the main question is about the link.
@@ -144,8 +144,6 @@ Carefully consider the context of the conversation and the specific tone or dire
 - **want_to_share_friend**: Triggered when the user expresses a desire to share Thrum with friends or family. This intent is activated when Explicit requests for share link or mention of sharing Thrum with friends, such as "I want to share this with my friend".
   - If thrum's last message is about asking about soft sentence that suggests they might want to share Thrum with some of their friends, and the user responds positively or expressing a desire or willingness or just confuse to answer that to share Thrum with friends or other, then this intent(want_to_share_friend) must be set to true.
   
-- **Bot_Error_Mentioned:** The user indicates the bot is lost, confused, or not understanding them ("you are lost", "you do not hear me", "you don’t know me", "why do you suggest if you don’t know who I am", etc.).
-
 - **About_FAQ**: Triggered when the user asks about what Thrum does, how it works, who you are, or any general FAQ about the service. Examples:
     - "how does it work?"
     - "what can you do?"
@@ -170,7 +168,6 @@ Carefully consider the context of the conversation and the specific tone or dire
   ---
 **Guidelines:**
 - Focus on the **current context and user emotion**—is the user happy, confused, annoyed, or giving feedback? Reflect that in the intent.
-- Classify negative feedback about the bot as `Bot_Error_Mentioned` to enable better handling and recovery.
 - Use `Other_Question` only for meta-questions about user or bot.
 - Use `Other` **only** for irrelevant or off-topic input.
 - **Only one intent can be true per turn.** All others must be false.
@@ -204,7 +201,6 @@ OUTPUT FORMAT (Strict JSON) strictly deny to add another text:
     "want_to_share_friend": true/false,
     "Request_Specific_Game": true/false,
     "Other": true/false,
-    "Bot_Error_Mentioned": true/false,
     "About_FAQ": true/false
 }}
 """
@@ -243,7 +239,6 @@ OUTPUT FORMAT (Strict JSON) strictly deny to add another text:
                 "want_to_share_friend": False,
                 "Request_Specific_Game": False,
                 "Other": True,
-                "Bot_Error_Mentioned": False,
                 "About_FAQ": False
             }
     except OpenAIError as e:
@@ -263,7 +258,6 @@ OUTPUT FORMAT (Strict JSON) strictly deny to add another text:
                 "want_to_share_friend": False,
                 "Request_Specific_Game": False,
                 "Other": True,
-                "Bot_Error_Mentioned": False,
                 "About_FAQ": False
             }
 

@@ -157,12 +157,12 @@ async def check_intent_override(db, user_input, user, session, classification, i
         session.phase = PhaseEnum.DISCOVERY
         return await handle_other_input(db, user, session, user_input)
     
-    elif classification_intent.get("Bot_Error_Mentioned"):
-        session.phase = PhaseEnum.DISCOVERY
-        response = (
-            "the Thrum encounters an error or loses track of the conversation, it should first apologize to the user in a friendly and empathetic manner. After the apology, the bot should invite the user to re-engage by asking for clarification on what they are looking for. The tone should remain light, open, and non-repetitive, ensuring the user feels comfortable guiding the conversation forward.Most Most Most importent is reply is must look like humanly - Not robotic"
-        )
-        return response
+    # elif classification_intent.get("Bot_Error_Mentioned"):
+    #     session.phase = PhaseEnum.DISCOVERY
+    #     response = (
+    #         "the Thrum encounters an error or loses track of the conversation, it should first apologize to the user in a friendly and empathetic manner. After the apology, the bot should invite the user to re-engage by asking for clarification on what they are looking for. The tone should remain light, open, and non-repetitive, ensuring the user feels comfortable guiding the conversation forward.Most Most Most importent is reply is must look like humanly - Not robotic"
+    #     )
+    #     return response
     
     elif classification_intent.get("About_FAQ"):
         session.phase = PhaseEnum.DISCOVERY
