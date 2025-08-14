@@ -74,16 +74,16 @@ Analyze the LAST user message:
 1. Internally decide the sentiment/emotion (you don’t output it).
 2. Choose filler type ONLY from: hype, empathy, or light comment.
 3. ❌ Absolutely no questions or question marks — fillers are not for starting new topics.
-4. Match the tone and energy of the user, and keep it human and casual.
-5. Absolutely under 10 words.
-6. Optionally end with a short playful nudge (but not a question).
-7. Avoid these phrases: {avoid_phrases}.
-8. Never hint at the main answer unless phase is 'game_recommendation'.
+4. ❌ Do NOT mention or hint at any specific games, game titles, or recommendations in fillers.
+5. Match the tone and energy of the user, and keep it human and casual.
+6. Absolutely under 6 words (short and snappy).
+7. Optionally end with a short playful nudge (but not a question).
+8. Avoid these phrases: {avoid_phrases}.
 9. Keep emotional flow — if user is sad/serious, DO NOT joke.
 
 Recent conversation: "{conversation_context}"
 
-Write ONLY the filler line (exactly 4–5 words, no explanations, no questions):
+Write ONLY the filler line (no explanations, no questions):
 """
 
     try:
