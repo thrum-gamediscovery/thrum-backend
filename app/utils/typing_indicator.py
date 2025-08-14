@@ -14,10 +14,10 @@ def get_message_hash(user_input: str) -> str:
     return hashlib.md5(user_input.lower().encode()).hexdigest()
 
 def get_reply_context(session) -> str:
-    """Determine current reply context based on session phase and state"""
+    """Map session phase to descriptive context"""
     phase_context = {
         PhaseEnum.INTRO: "greeting",
-        PhaseEnum.DISCOVERY: "mood_exploration", 
+        PhaseEnum.DISCOVERY: "mood_exploration",
         PhaseEnum.CONFIRMATION: "preference_confirmation",
         PhaseEnum.DELIVERY: "game_recommendation",
         PhaseEnum.FOLLOWUP: "feedback_collection",
@@ -25,12 +25,11 @@ def get_reply_context(session) -> str:
     }
     return phase_context.get(session.phase, "general_chat")
 
-
-async def send_typing_indicator(phone_number: str, session, delay: float = 5.0):
-    """Send contextual filler that acknowledges user input and maintains friend tone"""
+async def send_typing_indicator(phone_number: str, session, delay: float = 2.0):
+    """Send contextual, emotion-aware filler while main reply loads"""
     await asyncio.sleep(delay)
 
-    # Cancel if reply is ready
+    # Cancel if reply already ready
     if session.meta_data and session.meta_data.get("reply_ready", False):
         return
 
@@ -47,60 +46,57 @@ async def send_typing_indicator(phone_number: str, session, delay: float = 5.0):
     if current_hash in recent_filler_hashes:
         return
 
-    # Conversation + tone context
+    # Get conversation context
     mood = session.entry_mood or "neutral"
     user_tone = session.meta_data.get("tone", "neutral")
     reply_context = get_reply_context(session)
 
-    # Get last few turns of conversation (user + bot), newest last
+    # Get recent conversation for context
     recent_interactions_ordered = sorted(session.interactions, key=lambda i: i.timestamp)
     recent_context_pairs = []
-    for msg in recent_interactions_ordered[-6:]:  # last 6 exchanges
+    for msg in recent_interactions_ordered[-6:]:
         role = "You" if msg.sender == SenderEnum.User else "Thrum"
         recent_context_pairs.append(f"{role}: {msg.content.strip()}")
-
     conversation_context = " | ".join(recent_context_pairs)
 
     # Avoid repeating recent fillers
     recent_fillers = session.meta_data.get("recent_fillers", []) if session.meta_data else []
     avoid_phrases = ", ".join(recent_fillers[-8:]) if recent_fillers else "none"
 
-    # Track filler type to avoid repeating classification prompts
-    last_filler_type = session.meta_data.get("last_filler_type", None)
-
+    # Prompt to handle emotion + phase dynamically
     filler_prompt = f"""
-You are Thrum, a game discovery buddy chatting like a real friend.
-The main reply is still loading — you’re sending a quick, *personal*, under-10-word reaction.
+You are Thrum, a friendly game discovery buddy chatting like a real friend.
+The main reply is still loading — you’re sending a quick, personal filler reaction.
 
-Rules:
-1. React naturally to the user's last message: "{user_input}"
-2. If possible, tease that you have something cool or surprising for them.
-3. Keep tone matching their mood ({mood}) and energy ({user_tone}).
-4. Avoid repeating the same kind of question as last time: {last_filler_type or "none"}.
-5. No AI talk, no onboarding.
-6. Keep it casual, peer-like, and human — never formal.
-7. Under 10 words.
-8. Optionally end with a short hook or playful nudge.
+Analyze the LAST user message:
+"{user_input}"
 
-Current phase: {reply_context}
+1. Internally decide the sentiment/emotion (you don’t output it).
+2. Choose filler type ONLY from: hype, empathy, or light comment.
+3. ❌ Absolutely no questions or question marks — fillers are not for starting new topics.
+4. Match the tone and energy of the user, and keep it human and casual.
+5. Absolutely under 10 words.
+6. Optionally end with a short playful nudge (but not a question).
+7. Avoid these phrases: {avoid_phrases}.
+8. Never hint at the main answer unless phase is 'game_recommendation'.
+9. Keep emotional flow — if user is sad/serious, DO NOT joke.
 
-Recent conversation so far: "{conversation_context}"
-Avoid these phrases: {avoid_phrases}
+Recent conversation: "{conversation_context}"
 
-Write ONLY the filler line.
+Write ONLY the filler line (exactly 4–5 words, no explanations, no questions):
 """
 
     try:
         response = await client.chat.completions.create(
             model=model,
             messages=[{"role": "user", "content": filler_prompt}],
-            temperature=0.85,
-            max_tokens=30
+            temperature=0.9,
+            max_tokens=20
         )
         message = response.choices[0].message.content.strip().strip('"')
 
-        # Skip if goodbye or ending phase
-        if message.upper() == "SKIP" or session.phase == PhaseEnum.ENDING:
+        # Skip if empty or ending phase
+        if not message or session.phase == PhaseEnum.ENDING:
             return
 
         # Track recent fillers + hashes
@@ -109,18 +105,14 @@ Write ONLY the filler line.
         recent_filler_hashes.append(current_hash)
         session.meta_data["recent_filler_hashes"] = recent_filler_hashes[-10:]
 
-        # Track filler type (basic heuristic: question vs statement)
-        filler_type = "question" if message.endswith("?") else "statement"
-        session.meta_data["last_filler_type"] = filler_type
-
     except Exception:
         message = "thinking..."
-    
-    # Store hash to prevent repetition (keep last 10)
+
+    # Ensure meta_data exists before storing
     if not session.meta_data:
         session.meta_data = {}
     recent_hashes = session.meta_data.get("recent_filler_hashes", [])
     recent_hashes.append(current_hash)
     session.meta_data["recent_filler_hashes"] = recent_hashes[-10:]
-    
+
     await send_whatsapp_message(phone_number, message, sent_from_thrum=False)
