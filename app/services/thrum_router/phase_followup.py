@@ -433,7 +433,7 @@ STRICT REPLY RULES:
     db.add(game_rec)
     session.game_rejection_count += 1
     flag_modified(session, "game_rejection_count")
-    session.last_recommended_game = game_rec.title
+    session.last_recommended_game = game.title
     db.commit()
     print(f"new game inquiry #####################")    
     user_prompt = f"""
