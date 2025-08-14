@@ -155,6 +155,7 @@ Carefully consider the context of the conversation and the specific tone or dire
     - "what's your job?"
     - "how does Thrum find games?"
   Only set to true if the question is about Thrum or the game recommendation process itself.
+  -Triggered when user ask about Thrum's favourite game, genre, platform and specifically for questions about Thrum's own preferences or characteristics, not the user's.
 
 - **Low_Effort_Response** : Triggered only when the user’s reply is clearly minimal, vague, or low-effort (e.g., "ok", "cool", "nice", "thanks", "like"), and does not provide meaningful or relevant information to Thrum’s last question. This includes one-word or very short replies that show disengagement, politeness without substance, or boredom. Be very careful not to trigger this intent when the user’s short reply is a valid, meaningful answer—for example, a one-word genre ("Action"), platform ("PC"), mood ("Chill"), or any direct answer that clearly relates to Thrum’s previous question. Only assign this intent if the input truly lacks helpful content or fails to move the conversation forward. only Trigger when user input is very short, vague, or low-effort, for about two or more times.(from chat history). Use this intent to trigger a warm, friendly nudge that encourages more engagement, without sounding robotic or pushy.
 

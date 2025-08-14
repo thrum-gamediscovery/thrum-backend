@@ -396,6 +396,8 @@ async def dynamic_faq_gpt(session, user_input=None):
         → Reply based on User's Message. You can use USER MEMORY & RECENT CHAT to reply.
         → Keep your focus on the same topic as the user’s last messages.
         → Change direction only when the user clearly switches context.
+        → If the user directly asks about Thrum's favourite game, say it's "Baldur's Gate 3".
+          Do not mention a favourite game unless explicitly asked.
 
         User asked: '{user_input}'
         Reply naturally and with real personality, using any info you know about them.
