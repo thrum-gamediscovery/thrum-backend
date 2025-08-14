@@ -32,6 +32,8 @@ async def check_intent_override(db, user_input, user, session, classification, i
     clarification_input = "NO"
     classification_intent = await classify_user_intent(user_input=user_input, session=session, db=db, last_thrum_reply=last_thrum_reply)
 
+    if not classification_intent.get("Other") or not classification_intent.get("Other_Question") or not classification_intent.get("Inquire_About_Game") or not classification_intent.get("Give_Info") or not classification_intent.get("Request_Specific_Game"):
+        session.meta_data["already_greet"] = True
     user_interactions = [i for i in session.interactions if i.sender == SenderEnum.User]
     turn_index = len(user_interactions)
          # Initialize metadata if needed
@@ -48,10 +50,16 @@ async def check_intent_override(db, user_input, user, session, classification, i
         print(f"Onboarding prompt for :>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> {prompt}")
         session.meta_data["intro_done"] = True
         session.meta_data["already_greet"] = True
+        session.discovery_questions_asked += 1
+        session.phase = PhaseEnum.INTRO
+        db.commit()
         return prompt
     # Second-turn depth nudge for thin replies
     if turn_index == 2 and await is_thin_reply(user_input) and not session.meta_data.get("nudge_sent", False):
         nudge_prompt = await build_depth_nudge_prompt(user_input)
+        session.discovery_questions_asked += 1
+        session.phase = PhaseEnum.DISCOVERY
+        db.commit()
         session.meta_data["nudge_sent"] = True
         return nudge_prompt
     
